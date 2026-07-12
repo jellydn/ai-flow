@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if ! command -v php >/dev/null 2>&1; then
+  sudo apt-get update
+  sudo apt-get install -y php-cli php-curl php-mbstring php-sqlite3 php-xml php-zip unzip
+fi
+
+if ! command -v composer >/dev/null 2>&1; then
+  curl -fsSL https://getcomposer.org/installer -o /tmp/composer-setup.php
+  sudo php /tmp/composer-setup.php --quiet --install-dir=/usr/local/bin --filename=composer
+  rm /tmp/composer-setup.php
+fi
+
+(cd backend && APP_ENV=local DB_CONNECTION=sqlite composer install --no-interaction --prefer-dist)
+npm ci
