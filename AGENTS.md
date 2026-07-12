@@ -50,6 +50,8 @@ php artisan test --filter=SomeTest            # run a focused test
 
 CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.4.
 
+Vercel (`.github/workflows/vercel.yml`): same frontend build on PR/push; optional deploy on push when `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID` GitHub secrets are set. See root `README.md` (Frontend deployment).
+
 **Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
 
 **Production:** never run AI on the web process; use a real queue (`QUEUE_CONNECTION` ≠ `sync`). Worker: `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.

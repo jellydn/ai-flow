@@ -187,14 +187,30 @@ npm run preview  # preview production build
 
 ## Frontend deployment (Vercel)
 
-Production API: `https://ai-flow-production-q41p7t.laravel.cloud`. The Vite app reads `VITE_API_BASE_URL` at build time (`src/lib/api.js`). Share links use `window.location.origin` when `VITE_PUBLIC_APP_URL` is unset.
+| Role | URL / path |
+|------|------------|
+| **Production SPA** (example) | https://2026-07-12-ai-flow.vercel.app |
+| **Production API** | https://ai-flow-production-q41p7t.laravel.cloud |
 
-1. **Vercel project** — import this repo (root directory, not `backend/`). `vercel.json` enables SPA fallback for `/runs/:id`.
-2. **GitHub Actions secrets** (repo → Settings → Secrets): `VERCEL_TOKEN` ([create token](https://vercel.com/account/tokens)), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (team/project IDs from Vercel → Project → Settings, or local `vercel link` → `.vercel/project.json`, not committed).
-3. **Vercel env** — `VITE_API_BASE_URL=https://ai-flow-production-q41p7t.laravel.cloud` on Production, Preview, and Development (required for dashboard/CLI builds; GitHub Actions also sets it in the workflow).
-4. **Laravel Cloud** — append Vercel origins to `CORS_ALLOWED_ORIGINS` (comma-separated), e.g. `https://2026-07-12-ai-flow.vercel.app`. Until this is set, browser calls from the SPA will fail CORS even though the API responds.
+The Vite app reads `VITE_API_BASE_URL` at **build time** (`src/lib/api.js`). Share links use `window.location.origin` when `VITE_PUBLIC_APP_URL` is unset. The monorepo root is the Vercel app root; `backend/` is excluded (`.vercelignore`). `vercel.json` builds `dist/` and rewrites all routes to `index.html` so `/runs/:id` works.
 
-CI/CD: [`.github/workflows/vercel.yml`](.github/workflows/vercel.yml) builds on PRs; pushes to `main` or `ci/vercel` deploy to Vercel (`main` → production, other branches → preview).
+### One-time setup
+
+1. **Vercel project** — import this repository with **root directory** at the repo root (not `backend/`).
+2. **Vercel environment variables** — set `VITE_API_BASE_URL=https://ai-flow-production-q41p7t.laravel.cloud` for Production, Preview, and Development (needed for dashboard or `vercel deploy` builds).
+3. **GitHub Actions secrets** (Settings → Secrets and variables → Actions) — required for **automated** deploy on push:
+   - `VERCEL_TOKEN` — [account token](https://vercel.com/account/tokens)
+   - `VERCEL_ORG_ID` and `VERCEL_PROJECT_ID` — from Vercel → Project → Settings, or from local `vercel link` (`.vercel/project.json`, gitignored)
+
+   If any of these secrets is missing, the **Vercel** workflow still runs `npm run build` on push and PR, but the **deploy** job is skipped (no failed workflow).
+
+4. **Laravel Cloud** — add each SPA origin to `CORS_ALLOWED_ORIGINS` (comma-separated), e.g. `https://2026-07-12-ai-flow.vercel.app` plus preview hosts you use. Without this, the UI loads but browser `fetch` and SSE to the API are blocked.
+
+### CI/CD
+
+[`.github/workflows/vercel.yml`](.github/workflows/vercel.yml): **build** on every push/PR to `main` (and matching branches in the workflow); **deploy** on push only when all three Vercel secrets are set (`main` → Vercel production, other configured branches → preview). Backend validation remains in [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
+
+Manual deploy from the repo root: `vercel deploy` (preview) or `vercel deploy --prod` (production), after `vercel link`.
 
 ## API backend
 
