@@ -30,7 +30,7 @@ DB_PASSWORD=
 DB_SSLMODE=require
 ```
 
-Copy values from the Neon connection details; never commit credentials. From the `backend/` application root, verify connectivity with `php artisan migrate --force`. Neon must be reachable from both the Laravel Cloud web process and queue worker.
+Copy values from the Neon connection details; never commit credentials. Use Neon's **direct hostname** (without `-pooler`) when running migrations, because Laravel wraps PostgreSQL schema changes in transactions and Neon transaction pooling can abort multi-statement DDL migrations. From the `backend/` application root, verify connectivity with `php artisan migrate --force`. After migration, the web process and queue worker may use Neon's pooled hostname for normal application queries.
 
 ## Bring Your Own API Key
 
@@ -65,7 +65,7 @@ curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/s
 
 Deploy `backend` as the application root. Provision a cache and database queue; set a stable shared `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5`, optional `GITHUB_TOKEN`, `CORS_ALLOWED_ORIGINS`, Neon `DB_*` values, `DB_SSLMODE=require`, `CACHE_STORE`, and `QUEUE_CONNECTION=database`.
 
-**Database (Laravel 13):** use a Neon pooled or direct PostgreSQL connection with SSL required. Do not use file SQLite in production. Run migrations against Neon before starting the worker.
+**Database (Laravel 13):** use a Neon direct PostgreSQL connection with SSL required for deployment migrations. The pooled endpoint is suitable for web and worker runtime traffic after migration. Do not use file SQLite in production. Run migrations against Neon before starting the worker.
 
 Run `php artisan migrate --force` during deployment and configure a worker with `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Ensure the HTTP proxy disables buffering for `/api/runs/*/stream` and allows responses of at least 60 seconds. Never run AI work on the web process or with `QUEUE_CONNECTION=sync` in production.
 

@@ -128,7 +128,7 @@ Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README
 
 ## Database
 
-Production uses [Neon PostgreSQL](https://neon.com/) through Laravel's `pgsql` connection. Development defaults to local SQLite. Configure Neon with `DB_CONNECTION=pgsql`, its `DB_HOST`, `DB_PORT=5432`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_SSLMODE=require`; credentials must remain in environment variables. Run `php artisan migrate --force` during Laravel Cloud deployment.
+Production uses [Neon PostgreSQL](https://neon.com/) through Laravel's `pgsql` connection. Development defaults to local SQLite. Configure Neon with `DB_CONNECTION=pgsql`, its `DB_HOST`, `DB_PORT=5432`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_SSLMODE=require`; credentials must remain in environment variables. Use Neon's direct hostname (without `-pooler`) while running `php artisan migrate --force`, because Laravel wraps PostgreSQL schema changes in transactions. The pooled hostname may be used by the web and worker processes after migrations complete.
 
 ## Bring Your Own API Key
 
