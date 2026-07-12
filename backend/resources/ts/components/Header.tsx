@@ -11,12 +11,7 @@ interface HeaderProps {
 export function Header({ mobileOpen, setMobileOpen, reset }: HeaderProps) {
     return (
         <header className="topbar">
-            <button
-                type="button"
-                className="logo-button"
-                onClick={reset}
-                aria-label="AI Launcher home"
-            >
+            <button type="button" className="logo-button" onClick={reset} aria-label="AI Flow home">
                 <Logo />
             </button>
             <nav className={mobileOpen ? "nav open" : "nav"}>
