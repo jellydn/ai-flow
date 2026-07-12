@@ -8,15 +8,21 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (! Schema::hasColumn('launchers', 'class_name')) {
+            return;
+        }
+
         Schema::table('launchers', function (Blueprint $table) {
-            if (Schema::hasColumn('launchers', 'class_name')) {
-                $table->dropColumn('class_name');
-            }
+            $table->dropColumn('class_name');
         });
     }
 
     public function down(): void
     {
+        if (Schema::hasColumn('launchers', 'class_name')) {
+            return;
+        }
+
         Schema::table('launchers', function (Blueprint $table) {
             $table->string('class_name')->after('output_schema');
         });

@@ -25,6 +25,26 @@ class ExecuteLauncherJobTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_job_marks_run_failed_when_provider_is_unsupported(): void
+    {
+        $this->seed();
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'source_url' => 'https://github.com/a/b',
+            'input' => ['source_url' => 'https://github.com/a/b'],
+            'progress' => [],
+        ]);
+        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor->shouldNotReceive('execute');
+
+        (new ExecuteLauncherJob($run->id, 'anthropic'))->handle($executor);
+
+        $fresh = $run->fresh();
+        $this->assertSame('failed', $fresh->status);
+        $this->assertSame('Unsupported AI provider.', $fresh->error);
+        $this->assertNotNull($fresh->completed_at);
+    }
+
     public function test_job_delegates_run_execution(): void
     {
         $this->seed();
