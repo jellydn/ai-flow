@@ -1,4 +1,4 @@
-import type { LucideIcon } from 'lucide-react';
+import type { LucideIcon } from "lucide-react";
 import {
     BookOpen,
     GitPullRequest,
@@ -6,15 +6,15 @@ import {
     Newspaper,
     ShieldCheck,
     Stethoscope,
-} from 'lucide-react';
-import type { Finding, Launcher, ProgressStep } from '../types/api.ts';
+} from "lucide-react";
+import type { Finding, Launcher, ProgressStep } from "../types/api.ts";
 
 export interface LauncherMeta {
     slug: string | null;
     title: string;
     description: string;
     icon: LucideIcon;
-    tone: 'orange' | 'blue' | 'purple' | 'green';
+    tone: "orange" | "blue" | "purple" | "green";
     time: string;
     accepts: string;
     popular?: boolean;
@@ -23,60 +23,60 @@ export interface LauncherMeta {
 
 export const launcherMeta: LauncherMeta[] = [
     {
-        slug: 'review-pr',
-        title: 'Review pull request',
-        description: 'Find bugs, security risks, and regressions before they ship.',
+        slug: "review-pr",
+        title: "Review pull request",
+        description: "Find bugs, security risks, and regressions before they ship.",
         icon: GitPullRequest,
-        tone: 'orange',
-        time: '~45 sec',
-        accepts: 'Pull requests',
+        tone: "orange",
+        time: "~45 sec",
+        accepts: "Pull requests",
         popular: true,
     },
     {
-        slug: 'plan-issue',
-        title: 'Plan GitHub issue',
-        description: 'Turn an issue into a scoped, actionable implementation plan.',
+        slug: "plan-issue",
+        title: "Plan GitHub issue",
+        description: "Turn an issue into a scoped, actionable implementation plan.",
         icon: ListTodo,
-        tone: 'blue',
-        time: '~30 sec',
-        accepts: 'Issues',
+        tone: "blue",
+        time: "~30 sec",
+        accepts: "Issues",
     },
     {
-        slug: 'explain-repository',
-        title: 'Explain repository',
-        description: 'Understand architecture, key modules, and how everything fits.',
+        slug: "explain-repository",
+        title: "Explain repository",
+        description: "Understand architecture, key modules, and how everything fits.",
         icon: BookOpen,
-        tone: 'purple',
-        time: '~55 sec',
-        accepts: 'Repositories',
+        tone: "purple",
+        time: "~55 sec",
+        accepts: "Repositories",
     },
     {
-        slug: 'laravel-doctor',
-        title: 'Laravel project doctor',
-        description: 'Audit Laravel conventions, performance, and project health.',
+        slug: "laravel-doctor",
+        title: "Laravel project doctor",
+        description: "Audit Laravel conventions, performance, and project health.",
         icon: Stethoscope,
-        tone: 'green',
-        time: '~60 sec',
-        accepts: 'Repositories',
-        badge: 'Laravel',
+        tone: "green",
+        time: "~60 sec",
+        accepts: "Repositories",
+        badge: "Laravel",
     },
     {
         slug: null,
-        title: 'Write release notes',
-        description: 'Turn a pull request or commit range into clear user-facing notes.',
+        title: "Write release notes",
+        description: "Turn a pull request or commit range into clear user-facing notes.",
         icon: Newspaper,
-        tone: 'blue',
-        time: '~25 sec',
-        accepts: 'PRs or commits',
+        tone: "blue",
+        time: "~25 sec",
+        accepts: "PRs or commits",
     },
     {
         slug: null,
-        title: 'Security scan',
-        description: 'Run a focused pass for auth, input, and data exposure risks.',
+        title: "Security scan",
+        description: "Run a focused pass for auth, input, and data exposure risks.",
         icon: ShieldCheck,
-        tone: 'purple',
-        time: '~50 sec',
-        accepts: 'Pull requests',
+        tone: "purple",
+        time: "~50 sec",
+        accepts: "Pull requests",
     },
 ];
 
@@ -91,7 +91,7 @@ export const staticLaunchers: Launcher[] = launcherMeta
         slug: meta.slug as string,
         name: meta.title,
         description: meta.description,
-        input_type: '',
+        input_type: "",
     }));
 
 export interface RecentRun {
@@ -104,64 +104,90 @@ export interface RecentRun {
 }
 
 export const recentRuns: RecentRun[] = [
-    { repo: 'jellydn/my-ai-tools', run: 'Pull request #42', workflow: 'PR Review', risk: 'Medium', findings: 5, time: '34s' },
-    { repo: 'laravel/framework', run: 'Repository', workflow: 'Laravel Doctor', risk: 'Low', findings: 3, time: '52s' },
-    { repo: 'calcom/cal.com', run: 'Issue #20418', workflow: 'Issue Plan', risk: '—', findings: 8, time: '29s' },
+    {
+        repo: "jellydn/my-ai-tools",
+        run: "Pull request #42",
+        workflow: "PR Review",
+        risk: "Medium",
+        findings: 5,
+        time: "34s",
+    },
+    {
+        repo: "laravel/framework",
+        run: "Repository",
+        workflow: "Laravel Doctor",
+        risk: "Low",
+        findings: 3,
+        time: "52s",
+    },
+    {
+        repo: "calcom/cal.com",
+        run: "Issue #20418",
+        workflow: "Issue Plan",
+        risk: "—",
+        findings: 8,
+        time: "29s",
+    },
 ];
 
 export function workflowTitleToSlug(title: string): string {
     switch (title) {
-        case 'PR Review':
-            return 'review-pr';
-        case 'Laravel Doctor':
-            return 'laravel-doctor';
-        case 'Issue Plan':
-            return 'plan-issue';
+        case "PR Review":
+            return "review-pr";
+        case "Laravel Doctor":
+            return "laravel-doctor";
+        case "Issue Plan":
+            return "plan-issue";
         default:
-            return 'review-pr';
+            return "review-pr";
     }
 }
 
 export function quickLabel(slug: string, title: string): string {
     switch (slug) {
-        case 'review-pr':
-            return 'Review PR';
-        case 'plan-issue':
-            return 'Plan fix';
-        case 'explain-repository':
-            return 'Explain';
-        case 'laravel-doctor':
-            return 'Laravel doctor';
+        case "review-pr":
+            return "Review PR";
+        case "plan-issue":
+            return "Plan fix";
+        case "explain-repository":
+            return "Explain";
+        case "laravel-doctor":
+            return "Laravel doctor";
         default:
             return title;
     }
 }
 
 export const demoSteps: ProgressStep[] = [
-    { title: 'Reading GitHub metadata', detail: 'Pull request #42 · 12 files changed' },
-    { title: 'Loading source context', detail: '2,840 lines analyzed' },
-    { title: 'Running AI analysis', detail: 'Reviewing logic, security, and test coverage' },
-    { title: 'Validating response', detail: 'Checking findings and citations' },
-    { title: 'Generating report', detail: 'Formatting your shareable result' },
+    { title: "Reading GitHub metadata", detail: "Pull request #42 · 12 files changed" },
+    { title: "Loading source context", detail: "2,840 lines analyzed" },
+    { title: "Running AI analysis", detail: "Reviewing logic, security, and test coverage" },
+    { title: "Validating response", detail: "Checking findings and citations" },
+    { title: "Generating report", detail: "Formatting your shareable result" },
 ];
 
 export const demoFindings: Finding[] = [
     {
-        severity: 'high',
-        title: 'Missing authorization check on tool deletion',
-        description: 'The destroy action loads a tool by ID but does not verify that it belongs to the authenticated user. A user could delete another user’s tool by changing the route parameter.',
-        recommendation: 'Add a policy check with $this->authorize(\'delete\', $tool) before deletion.',
+        severity: "high",
+        title: "Missing authorization check on tool deletion",
+        description:
+            "The destroy action loads a tool by ID but does not verify that it belongs to the authenticated user. A user could delete another user’s tool by changing the route parameter.",
+        recommendation:
+            "Add a policy check with $this->authorize('delete', $tool) before deletion.",
     },
     {
-        severity: 'medium',
-        title: 'Race condition when updating usage counters',
-        description: 'The read-modify-write sequence is not atomic. Concurrent requests can overwrite each other and undercount usage.',
-        recommendation: 'Use Eloquent’s atomic increment() method inside the existing transaction.',
+        severity: "medium",
+        title: "Race condition when updating usage counters",
+        description:
+            "The read-modify-write sequence is not atomic. Concurrent requests can overwrite each other and undercount usage.",
+        recommendation: "Use Eloquent’s atomic increment() method inside the existing transaction.",
     },
     {
-        severity: 'low',
-        title: 'New filtering behavior has no test coverage',
-        description: 'The new category and status filters are user-facing but are not covered by feature tests.',
-        recommendation: 'Add cases for combined filters, empty results, and invalid category values.',
+        severity: "low",
+        title: "New filtering behavior has no test coverage",
+        description:
+            "The new category and status filters are user-facing but are not covered by feature tests.",
+        recommendation:
+            "Add cases for combined filters, empty results, and invalid category values.",
     },
 ];

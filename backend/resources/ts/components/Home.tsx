@@ -9,11 +9,16 @@ import {
     Sparkles,
     X,
     Zap,
-} from 'lucide-react';
-import type { Launcher } from '../types/api.ts';
-import { launcherMetaBySlug, quickLabel, recentRuns, workflowTitleToSlug } from '../data/launcherMeta.ts';
-import { scrollToSelector } from '../lib/scroll.ts';
-import { LauncherIcon } from './LauncherIcon.tsx';
+} from "lucide-react";
+import type { Launcher } from "../types/api.ts";
+import {
+    launcherMetaBySlug,
+    quickLabel,
+    recentRuns,
+    workflowTitleToSlug,
+} from "../data/launcherMeta.ts";
+import { scrollToSelector } from "../lib/scroll.ts";
+import { LauncherIcon } from "./LauncherIcon.tsx";
 
 interface HomeProps {
     selected: string;
@@ -47,38 +52,53 @@ export function Home({
     return (
         <main>
             <section className="hero">
-                <div className="eyebrow"><Sparkles size={14} /> AI launchers, ready to run</div>
+                <div className="eyebrow">
+                    <Sparkles size={14} /> AI launchers, ready to run
+                </div>
                 <h1>
                     Launch developer
                     <br />
                     <em>workflows, not prompts.</em>
                 </h1>
                 <p className="hero-copy">
-                    Review pull requests, plan issues, explain repositories, and inspect Laravel apps—
+                    Review pull requests, plan issues, explain repositories, and inspect Laravel
+                    apps—
                     <br className="desktop-only" />
                     without configuring an agent.
                 </p>
 
                 <div className="launcher-card" id="launcher">
-                    <div className="step-label"><span>1</span> Paste a GitHub URL</div>
-                    <div className={`url-box ${error ? 'has-error' : ''}`}>
+                    <div className="step-label">
+                        <span>1</span> Paste a GitHub URL
+                    </div>
+                    <div className={`url-box ${error ? "has-error" : ""}`}>
                         <GitFork size={22} />
                         <input
                             value={url}
-                            onChange={(event) => { setUrl(event.target.value); setError(''); }}
-                            onKeyDown={(event) => event.key === 'Enter' && !isLaunching && launch()}
+                            onChange={(event) => {
+                                setUrl(event.target.value);
+                                setError("");
+                            }}
+                            onKeyDown={(event) => event.key === "Enter" && !isLaunching && launch()}
                             placeholder="https://github.com/owner/repository/pull/42"
                             aria-label="GitHub URL"
                         />
                         {url && (
-                            <button type="button" className="clear-input" onClick={() => setUrl('')} aria-label="Clear URL">
+                            <button
+                                type="button"
+                                className="clear-input"
+                                onClick={() => setUrl("")}
+                                aria-label="Clear URL"
+                            >
                                 <X size={16} />
                             </button>
                         )}
                     </div>
                     {error && <p className="input-error">{error}</p>}
 
-                    <div className="step-label workflow-label"><span>2</span> Choose a launcher</div>
+                    <div className="step-label workflow-label">
+                        <span>2</span> Choose a launcher
+                    </div>
                     <div className="quick-workflows">
                         {quickLaunchers.map((launcher) => {
                             const meta = launcherMetaBySlug[launcher.slug];
@@ -86,11 +106,17 @@ export function Home({
                                 <button
                                     type="button"
                                     key={launcher.slug}
-                                    className={selected === launcher.slug ? 'active' : ''}
+                                    className={selected === launcher.slug ? "active" : ""}
                                     onClick={() => setSelected(launcher.slug)}
                                 >
-                                    {meta && <LauncherIcon icon={meta.icon} tone={meta.tone} size={15} />}
-                                    <span>{meta ? quickLabel(launcher.slug, meta.title) : launcher.name}</span>
+                                    {meta && (
+                                        <LauncherIcon icon={meta.icon} tone={meta.tone} size={15} />
+                                    )}
+                                    <span>
+                                        {meta
+                                            ? quickLabel(launcher.slug, meta.title)
+                                            : launcher.name}
+                                    </span>
                                     {selected === launcher.slug && <Check size={13} />}
                                 </button>
                             );
@@ -121,21 +147,39 @@ export function Home({
                                 />
                             </label>
                         </div>
-                        <p>Use your own API key to execute this workflow. It is used only for this execution.</p>
+                        <p>
+                            Use your own API key to execute this workflow. It is used only for this
+                            execution.
+                        </p>
                     </div>
 
-                    <button type="button" className="launch-button" onClick={launch} disabled={isLaunching}>
-                        <Zap size={19} fill="currentColor" /> {isLaunching ? 'Starting…' : 'Launch workflow'} <ArrowRight size={19} />
+                    <button
+                        type="button"
+                        className="launch-button"
+                        onClick={launch}
+                        disabled={isLaunching}
+                    >
+                        <Zap size={19} fill="currentColor" />{" "}
+                        {isLaunching ? "Starting…" : "Launch workflow"} <ArrowRight size={19} />
                     </button>
                     <div className="trust-row">
-                        <span><ShieldCheck size={15} /> Public repositories only</span>
+                        <span>
+                            <ShieldCheck size={15} /> Public repositories only
+                        </span>
                         <i />
-                        <span><Clock3 size={15} /> Results in under a minute</span>
+                        <span>
+                            <Clock3 size={15} /> Results in under a minute
+                        </span>
                     </div>
                 </div>
 
                 <div className="hero-proof">
-                    <div className="avatar-stack"><span>JD</span><span>MK</span><span>AL</span><span>+2k</span></div>
+                    <div className="avatar-stack">
+                        <span>JD</span>
+                        <span>MK</span>
+                        <span>AL</span>
+                        <span>+2k</span>
+                    </div>
                     <p>
                         <strong>Built for focused developers</strong>
                         <br />
@@ -157,21 +201,32 @@ export function Home({
                             <button
                                 type="button"
                                 key={launcher.slug}
-                                className={`workflow-card ${selected === launcher.slug ? 'selected' : ''}`}
-                                onClick={() => { setSelected(launcher.slug); scrollToSelector('#launcher'); }}
+                                className={`workflow-card ${selected === launcher.slug ? "selected" : ""}`}
+                                onClick={() => {
+                                    setSelected(launcher.slug);
+                                    scrollToSelector("#launcher");
+                                }}
                             >
                                 <div className="card-top">
-                                    {meta && <LauncherIcon icon={meta.icon} tone={meta.tone} size={23} />}
+                                    {meta && (
+                                        <LauncherIcon icon={meta.icon} tone={meta.tone} size={23} />
+                                    )}
                                     {meta?.popular && <span className="popular">Most popular</span>}
-                                    {meta?.badge && <span className="laravel-badge">{meta.badge}</span>}
+                                    {meta?.badge && (
+                                        <span className="laravel-badge">{meta.badge}</span>
+                                    )}
                                 </div>
                                 <h3>{meta?.title ?? launcher.name}</h3>
                                 <p>{meta?.description ?? launcher.description}</p>
                                 <div className="card-meta">
-                                    <span><Clock3 size={14} /> {meta?.time ?? ''}</span>
+                                    <span>
+                                        <Clock3 size={14} /> {meta?.time ?? ""}
+                                    </span>
                                     <span>{meta?.accepts ?? launcher.input_type}</span>
                                 </div>
-                                <div className="card-action">Launch workflow <ArrowRight size={17} /></div>
+                                <div className="card-action">
+                                    Launch workflow <ArrowRight size={17} />
+                                </div>
                             </button>
                         );
                     })}
@@ -184,7 +239,11 @@ export function Home({
                         <div className="section-kicker">Public results</div>
                         <h2>Recent demo runs</h2>
                     </div>
-                    <p>Every run becomes a structured report<br />with a public URL ready to share.</p>
+                    <p>
+                        Every run becomes a structured report
+                        <br />
+                        with a public URL ready to share.
+                    </p>
                 </div>
                 <div className="recent-table">
                     {recentRuns.map((run) => (
@@ -194,7 +253,7 @@ export function Home({
                             onClick={() => {
                                 setUrl(`https://github.com/${run.repo}/pull/42`);
                                 setSelected(workflowTitleToSlug(run.workflow));
-                                scrollToSelector('#launcher');
+                                scrollToSelector("#launcher");
                             }}
                         >
                             <span className="run-repo">
@@ -205,9 +264,12 @@ export function Home({
                             <span className="run-workflow">{run.workflow}</span>
                             <span className={`run-risk ${run.risk.toLowerCase()}`}>{run.risk}</span>
                             <span className="run-findings">
-                                {run.findings} {run.workflow === 'Issue Plan' ? 'steps' : 'findings'}
+                                {run.findings}{" "}
+                                {run.workflow === "Issue Plan" ? "steps" : "findings"}
                             </span>
-                            <span className="run-time"><Clock3 size={13} /> {run.time}</span>
+                            <span className="run-time">
+                                <Clock3 size={13} /> {run.time}
+                            </span>
                             <ArrowRight size={16} />
                         </button>
                     ))}
@@ -229,7 +291,9 @@ export function Home({
                         <span>01</span>
                         <section>
                             <h3>Paste your GitHub URL</h3>
-                            <p>Repository, pull request, or issue. If it’s public, we can read it.</p>
+                            <p>
+                                Repository, pull request, or issue. If it’s public, we can read it.
+                            </p>
                         </section>
                         <GitFork />
                     </div>

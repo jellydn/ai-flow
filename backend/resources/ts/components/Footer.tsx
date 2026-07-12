@@ -1,4 +1,4 @@
-import { Logo } from './Logo.tsx';
+import { Logo } from "./Logo.tsx";
 
 export function Footer() {
     return (

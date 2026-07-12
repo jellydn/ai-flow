@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { Run } from '../types/api.ts';
-import { fetchRun } from '../services/run.ts';
+import { useCallback, useEffect, useReducer, useRef } from "react";
+import type { Run } from "../types/api.ts";
+import { fetchRun } from "../services/run.ts";
 
 type PathState = {
     runId: string | null;
@@ -19,23 +19,23 @@ const initialPathState: PathState = {
 };
 
 type PathAction =
-    | { type: 'not-run-path' }
-    | { type: 'begin'; id: string }
-    | { type: 'success'; id: string; run: Run }
-    | { type: 'failure'; id: string; message: string }
-    | { type: 'settle'; id: string };
+    | { type: "not-run-path" }
+    | { type: "begin"; id: string }
+    | { type: "success"; id: string; run: Run }
+    | { type: "failure"; id: string; message: string }
+    | { type: "settle"; id: string };
 
 function pathReducer(state: PathState, action: PathAction): PathState {
     switch (action.type) {
-        case 'not-run-path':
+        case "not-run-path":
             return { runId: null, run: null, loading: false, error: null, ready: true };
-        case 'begin':
+        case "begin":
             return { runId: action.id, run: null, loading: true, error: null, ready: false };
-        case 'success':
+        case "success":
             return { ...state, run: action.run, error: null };
-        case 'failure':
+        case "failure":
             return { ...state, run: null, error: action.message };
-        case 'settle':
+        case "settle":
             return { ...state, loading: false, ready: true };
         default:
             return state;
@@ -51,36 +51,36 @@ export function useRunFromPath() {
 
         if (!match) {
             currentIdRef.current = null;
-            dispatch({ type: 'not-run-path' });
+            dispatch({ type: "not-run-path" });
             return;
         }
 
         const id = match[1];
         currentIdRef.current = id;
-        dispatch({ type: 'begin', id });
+        dispatch({ type: "begin", id });
 
         fetchRun(id)
             .then((snapshot) => {
                 if (currentIdRef.current !== id) {
                     return;
                 }
-                dispatch({ type: 'success', id, run: snapshot });
+                dispatch({ type: "success", id, run: snapshot });
             })
             .catch((e) => {
                 if (currentIdRef.current !== id) {
                     return;
                 }
                 dispatch({
-                    type: 'failure',
+                    type: "failure",
                     id,
-                    message: e instanceof Error ? e.message : 'Could not load this report.',
+                    message: e instanceof Error ? e.message : "Could not load this report.",
                 });
             })
             .finally(() => {
                 if (currentIdRef.current !== id) {
                     return;
                 }
-                dispatch({ type: 'settle', id });
+                dispatch({ type: "settle", id });
             });
     }, []);
 
@@ -88,8 +88,8 @@ export function useRunFromPath() {
         navigate(window.location.pathname);
 
         const handlePopState = () => navigate(window.location.pathname);
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
+        window.addEventListener("popstate", handlePopState);
+        return () => window.removeEventListener("popstate", handlePopState);
     }, [navigate]);
 
     return { ...state, navigate };

@@ -1,5 +1,5 @@
-import { Check, Loader2 } from 'lucide-react';
-import type { ProgressStep } from '../types/api.ts';
+import { Check, Loader2 } from "lucide-react";
+import type { ProgressStep } from "../types/api.ts";
 
 interface RunningProps {
     title: string;
@@ -29,11 +29,11 @@ export function Running({ title, repo, steps, currentStep }: RunningProps) {
                     const pending = index > currentStep;
                     let subtitle: string;
                     if (complete) {
-                        subtitle = step.detail || 'Done';
+                        subtitle = step.detail || "Done";
                     } else if (current) {
-                        subtitle = step.detail || 'In progress…';
+                        subtitle = step.detail || "In progress…";
                     } else {
-                        subtitle = 'Waiting…';
+                        subtitle = "Waiting…";
                     }
 
                     let icon: React.ReactNode;
@@ -47,8 +47,8 @@ export function Running({ title, repo, steps, currentStep }: RunningProps) {
 
                     return (
                         <div
-                            key={`${step.title}::${step.detail ?? ''}`}
-                            className={`step ${complete ? 'done' : ''} ${current ? 'current' : ''} ${pending ? 'pending' : ''}`}
+                            key={`${step.title}::${step.detail ?? ""}`}
+                            className={`step ${complete ? "done" : ""} ${current ? "current" : ""} ${pending ? "pending" : ""}`}
                         >
                             <div className="step-icon">{icon}</div>
                             <div className="step-body">

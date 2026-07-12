@@ -1,7 +1,7 @@
-import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from 'lucide-react';
-import type { Finding, RunResult } from '../types/api.ts';
-import { demoFindings } from '../data/launcherMeta.ts';
-import { shareRunUrl } from '../services/run.ts';
+import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from "lucide-react";
+import type { Finding, RunResult } from "../types/api.ts";
+import { demoFindings } from "../data/launcherMeta.ts";
+import { shareRunUrl } from "../services/run.ts";
 
 interface ReportProps {
     launcherName: string;
@@ -13,15 +13,28 @@ interface ReportProps {
     result: RunResult | null;
 }
 
-export function Report({ launcherName, repo, copied, setCopied, reset, runId, result }: ReportProps) {
+export function Report({
+    launcherName,
+    repo,
+    copied,
+    setCopied,
+    reset,
+    runId,
+    result,
+}: ReportProps) {
     const isDemo = !runId && !result;
     const findings: Finding[] = isDemo ? demoFindings : (result?.findings ?? []);
     const summary = isDemo
-        ? 'This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging.'
-        : (result?.summary ?? '');
-    const risk = isDemo ? 'medium' : (result?.risk ?? 'medium');
+        ? "This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging."
+        : (result?.summary ?? "");
+    const risk = isDemo ? "medium" : (result?.risk ?? "medium");
     const checklist = isDemo
-        ? ['Add authorization policy check before deleting tools', 'Replace usage counter update with atomic increment', 'Add feature tests for combined filters', 'Run the full test suite before merge']
+        ? [
+              "Add authorization policy check before deleting tools",
+              "Replace usage counter update with atomic increment",
+              "Add feature tests for combined filters",
+              "Run the full test suite before merge",
+          ]
         : (result?.verification_steps ?? []);
 
     const copy = async () => {
@@ -40,7 +53,7 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
                 <div className="share-actions">
                     <button type="button" onClick={copy}>
                         {copied ? <Check size={16} /> : <Copy size={16} />}
-                        {copied ? 'Copied' : 'Copy link'}
+                        {copied ? "Copied" : "Copy link"}
                     </button>
                 </div>
             </div>
@@ -51,12 +64,14 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
                 </div>
                 <h1>{launcherName}</h1>
                 <div className="repo-name">
-                    <GitFork size={18} /> {repo || 'repository'}
+                    <GitFork size={18} /> {repo || "repository"}
                 </div>
                 <div className="report-stats">
                     <div>
                         <span>Risk level</span>
-                        <strong className="risk"><CircleDot size={15} /> {risk}</strong>
+                        <strong className="risk">
+                            <CircleDot size={15} /> {risk}
+                        </strong>
                     </div>
                     <div>
                         <span>Findings</span>
@@ -68,7 +83,9 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
             <div className="report-layout">
                 <aside>
                     <span>On this page</span>
-                    <a href="#summary" className="active">Executive summary</a>
+                    <a href="#summary" className="active">
+                        Executive summary
+                    </a>
                     <a href="#findings">
                         Key findings <b>{findings.length}</b>
                     </a>
@@ -97,15 +114,24 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
                         </div>
                         <div className="findings-list">
                             {findings.map((finding, index) => (
-                                <div className="finding" key={`${finding.title}::${finding.description}`}>
+                                <div
+                                    className="finding"
+                                    key={`${finding.title}::${finding.description}`}
+                                >
                                     <div className="finding-header">
-                                        <span className={`severity ${finding.severity}`}>{finding.severity}</span>
-                                        <span className="finding-number">{String(index + 1).padStart(2, '0')}</span>
+                                        <span className={`severity ${finding.severity}`}>
+                                            {finding.severity}
+                                        </span>
+                                        <span className="finding-number">
+                                            {String(index + 1).padStart(2, "0")}
+                                        </span>
                                     </div>
                                     <h3>{finding.title}</h3>
                                     <p>{finding.description}</p>
                                     <div className="suggestion">
-                                        <strong><Sparkles size={14} /> Suggested fix</strong>
+                                        <strong>
+                                            <Sparkles size={14} /> Suggested fix
+                                        </strong>
                                         <p>{finding.recommendation}</p>
                                     </div>
                                 </div>
@@ -120,7 +146,10 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
                         <div className="checklist">
                             {checklist.map((item, index) => (
                                 <label key={item}>
-                                    <input type="checkbox" defaultChecked={index === checklist.length - 1} />
+                                    <input
+                                        type="checkbox"
+                                        defaultChecked={index === checklist.length - 1}
+                                    />
                                     <span>{item}</span>
                                 </label>
                             ))}

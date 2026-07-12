@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import type { Run } from '../types/api.ts';
-import { decodeRun, fetchRun } from '../services/run.ts';
+import { useEffect, useState } from "react";
+import type { Run } from "../types/api.ts";
+import { decodeRun, fetchRun } from "../services/run.ts";
 
 const POLL_INTERVAL_MS = 1500;
 
@@ -13,7 +13,7 @@ function seedRunForId(runId: string | null, initialRun?: Run | null): Run | null
 }
 
 function syncKey(runId: string | null, initialRun?: Run | null): string {
-    return `${runId ?? ''}|${initialRun?.id ?? ''}`;
+    return `${runId ?? ""}|${initialRun?.id ?? ""}`;
 }
 
 export function useRunSubscription(runId: string | null, initialRun?: Run | null) {
@@ -66,7 +66,7 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                         return;
                     }
                     setRun(snapshot);
-                    if (snapshot.status === 'completed' || snapshot.status === 'failed') {
+                    if (snapshot.status === "completed" || snapshot.status === "failed") {
                         terminal = true;
                         stopPolling();
                         stopSse();
@@ -77,14 +77,14 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
             })();
         };
 
-        function handleEvent(event: MessageEvent, type: 'progress' | 'completed' | 'failed'): void {
+        function handleEvent(event: MessageEvent, type: "progress" | "completed" | "failed"): void {
             try {
                 const snapshot = decodeRun(JSON.parse(event.data) as unknown);
                 if (cancelled) {
                     return;
                 }
                 setRun(snapshot);
-                if (type === 'completed' || type === 'failed') {
+                if (type === "completed" || type === "failed") {
                     terminal = true;
                     stopPolling();
                     stopSse();
@@ -96,12 +96,12 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
             }
         }
 
-        if (typeof EventSource === 'undefined') {
+        if (typeof EventSource === "undefined") {
             pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
         } else {
-            const onProgress = (event: Event) => handleEvent(event as MessageEvent, 'progress');
-            const onCompleted = (event: Event) => handleEvent(event as MessageEvent, 'completed');
-            const onFailed = (event: Event) => handleEvent(event as MessageEvent, 'failed');
+            const onProgress = (event: Event) => handleEvent(event as MessageEvent, "progress");
+            const onCompleted = (event: Event) => handleEvent(event as MessageEvent, "completed");
+            const onFailed = (event: Event) => handleEvent(event as MessageEvent, "failed");
             const onStreamError = () => {
                 stopSse();
                 if (!terminal && !cancelled && pollTimer === null) {
@@ -111,9 +111,9 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
 
             try {
                 source = new EventSource(`/api/runs/${encodeURIComponent(id)}/stream`);
-                source.addEventListener('progress', onProgress);
-                source.addEventListener('completed', onCompleted);
-                source.addEventListener('failed', onFailed);
+                source.addEventListener("progress", onProgress);
+                source.addEventListener("completed", onCompleted);
+                source.addEventListener("failed", onFailed);
                 source.onerror = onStreamError;
             } catch {
                 pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
@@ -126,9 +126,9 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                     pollTimer = null;
                 }
                 if (source) {
-                    source.removeEventListener('progress', onProgress);
-                    source.removeEventListener('completed', onCompleted);
-                    source.removeEventListener('failed', onFailed);
+                    source.removeEventListener("progress", onProgress);
+                    source.removeEventListener("completed", onCompleted);
+                    source.removeEventListener("failed", onFailed);
                     source.onerror = null;
                     source.close();
                     source = null;
