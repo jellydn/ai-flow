@@ -1,9 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
 import { demoSteps, launcherMetaBySlug, staticLaunchers } from '../data/launcherMeta.ts';
 import { useRunFromPath } from '../hooks/useRunFromPath.ts';
 import { useRunSubscription } from '../hooks/useRunSubscription.ts';
 import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from '../services/run.ts';
 import type { Launcher, Run } from '../types/api.ts';
+import {
+    initialAppUiState,
+    type AppUiState,
+    type ViewState,
+    uiStateFromRun,
+} from './appUiState.ts';
 import { Footer } from './Footer.tsx';
 import { Header } from './Header.tsx';
 import { Home } from './Home.tsx';
@@ -14,19 +20,35 @@ const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const DEMO_COMPLETE_DELAY_MS = 650;
 const DEMO_STEP_DELAY_MS = 780;
 
-type ViewState =
-    | { type: 'home' }
-    | { type: 'demo-running'; step: number }
-    | { type: 'live-running'; runId: string; run: Run | null }
-    | { type: 'report'; run: Run | null }
-    | { type: 'failed'; run: Run };
+type UiAction =
+    | { type: 'patch'; patch: Partial<AppUiState> }
+    | { type: 'sync-run'; run: Run }
+    | { type: 'path-error'; message: string }
+    | { type: 'set-view'; view: ViewState }
+    | { type: 'reset-ui' };
+
+function uiReducer(state: AppUiState, action: UiAction): AppUiState {
+    switch (action.type) {
+        case 'patch':
+            return { ...state, ...action.patch };
+        case 'sync-run':
+            return uiStateFromRun(state, action.run);
+        case 'path-error':
+            return { ...state, view: { type: 'home' }, error: action.message };
+        case 'set-view':
+            return { ...state, view: action.view };
+        case 'reset-ui':
+            return { ...initialAppUiState };
+        default:
+            return state;
+    }
+}
 
 export function App() {
-    const [selected, setSelected] = useState('review-pr');
-    const [url, setUrl] = useState('');
-    const [view, setView] = useState<ViewState>({ type: 'home' });
+    const [ui, dispatch] = useReducer(uiReducer, initialAppUiState);
+    const { selected, url, view, error } = ui;
+
     const [copied, setCopied] = useState(false);
-    const [error, setError] = useState('');
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState('');
@@ -55,6 +77,16 @@ export function App() {
     const deepLinkLoading = Boolean(pathRunId && pathLoading);
     const { run: subscriptionRun } = useRunSubscription(liveRunId, liveInitialRun);
 
+    const setSelected = useCallback((value: string) => {
+        dispatch({ type: 'patch', patch: { selected: value } });
+    }, []);
+    const setUrl = useCallback((value: string) => {
+        dispatch({ type: 'patch', patch: { url: value } });
+    }, []);
+    const setError = useCallback((value: string) => {
+        dispatch({ type: 'patch', patch: { error: value } });
+    }, []);
+
     useEffect(() => {
         if (DEMO_MODE) {
             setLaunchers(staticLaunchers);
@@ -65,30 +97,38 @@ export function App() {
             .then(setLaunchers)
             .catch((e) => {
                 setLaunchers(staticLaunchers);
-                setError(e instanceof Error ? e.message : 'Could not load launchers.');
+                dispatch({
+                    type: 'patch',
+                    patch: { error: e instanceof Error ? e.message : 'Could not load launchers.' },
+                });
             });
     }, []);
 
+    const demoRunningStep = view.type === 'demo-running' ? view.step : undefined;
+
     useEffect(() => {
-        if (view.type !== 'demo-running') return;
-        if (view.step >= demoSteps.length) {
-            const done = setTimeout(() => setView({ type: 'report', run: null }), DEMO_COMPLETE_DELAY_MS);
+        if (demoRunningStep === undefined) {
+            return;
+        }
+        if (demoRunningStep >= demoSteps.length) {
+            const done = setTimeout(() => dispatch({ type: 'set-view', view: { type: 'report', run: null } }), DEMO_COMPLETE_DELAY_MS);
             return () => clearTimeout(done);
         }
-        const timer = setTimeout(() => setView((current) => {
-            if (current.type !== 'demo-running') return current;
-            return { ...current, step: current.step + 1 };
-        }), DEMO_STEP_DELAY_MS);
+        const timer = setTimeout(() => {
+            dispatch({
+                type: 'set-view',
+                view: { type: 'demo-running', step: demoRunningStep + 1 },
+            });
+        }, DEMO_STEP_DELAY_MS);
         return () => clearTimeout(timer);
-    }, [view.type, view.type === 'demo-running' ? view.step : 0]);
+    }, [demoRunningStep]);
 
     useEffect(() => {
         if (!pathReady || !pathRunId) {
             return;
         }
         if (pathError) {
-            setError(pathError);
-            setView({ type: 'home' });
+            dispatch({ type: 'path-error', message: pathError });
             return;
         }
         if (pathLoading || !pathRun) {
@@ -97,59 +137,41 @@ export function App() {
         if (subscriptionRun?.id === pathRunId) {
             return;
         }
-        setSelected(pathRun.launcher ? (launcherMetaBySlug[pathRun.launcher]?.slug ?? pathRun.launcher) : 'review-pr');
-        setUrl(pathRun.input?.source_url ?? '');
-        if (pathRun.status === 'completed') {
-            setView({ type: 'report', run: pathRun });
-        } else if (pathRun.status === 'failed') {
-            setView({ type: 'failed', run: pathRun });
-        } else {
-            setView({ type: 'live-running', runId: pathRun.id, run: pathRun });
-        }
+        dispatch({ type: 'sync-run', run: pathRun });
     }, [pathReady, pathRunId, pathRun, pathLoading, pathError, subscriptionRun?.id]);
 
     useEffect(() => {
         const run = subscriptionRun?.id === liveRunId ? subscriptionRun : null;
 
         if (run && view.type !== 'report') {
-            setSelected(run.launcher ? (launcherMetaBySlug[run.launcher]?.slug ?? run.launcher) : 'review-pr');
-            setUrl(run.input?.source_url ?? '');
-            if (run.status === 'completed') {
-                setView({ type: 'report', run });
-            } else if (run.status === 'failed') {
-                setView({ type: 'failed', run });
-            } else {
-                setView({ type: 'live-running', runId: run.id, run });
-            }
+            dispatch({ type: 'sync-run', run });
             return;
         }
 
         if (pathReady && pathRunId === null && view.type !== 'home' && view.type !== 'demo-running') {
-            setView({ type: 'home' });
+            dispatch({ type: 'set-view', view: { type: 'home' } });
         }
     }, [subscriptionRun, liveRunId, pathRunId, pathReady, view.type]);
 
     const reset = useCallback(() => {
         window.history.pushState({}, '', '/');
         navigate('/');
-        setView({ type: 'home' });
-        setUrl('');
+        dispatch({ type: 'reset-ui' });
         setApiKey('');
-        setError('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }, [navigate]);
 
     const launch = useCallback(async () => {
         const trimmed = url.trim();
         if (!trimmed || !isValidGithubUrl(trimmed)) {
-            setError('Enter a valid public GitHub repository, issue, or pull request URL.');
+            dispatch({ type: 'patch', patch: { error: 'Enter a valid public GitHub repository, issue, or pull request URL.' } });
             return;
         }
 
-        setError('');
+        dispatch({ type: 'patch', patch: { error: '' } });
 
         if (DEMO_MODE) {
-            setView({ type: 'demo-running', step: 0 });
+            dispatch({ type: 'set-view', view: { type: 'demo-running', step: 0 } });
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
@@ -159,11 +181,16 @@ export function App() {
             const body = await createRun(selected, trimmed, apiKey);
             window.history.pushState({}, '', `/runs/${body.id}`);
             navigate(`/runs/${body.id}`);
-            setView({ type: 'live-running', runId: body.id, run: null });
+            dispatch({ type: 'set-view', view: { type: 'live-running', runId: body.id, run: null } });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
-            setView({ type: 'home' });
-            setError(e instanceof Error ? e.message : 'Could not start workflow. Is the API running?');
+            dispatch({
+                type: 'patch',
+                patch: {
+                    view: { type: 'home' },
+                    error: e instanceof Error ? e.message : 'Could not start workflow. Is the API running?',
+                },
+            });
         } finally {
             setApiKey('');
             setIsLaunching(false);
