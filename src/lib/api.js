@@ -35,7 +35,7 @@ export async function fetchRun(runId) {
 /**
  * Subscribe to run progress via SSE. Returns a cleanup function.
  */
-export function streamRun(runId, { onSnapshot, onTerminal }) {
+export function streamRun(runId, { onSnapshot, onTerminal, onDisconnect }) {
   const url = `${API_BASE}/api/runs/${runId}/stream`
   const source = new EventSource(url)
 
@@ -57,6 +57,7 @@ export function streamRun(runId, { onSnapshot, onTerminal }) {
   source.addEventListener('failed', handle)
   source.onerror = () => {
     source.close()
+    onDisconnect?.()
   }
 
   return () => source.close()

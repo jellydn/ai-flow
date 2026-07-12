@@ -26,6 +26,7 @@ import {
 } from './data/workflows.js'
 import {
   createRun,
+  fetchRun,
   isValidGithubUrl,
   parseGithubRepo,
   shareRunUrl,
@@ -66,6 +67,29 @@ function App() {
   const parsedRepo = useMemo(() => parseGithubRepo(url) ?? '', [url])
 
   useEffect(() => {
+    if (DEMO_MODE) return undefined
+    const match = window.location.pathname.match(/^\/runs\/([0-9a-f-]+)\/?$/i)
+    if (!match) return undefined
+
+    let cancelled = false
+    fetchRun(match[1])
+      .then((snapshot) => {
+        if (cancelled) return
+        const workflow = workflows.find((item) => item.slug === snapshot.launcher)
+        setSelected(workflow?.id ?? 'review')
+        setUrl(snapshot.input?.source_url ?? '')
+        setRunId(snapshot.id)
+        setRunSnapshot(snapshot)
+        setView(snapshot.status === 'completed' ? 'report' : snapshot.status === 'failed' ? 'failed' : 'running')
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e.message || 'Could not load this report.')
+      })
+
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
     if (view !== 'running' || runId) return
     if (step >= demoExecutionSteps.length) {
       const done = setTimeout(() => setView('report'), 650)
@@ -77,13 +101,39 @@ function App() {
 
   useEffect(() => {
     if (!runId || view !== 'running') return undefined
-    return streamRun(runId, {
+    let retryTimer
+    let disconnected = false
+    const poll = () => {
+      retryTimer = setTimeout(async () => {
+        try {
+          const snapshot = await fetchRun(runId)
+          setRunSnapshot(snapshot)
+          if (snapshot.status === 'completed' || snapshot.status === 'failed') {
+            setView(snapshot.status === 'completed' ? 'report' : 'failed')
+            return
+          }
+        } catch {
+          // Keep polling through transient API failures.
+        }
+        if (disconnected) poll()
+      }, 1500)
+    }
+    const closeStream = streamRun(runId, {
       onSnapshot: (snapshot) => setRunSnapshot(snapshot),
       onTerminal: (snapshot, type) => {
         setRunSnapshot(snapshot)
         setView(type === 'completed' ? 'report' : 'failed')
       },
+      onDisconnect: () => {
+        disconnected = true
+        poll()
+      },
     })
+    return () => {
+      disconnected = false
+      clearTimeout(retryTimer)
+      closeStream()
+    }
   }, [runId, view])
 
   const launch = async () => {
@@ -111,6 +161,7 @@ function App() {
     try {
       const body = await createRun(activeWorkflow.slug, trimmed)
       setRunId(body.id)
+      window.history.pushState({}, '', `/runs/${body.id}`)
       setView('running')
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
@@ -121,6 +172,7 @@ function App() {
   }
 
   const reset = () => {
+    window.history.pushState({}, '', '/')
     setView('home')
     setStep(0)
     setUrl('')
