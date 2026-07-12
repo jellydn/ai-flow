@@ -8,7 +8,7 @@
 
 ## Vision
 
-AI Launcher is a web application that lets developers launch predefined AI workflows from a GitHub URL instead of writing prompts. Users paste a repository, issue, or pull request URL, select a workflow, and receive a structured, shareable result.
+AI Launcher lets developers launch predefined AI workflows from a GitHub URL instead of writing prompts. Users paste a repository, issue, or pull request URL, select a workflow, and receive a structured, shareable result.
 
 ## Problem
 
@@ -113,16 +113,16 @@ Review Pull Request
 
 ## Tech stack
 
-| Layer | Planned / product |
-|-------|-------------------|
-| **Frontend** | React, Tailwind CSS (this repo: Vite + React) |
+| Layer | Stack |
+|-------|-------|
+| **Frontend** | React, TypeScript, Vite (served by Laravel) |
 | **Backend** | Laravel 13, Laravel Cloud, queues, cache, scheduler |
 | **AI** | OpenAI Responses API (initial), provider abstraction |
 | **Storage** | Neon PostgreSQL in production, SQLite in development |
 
 ## This repository
 
-AI Launcher includes the Vite launcher UI and a Laravel API for queued execution, persistence, SSE progress, and structured reports. Shareable `/runs/:id` routes require the Vite build to be hosted with an SPA fallback; Laravel Cloud deploys `backend/` as the API application root only.
+AI Launcher is a single Laravel application that serves both the React UI and the queue-backed API. The UI is built from `backend/resources/ts` and served by a Blade shell plus an SPA fallback so `/runs/:id` resolves correctly. Laravel Cloud deploys `backend/` as the application root.
 
 Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README.md).
 
@@ -143,20 +143,48 @@ Queued jobs are encrypted with Laravel's `APP_KEY`, so Laravel Cloud web and wor
 
 ### Local development
 
-Requires [Node.js](https://nodejs.org/) (or Bun).
+Requires [PHP 8.4+](https://php.net/) and [Node.js](https://nodejs.org/) (or Bun).
 
 ```bash
 git clone https://github.com/jellydn/ai-flow.git
-cd ai-flow
+cd ai-flow/backend
+composer install
 npm install
+cp .env.example .env
+php artisan key:generate
+touch database/database.sqlite
+php artisan migrate --seed
+```
+
+Start the local dev stack:
+
+```bash
+composer run dev
+```
+
+This runs the PHP dev server, queue listener, logs, and Vite dev server concurrently. The app is served by Laravel at `http://localhost:8000`.
+
+Or run them separately:
+
+```bash
+php artisan serve
+php artisan queue:work --sleep=1 --tries=2 --timeout=120
 npm run dev
 ```
 
-Open the URL Vite prints (dev server binds `0.0.0.0`).
+Frontend checks:
 
 ```bash
-npm run build    # production build
-npm run preview  # preview production build
+npm run typecheck
+npm run lint
+npm run build
+```
+
+Backend checks:
+
+```bash
+php artisan test
+./vendor/bin/pint --test
 ```
 
 ## Roadmap (not weekend MVP)
@@ -187,4 +215,4 @@ npm run preview  # preview production build
 
 ## API backend
 
-The Laravel queue-backed API is in [`backend/`](backend/README.md). See its README for setup, endpoints, streaming, and deployment.
+The Laravel queue-backed API and UI are in [`backend/`](backend/README.md). See its README for setup, endpoints, streaming, and deployment.
