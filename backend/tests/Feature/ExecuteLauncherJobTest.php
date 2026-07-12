@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Contracts\AIProviderInterface;
+use App\Contracts\RunExecutorInterface;
 use App\Data\GitHubReference;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
 use App\Services\GitHubService;
 use App\Services\JsonSchemaValidator;
+use App\Services\RunExecutor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 use Tests\TestCase;
@@ -16,6 +18,16 @@ use Tests\TestCase;
 class ExecuteLauncherJobTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_job_delegates_run_execution(): void
+    {
+        $this->seed();
+        $run = Run::create(['launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'), 'source_url' => 'https://github.com/a/b', 'input' => ['source_url' => 'https://github.com/a/b'], 'progress' => []]);
+        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor->shouldReceive('execute')->once()->withArgs(fn (Run $executedRun): bool => $executedRun->is($run));
+
+        (new ExecuteLauncherJob($run->id))->handle($executor);
+    }
 
     public function test_job_records_structured_result(): void
     {
@@ -26,7 +38,7 @@ class ExecuteLauncherJobTest extends TestCase
         $gh->shouldReceive('context')->andReturn(['repository' => ['full_name' => 'a/b']]);
         $ai = Mockery::mock(AIProviderInterface::class);
         $ai->shouldReceive('generate')->andReturn(['summary' => 'Good', 'risk' => 'low', 'findings' => [], 'verification_steps' => []]);
-        (new ExecuteLauncherJob($run->id))->handle($gh, $ai, new JsonSchemaValidator);
+        (new RunExecutor($gh, $ai, new JsonSchemaValidator))->execute($run);
         $this->assertSame('completed', $run->fresh()->status);
         $this->assertSame('Good', $run->fresh()->result['summary']);
     }
@@ -41,7 +53,7 @@ class ExecuteLauncherJobTest extends TestCase
         $ai = Mockery::mock(AIProviderInterface::class);
         $ai->shouldReceive('generate')->andReturn(['summary' => 'Missing required fields', 'findings' => [['severity' => 'impossible']]]);
 
-        (new ExecuteLauncherJob($run->id))->handle($github, $ai, new JsonSchemaValidator);
+        (new RunExecutor($github, $ai, new JsonSchemaValidator))->execute($run);
 
         $this->assertSame('failed', $run->fresh()->status);
         $this->assertNull($run->fresh()->result);
@@ -66,7 +78,7 @@ class ExecuteLauncherJobTest extends TestCase
             return $context['truncated'] === true && strlen(json_encode($context)) <= 120_000;
         })->andReturn(['summary' => 'Good', 'risk' => 'low', 'findings' => [], 'verification_steps' => []]);
 
-        (new ExecuteLauncherJob($run->id))->handle($github, $ai, new JsonSchemaValidator);
+        (new RunExecutor($github, $ai, new JsonSchemaValidator))->execute($run);
 
         $this->assertSame('completed', $run->fresh()->status);
     }
