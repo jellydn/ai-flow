@@ -8,7 +8,7 @@
 **Secondary:** CSS and HTML provide the SPA presentation and entry point (`src/styles.css`, `index.html`); Blade, JavaScript, and CSS remain in the Laravel scaffold (`backend/resources/`). JSON, YAML, XML, and Markdown define packages, CI, tests, and documentation (`package.json`, `backend/composer.json`, `.github/workflows/ci.yml`, `backend/phpunit.xml`).
 
 ## Runtime
-**Environment:** The monorepo has two independently built applications: a browser SPA at the repository root and a Laravel API under `backend/` (`doc/adr/0007-laravel-api-in-backend-subdirectory.md`). CI fixes Node.js 22 and PHP 8.3 (`.github/workflows/ci.yml`); Laravel itself requires PHP `^8.3` (`backend/composer.json`).
+**Environment:** The monorepo has two independently built applications: a browser SPA at the repository root and a Laravel API under `backend/` (`doc/adr/0007-laravel-api-in-backend-subdirectory.md`). CI fixes Node.js 22 and PHP 8.4 (`.github/workflows/ci.yml`); Laravel itself requires PHP `^8.4` (`backend/composer.json`).
 
 **Package Manager:** npm manages both JavaScript dependency trees, locked by `package-lock.json` and `backend/package-lock.json`; Composer manages backend PHP packages through `backend/composer.json` and `backend/composer.lock`.
 

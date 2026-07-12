@@ -9,7 +9,7 @@ Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Lara
 | Area            | Path                                                                         | Stack                                                        |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | **Launcher UI** | repo root (`src/`, `index.html`)                                             | Vite + React; calls real API unless `VITE_DEMO_MODE=true`    |
-| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.3+, queue jobs, OpenAI + GitHub REST       |
+| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.4+, queue jobs, OpenAI + GitHub REST       |
 | **Durable DB**  | Laravel Cloud Postgres/MySQL (or Turso on `main` until L13+libsql)           | Local dev uses SQLite; production needs a managed DB           |
 | **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root                    |
 
@@ -48,7 +48,7 @@ php artisan test --filter=SomeTest            # run a focused test
 ./vendor/bin/pint                             # fix style locally before pushing
 ```
 
-CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.3.
+CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.4.
 
 **Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
 

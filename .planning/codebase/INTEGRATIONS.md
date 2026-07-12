@@ -26,7 +26,7 @@
 - `GET /api/health` provides a minimal JSON liveness endpoint (`backend/routes/api.php`). Progress is observable through run status and SSE, not a monitoring vendor (`backend/app/Http/Controllers/RunController.php`).
 
 ## CI/CD & Deployment
-- GitHub Actions runs on pushes and pull requests to `main`, building the Node 22 frontend and validating the PHP 8.3 backend via migration/seed, Pint, and PHPUnit (`.github/workflows/ci.yml`). It performs CI only; no deployment job or webhook is defined (`.github/workflows/ci.yml`).
+- GitHub Actions runs on pushes and pull requests to `main`, building the Node 22 frontend and validating the PHP 8.4 backend via migration/seed, Pint, and PHPUnit (`.github/workflows/ci.yml`). It performs CI only; no deployment job or webhook is defined (`.github/workflows/ci.yml`).
 - Production targets Laravel Cloud with `backend/` as application root; deployment requires migrations and a dedicated `php artisan queue:work --sleep=1 --tries=2 --timeout=120` worker (`backend/README.md`, `AGENTS.md`). The root Vite SPA is a separate deployment and requires SPA fallback plus frontend/API origin configuration (`backend/README.md`).
 - Laravel Cloud CLI deployment and post-deploy monitoring are documented, but no checked-in Cloud manifest or automated release workflow was found (`backend/README.md`, `.github/workflows/ci.yml`).
 
