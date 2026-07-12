@@ -1,9 +1,5 @@
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '')
 
-export function apiBaseUrl() {
-  return API_BASE
-}
-
 export function shareRunUrl(runId) {
   const base = import.meta.env.VITE_PUBLIC_APP_URL || window.location.origin
   return `${base.replace(/\/$/, '')}/runs/${runId}`

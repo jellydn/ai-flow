@@ -36,6 +36,9 @@ import { scrollToSelector } from './lib/scroll.js'
 import './styles.css'
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true'
+const DEMO_COMPLETE_DELAY_MS = 650
+const DEMO_STEP_DELAY_MS = 780
+const RUN_POLL_INTERVAL_MS = 1500
 
 function Logo() {
   return (
@@ -92,10 +95,10 @@ function App() {
   useEffect(() => {
     if (view !== 'running' || runId) return
     if (step >= demoExecutionSteps.length) {
-      const done = setTimeout(() => setView('report'), 650)
+      const done = setTimeout(() => setView('report'), DEMO_COMPLETE_DELAY_MS)
       return () => clearTimeout(done)
     }
-    const timer = setTimeout(() => setStep((value) => value + 1), 780)
+    const timer = setTimeout(() => setStep((value) => value + 1), DEMO_STEP_DELAY_MS)
     return () => clearTimeout(timer)
   }, [view, step, runId])
 
@@ -116,7 +119,7 @@ function App() {
           // Keep polling through transient API failures.
         }
         if (disconnected) poll()
-      }, 1500)
+      }, RUN_POLL_INTERVAL_MS)
     }
     const closeStream = streamRun(runId, {
       onSnapshot: (snapshot) => setRunSnapshot(snapshot),
