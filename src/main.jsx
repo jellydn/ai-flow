@@ -65,6 +65,7 @@ function App() {
   const [runId, setRunId] = useState(null)
   const [runSnapshot, setRunSnapshot] = useState(null)
   const [isLaunching, setIsLaunching] = useState(false)
+  const [apiKey, setApiKey] = useState('')
 
   const activeWorkflow = workflows.find((item) => item.id === selected)
   const parsedRepo = useMemo(() => parseGithubRepo(url) ?? '', [url])
@@ -162,7 +163,7 @@ function App() {
 
     setIsLaunching(true)
     try {
-      const body = await createRun(activeWorkflow.slug, trimmed)
+      const body = await createRun(activeWorkflow.slug, trimmed, apiKey)
       setRunId(body.id)
       window.history.pushState({}, '', `/runs/${body.id}`)
       setView('running')
@@ -170,6 +171,7 @@ function App() {
     } catch (e) {
       setError(e.message || 'Could not start workflow. Is the API running?')
     } finally {
+      setApiKey('')
       setIsLaunching(false)
     }
   }
@@ -181,6 +183,7 @@ function App() {
     setUrl('')
     setRunId(null)
     setRunSnapshot(null)
+    setApiKey('')
     setError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
@@ -214,6 +217,8 @@ function App() {
           setError={setError}
           launch={launch}
           isLaunching={isLaunching}
+          apiKey={apiKey}
+          setApiKey={setApiKey}
         />
       )}
       {view === 'running' && (
@@ -255,7 +260,7 @@ function App() {
   )
 }
 
-function Home({ selected, setSelected, url, setUrl, error, setError, launch, isLaunching }) {
+function Home({ selected, setSelected, url, setUrl, error, setError, launch, isLaunching, apiKey, setApiKey }) {
   return (
     <main>
       <section className="hero">
@@ -287,6 +292,27 @@ function Home({ selected, setSelected, url, setUrl, error, setError, launch, isL
                 {selected === workflow.id && <Check size={13} />}
               </button>
             ))}
+          </div>
+          <div className="provider-section">
+            <div className="provider-heading"><strong>AI Provider</strong><span>Optional</span></div>
+            <div className="provider-fields">
+              <label>
+                <span>Provider</span>
+                <select value="openai" disabled aria-label="AI provider"><option value="openai">OpenAI</option></select>
+              </label>
+              <label>
+                <span>API Key</span>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(event) => setApiKey(event.target.value)}
+                  placeholder="Leave blank to use server key"
+                  autoComplete="off"
+                  spellCheck="false"
+                />
+              </label>
+            </div>
+            <p>Use your own API key to execute this workflow. It is used only for this execution.</p>
           </div>
           <button type="button" className="launch-button" onClick={launch} disabled={isLaunching}>
             <Zap size={19} fill="currentColor" /> {isLaunching ? 'Starting…' : 'Launch workflow'} <ArrowRight size={19} />

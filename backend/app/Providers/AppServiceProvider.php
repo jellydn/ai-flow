@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use App\Contracts\AIProviderInterface;
+use App\Contracts\AIProviderFactoryInterface;
 use App\Contracts\RunExecutorInterface;
-use App\Services\OpenAIProvider;
+use App\Services\AIProviderFactory;
 use App\Services\RunExecutor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -20,7 +20,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(AIProviderInterface::class, OpenAIProvider::class);
+        $this->app->bind(AIProviderFactoryInterface::class, AIProviderFactory::class);
         $this->app->bind(RunExecutorInterface::class, RunExecutor::class);
     }
 
@@ -33,7 +33,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
-        // Production may use Turso (libsql); file-backed sqlite is local/CI only.
+        // Production uses Neon PostgreSQL; file-backed sqlite is local/CI only.
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
@@ -41,7 +41,19 @@ class AppServiceProvider extends ServiceProvider
             && config('database.default') === 'sqlite'
         ) {
             throw new RuntimeException(
-                'SQLite must not be used as the production database. Set DB_CONNECTION to libsql (Turso), mysql, or pgsql.'
+                'SQLite must not be used as the production database. Set DB_CONNECTION to pgsql for Neon PostgreSQL.'
+            );
+        }
+
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && config('database.default') === 'pgsql'
+            && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
+        ) {
+            throw new RuntimeException(
+                'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
             );
         }
 

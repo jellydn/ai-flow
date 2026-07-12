@@ -7,6 +7,7 @@ use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Support\AiProviders;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Http\StreamedEvent;
@@ -24,7 +25,13 @@ class RunController extends Controller
             'status' => 'queued',
             'progress' => [],
         ]);
-        ExecuteLauncherJob::dispatch($run->id);
+        $providerId = $request->validated('provider.id') ?? AiProviders::OPENAI;
+
+        ExecuteLauncherJob::dispatch(
+            $run->id,
+            $providerId,
+            $request->validated('provider.api_key'),
+        );
 
         return response()->json(['id' => $run->id, 'status' => 'queued', 'message' => 'Workflow started'], 202);
     }

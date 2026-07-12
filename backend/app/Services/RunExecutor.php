@@ -2,11 +2,12 @@
 
 namespace App\Services;
 
-use App\Contracts\AIProviderInterface;
+use App\Contracts\AIProviderFactoryInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -16,11 +17,11 @@ class RunExecutor implements RunExecutorInterface
 
     public function __construct(
         private GitHubService $github,
-        private AIProviderInterface $ai,
+        private AIProviderFactoryInterface $providers,
         private JsonSchemaValidator $validator,
     ) {}
 
-    public function execute(Run $run): void
+    public function execute(Run $run, string $provider = 'openai', ?string $apiKey = null): void
     {
         $run->loadMissing('launcher');
 
@@ -37,7 +38,7 @@ class RunExecutor implements RunExecutorInterface
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
             $prompt = $run->launcher->prompt_template."\nGitHub context:\n".$this->encodeContext($context);
-            $result = $this->ai->generate($prompt, $run->launcher->output_schema);
+            $result = $this->providers->forExecution($provider, $apiKey)->generate($prompt, $run->launcher->output_schema);
             $this->validator->validate($result, $run->launcher->output_schema);
             $this->progress($run, 'Preparing report');
             $run->update([
@@ -48,7 +49,11 @@ class RunExecutor implements RunExecutorInterface
             ]);
             RunProgressed::dispatch($run->fresh());
         } catch (Throwable $e) {
-            $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
+            $message = match (true) {
+                $e instanceof RuntimeException => $e->getMessage(),
+                $e instanceof InvalidArgumentException && $e->getMessage() === 'Unsupported AI provider.' => $e->getMessage(),
+                default => 'Run failed unexpectedly.',
+            };
             $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);
             Log::error('Launcher run failed', ['run_id' => $run->id, 'exception' => get_class($e)]);
             RunProgressed::dispatch($run->fresh());

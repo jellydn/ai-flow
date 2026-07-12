@@ -5,11 +5,14 @@ export function shareRunUrl(runId) {
   return `${base.replace(/\/$/, '')}/runs/${runId}`
 }
 
-export async function createRun(launcherSlug, sourceUrl) {
+export async function createRun(launcherSlug, sourceUrl, apiKey = '') {
+  const provider = { id: 'openai' }
+  if (apiKey.trim()) provider.api_key = apiKey.trim()
+
   const res = await fetch(`${API_BASE}/api/runs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ launcher: launcherSlug, source_url: sourceUrl.trim() }),
+    body: JSON.stringify({ launcher: launcherSlug, source_url: sourceUrl.trim(), provider }),
   })
   const body = await res.json().catch(() => ({}))
   if (!res.ok) {
