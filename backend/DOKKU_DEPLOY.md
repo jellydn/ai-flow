@@ -63,6 +63,7 @@ DATABASE_URL="$(dokku config:get ai-flow DATABASE_URL)"
 dokku config:set ai-flow \
   DB_CONNECTION=pgsql \
   DB_URL="$DATABASE_URL" \
+  DB_SSLMODE=require \
   CACHE_STORE=database \
   QUEUE_CONNECTION=database
 ```
@@ -167,6 +168,7 @@ If TLS is not configured yet, verify the same endpoints over HTTP.
 |--------|----------------|-----|
 | Let's Encrypt `NXDOMAIN` | No DNS A/AAAA for app hostname | Add DNS, wait for propagation, retry `dokku letsencrypt:enable ai-flow` |
 | Worker restart loop, `database.sqlite` does not exist | `DB_CONNECTION` still `sqlite`; `DATABASE_URL` not mapped to `DB_URL` | Set `DB_CONNECTION=pgsql`, `DB_URL` from `DATABASE_URL`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database` |
+| HTTP **500** / “Production PostgreSQL must use TLS” | Missing `DB_SSLMODE` in production | `dokku config:set ai-flow DB_SSLMODE=require` (required by `AppServiceProvider` for web requests) |
 | Runs stay `queued` | No worker | `dokku ps:scale ai-flow web=1 worker=1` and check `dokku ps:report ai-flow` |
 | 404 on `/api/*` | Wrong web root or missing `.htaccess` / nginx config | Confirm Dockerfile document root is `public/` and redeploy |
 
