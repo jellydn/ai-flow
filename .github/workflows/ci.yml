@@ -21,7 +21,7 @@ jobs:
 
       - uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: "8.4"
           extensions: mbstring, xml, zip, sqlite3, pgsql
           coverage: none
 
@@ -56,7 +56,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
           cache: npm
           cache-dependency-path: backend/package-lock.json
 
@@ -66,8 +66,13 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Lint
+      - name: Lint (oxlint + oxfmt)
         run: npm run lint
+
+      - name: Konsistent
+        run: npm run konsistent
+        env:
+          KONSISTENT_NO_UPDATE_CHECK: "true"
 
       - name: Build assets
         run: npm run build
