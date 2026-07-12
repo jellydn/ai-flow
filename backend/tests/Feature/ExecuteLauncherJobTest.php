@@ -56,9 +56,10 @@ class ExecuteLauncherJobTest extends TestCase
             'model' => 'gpt-4o-mini',
             'timeout' => 30,
         ]);
+        $aiJson = '{"summary":"Ok","risk":"low","findings":[],"verification_steps":[]}';
         Http::fake([
             'api.openai.com/*' => Http::response([
-                'choices' => [['message' => ['content' => '{"summary":"Ok","risk":"low","findings":[],"verification_steps":[]}']]]],
+                'choices' => [['message' => ['content' => $aiJson]]],
             ]),
         ]);
         $run = Run::create([
