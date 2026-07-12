@@ -131,7 +131,7 @@ npx skills add https://github.com/laravel/agent-skills/tree/main/laravel/skills/
 
 ## Repo-specific gotchas
 
-- **Monorepo:** Cloud deploys `backend/` only; root React is separate (Amp portal: `.amp/portals/ai-launcher.json`).
+- **Monorepo:** Cloud deploys `backend/` only; root React deploys to Vercel (`vercel.json`, `.github/workflows/vercel.yml`). Production API: `https://ai-flow-production-q41p7t.laravel.cloud` via `VITE_API_BASE_URL` at build time. Amp portal: `.amp/portals/ai-launcher.json`.
 - **Amp sync:** `origin` may point at Amp git; `github` remote is `jellydn/ai-flow`.
 - **API aliases:** `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs` (same contracts).
 - **Rate limit:** changing run creation limits → `AppServiceProvider` `RateLimiter::for('runs', ...)`.

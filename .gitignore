@@ -12,3 +12,5 @@ backend/storage/framework/sessions/*
 backend/storage/framework/views/*
 backend/storage/logs/*
 backend/database/*.sqlite
+.vercel
+.env*

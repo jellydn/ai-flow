@@ -185,6 +185,17 @@ npm run preview  # preview production build
   <sub>Product PRD · Prototype UI · <a href="https://github.com/jellydn/ai-flow">jellydn/ai-flow</a></sub>
 </p>
 
+## Frontend deployment (Vercel)
+
+Production API: `https://ai-flow-production-q41p7t.laravel.cloud`. The Vite app reads `VITE_API_BASE_URL` at build time (`src/lib/api.js`). Share links use `window.location.origin` when `VITE_PUBLIC_APP_URL` is unset.
+
+1. **Vercel project** — import this repo (root directory, not `backend/`). `vercel.json` enables SPA fallback for `/runs/:id`.
+2. **GitHub Actions secrets** (repo → Settings → Secrets): `VERCEL_TOKEN` ([create token](https://vercel.com/account/tokens)), `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` (team/project IDs from Vercel → Project → Settings, or local `vercel link` → `.vercel/project.json`, not committed).
+3. **Vercel env** — `VITE_API_BASE_URL=https://ai-flow-production-q41p7t.laravel.cloud` on Production, Preview, and Development (required for dashboard/CLI builds; GitHub Actions also sets it in the workflow).
+4. **Laravel Cloud** — append Vercel origins to `CORS_ALLOWED_ORIGINS` (comma-separated), e.g. `https://2026-07-12-ai-flow.vercel.app`. Until this is set, browser calls from the SPA will fail CORS even though the API responds.
+
+CI/CD: [`.github/workflows/vercel.yml`](.github/workflows/vercel.yml) builds on PRs; pushes to `main` or `ci/vercel` deploy to Vercel (`main` → production, other branches → preview).
+
 ## API backend
 
 The Laravel queue-backed API is in [`backend/`](backend/README.md). See its README for setup, endpoints, streaming, and deployment.
