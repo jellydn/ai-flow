@@ -135,10 +135,14 @@ export async function fetchRun(id: string): Promise<Run> {
 }
 
 export async function createRun(launcher: string, sourceUrl: string, apiKey: string): Promise<CreateRunResponse> {
+    const trimmedKey = apiKey.trim();
     const body = await post('/api/runs', {
         launcher,
         source_url: sourceUrl,
-        api_key: apiKey,
+        provider: {
+            id: 'openai',
+            ...(trimmedKey !== '' ? { api_key: trimmedKey } : {}),
+        },
     });
     const data = assertObject(body);
     return {
@@ -155,7 +159,7 @@ export function shareRunUrl(id: string): string {
 export function parseGithubRepo(url: string): string | null {
     try {
         const parsed = new URL(url.trim());
-        if (parsed.hostname !== 'github.com') {
+        if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com') {
             return null;
         }
         const parts = parsed.pathname.split('/').filter(Boolean);

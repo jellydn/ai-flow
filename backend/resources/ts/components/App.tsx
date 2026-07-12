@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { demoFindings, demoSteps, launcherMetaBySlug, staticLaunchers } from '../data/launcherMeta.ts';
+import { demoSteps, launcherMetaBySlug, staticLaunchers } from '../data/launcherMeta.ts';
 import { useRunFromPath } from '../hooks/useRunFromPath.ts';
 import { useRunSubscription } from '../hooks/useRunSubscription.ts';
 import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from '../services/run.ts';

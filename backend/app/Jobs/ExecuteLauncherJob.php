@@ -54,7 +54,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             'source_context' => null,
             'completed_at' => now(),
         ]);
-        Log::error('Launcher run failed during provider setup', ['run_id' => $run->id, 'exception' => $e]);
+        Log::error('Launcher run failed during provider setup', ['run_id' => $run->id, 'exception' => get_class($e)]);
         RunProgressed::dispatch($run->fresh());
     }
 }
