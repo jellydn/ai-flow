@@ -167,17 +167,19 @@ export function shareRunUrl(id: string): string {
     return `${window.location.origin}/runs/${id}`;
 }
 
+const GITHUB_HOSTS = ['github.com', 'www.github.com'];
+
 export function parseGithubRepo(url: string): string | null {
     try {
         const parsed = new URL(url.trim());
-        if (parsed.protocol !== 'https:' || parsed.hostname !== 'github.com') {
+        if (parsed.protocol !== 'https:' || !GITHUB_HOSTS.includes(parsed.hostname)) {
             return null;
         }
         const parts = parsed.pathname.split('/').filter(Boolean);
         if (parts.length < 2) {
             return null;
         }
-        return `${parts[0]}/${parts[1]}`;
+        return `${parts[0]}/${parts[1].replace(/\.git$/i, '')}`;
     } catch {
         return null;
     }
