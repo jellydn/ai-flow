@@ -6,7 +6,11 @@
     "build": "tsc --noEmit && vite build",
     "dev": "vite",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint -c ../.oxlintrc.json resources/ts && oxfmt -c ../.oxfmtrc.json --check resources/ts",
+    "lint:ox": "oxlint -c ../.oxlintrc.json resources/ts",
+    "format": "oxfmt -c ../.oxfmtrc.json --write resources/ts",
+    "format:check": "oxfmt -c ../.oxfmtrc.json --check resources/ts",
+    "konsistent": "cd .. && backend/node_modules/.bin/konsistent check --config-path konsistent.json",
     "test": "echo 'No frontend tests configured' && exit 0",
     "doctor": "npx react-doctor@latest"
   },
@@ -21,7 +25,10 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
     "concurrently": "9.0.0",
+    "konsistent": "^1.0.0-beta.3",
     "laravel-vite-plugin": "3.1.0",
+    "oxfmt": "^0.58.0",
+    "oxlint": "^1.73.0",
     "typescript": "5.7.3",
     "vite": "8.1.3"
   }
