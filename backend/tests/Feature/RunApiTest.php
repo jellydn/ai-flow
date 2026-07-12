@@ -25,6 +25,10 @@ class RunApiTest extends TestCase
             ->assertJsonCount(4)
             ->assertJsonPath('0.id', 'review-pr')
             ->assertJsonMissingPath('0.class_name');
+        $this->getJson('/api/flows')
+            ->assertOk()
+            ->assertJsonCount(4)
+            ->assertJsonPath('0.id', 'review-pr');
     }
 
     public function test_run_is_validated_created_and_queued(): void
@@ -42,6 +46,20 @@ class RunApiTest extends TestCase
             ->assertJsonPath('data.status', 'queued')
             ->assertJsonPath('data.progress', [])
             ->assertJsonPath('data.result', null);
+    }
+
+    public function test_execution_alias_uses_the_run_contract(): void
+    {
+        Queue::fake();
+
+        $response = $this->postJson('/api/executions', [
+            'launcher' => 'laravel-doctor',
+            'source_url' => 'https://github.com/laravel/framework',
+        ])->assertStatus(202)->assertJsonPath('status', 'queued');
+
+        $this->getJson('/api/executions/'.$response->json('id'))
+            ->assertOk()
+            ->assertJsonPath('data.launcher', 'laravel-doctor');
     }
 
     public function test_rejects_invalid_url_and_unknown_launcher(): void
