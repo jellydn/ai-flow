@@ -29,7 +29,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
-        if (app()->environment('production') && config('database.default') === 'sqlite') {
+        if (
+            app()->environment('production')
+            && ! app()->runningUnitTests()
+            && config('database.default') === 'sqlite'
+        ) {
             throw new RuntimeException('SQLite must not be used as the production database. Set DB_CONNECTION to mysql or pgsql.');
         }
 

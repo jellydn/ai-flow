@@ -20,6 +20,8 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    env:
+      APP_ENV: local
     defaults:
       run:
         working-directory: backend
@@ -35,4 +37,5 @@ jobs:
       - run: php artisan key:generate
       - run: touch database/database.sqlite
       - run: php artisan migrate --force --seed
+      - run: ./vendor/bin/pint --test
       - run: php artisan test
