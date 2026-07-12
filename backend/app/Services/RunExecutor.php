@@ -7,6 +7,7 @@ use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
 use Illuminate\Support\Facades\Log;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -48,7 +49,10 @@ class RunExecutor implements RunExecutorInterface
             ]);
             RunProgressed::dispatch($run->fresh());
         } catch (Throwable $e) {
-            $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
+            $message = match (true) {
+                $e instanceof RuntimeException, $e instanceof InvalidArgumentException => $e->getMessage(),
+                default => 'Run failed unexpectedly.',
+            };
             $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);
             Log::error('Launcher run failed', ['run_id' => $run->id, 'exception' => get_class($e)]);
             RunProgressed::dispatch($run->fresh());

@@ -9,8 +9,8 @@ class StoreRunRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'launcher' => $this->input('launcher', $this->input('flow_id')),
-            'source_url' => $this->input('source_url', $this->input('input.url')),
+            'launcher' => $this->input('launcher') ?: $this->input('flow_id'),
+            'source_url' => $this->input('source_url') ?: $this->input('input.url'),
         ]);
     }
 

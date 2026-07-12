@@ -24,9 +24,11 @@ class RunController extends Controller
             'status' => 'queued',
             'progress' => [],
         ]);
+        $providerId = $request->validated('provider.id') ?? 'openai';
+
         ExecuteLauncherJob::dispatch(
             $run->id,
-            $request->validated('provider.id', 'openai'),
+            $providerId,
             $request->validated('provider.api_key'),
         );
 
