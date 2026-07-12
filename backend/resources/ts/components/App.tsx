@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { demoFindings, demoSteps, launcherMetaBySlug } from '../data/launcherMeta.ts';
+import { demoFindings, demoSteps, launcherMetaBySlug, staticLaunchers } from '../data/launcherMeta.ts';
 import { useRunFromPath } from '../hooks/useRunFromPath.ts';
 import { useRunSubscription } from '../hooks/useRunSubscription.ts';
 import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from '../services/run.ts';
@@ -43,9 +43,17 @@ export function App() {
     const { run: subscriptionRun } = useRunSubscription(liveRunId, liveInitialRun);
 
     useEffect(() => {
+        if (DEMO_MODE) {
+            setLaunchers(staticLaunchers);
+            return;
+        }
+
         getLaunchers()
             .then(setLaunchers)
-            .catch((e) => setError(e instanceof Error ? e.message : 'Could not load launchers.'));
+            .catch((e) => {
+                setLaunchers(staticLaunchers);
+                setError(e instanceof Error ? e.message : 'Could not load launchers.');
+            });
     }, []);
 
     useEffect(() => {
@@ -100,9 +108,9 @@ export function App() {
         }
 
         setError('');
-        setView({ type: 'demo-running', step: 0 });
 
         if (DEMO_MODE) {
+            setView({ type: 'demo-running', step: 0 });
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }

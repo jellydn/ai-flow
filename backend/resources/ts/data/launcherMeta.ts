@@ -7,7 +7,7 @@ import {
     ShieldCheck,
     Stethoscope,
 } from 'lucide-react';
-import type { Finding, ProgressStep } from '../types/api.ts';
+import type { Finding, Launcher, ProgressStep } from '../types/api.ts';
 
 export interface LauncherMeta {
     slug: string | null;
@@ -83,6 +83,16 @@ export const launcherMeta: LauncherMeta[] = [
 export const launcherMetaBySlug: Record<string, LauncherMeta> = Object.fromEntries(
     launcherMeta.filter((meta) => meta.slug !== null).map((meta) => [meta.slug as string, meta]),
 );
+
+export const staticLaunchers: Launcher[] = launcherMeta
+    .filter((meta) => meta.slug !== null)
+    .map((meta) => ({
+        id: meta.slug as string,
+        slug: meta.slug as string,
+        name: meta.title,
+        description: meta.description,
+        input_type: '',
+    }));
 
 export interface RecentRun {
     repo: string;

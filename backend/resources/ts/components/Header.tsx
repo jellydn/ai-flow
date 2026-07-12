@@ -15,17 +15,17 @@ export function Header({ mobileOpen, setMobileOpen, reset }: HeaderProps) {
                 <Logo />
             </button>
             <nav className={mobileOpen ? 'nav open' : 'nav'}>
-                <button type="button" onClick={() => { setMobileOpen(false); scrollToSelector('#workflows'); }}>
+                <button type="button" onClick={() => { setMobileOpen(false); reset(); scrollToSelector('#workflows'); }}>
                     Launchers
                 </button>
-                <button type="button" onClick={() => { setMobileOpen(false); scrollToSelector('#how'); }}>
+                <button type="button" onClick={() => { setMobileOpen(false); reset(); scrollToSelector('#how'); }}>
                     How it works
                 </button>
                 <a href="https://github.com/jellydn/ai-flow" target="_blank" rel="noreferrer">
                     <GitFork size={17} /> GitHub
                 </a>
             </nav>
-            <button type="button" className="header-cta" onClick={() => { scrollToSelector('#launcher'); }}>
+            <button type="button" className="header-cta" onClick={() => { reset(); scrollToSelector('#launcher'); }}>
                 Launch a workflow <ArrowRight size={16} />
             </button>
             <button

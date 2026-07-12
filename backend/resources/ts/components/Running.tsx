@@ -36,14 +36,21 @@ export function Running({ title, repo, steps, currentStep }: RunningProps) {
                         subtitle = 'Waiting…';
                     }
 
+                    let icon: React.ReactNode;
+                    if (complete) {
+                        icon = <Check size={18} />;
+                    } else if (current) {
+                        icon = <Loader2 size={18} className="spin" />;
+                    } else {
+                        icon = <span />;
+                    }
+
                     return (
                         <div
                             key={`${step.title}-${index}`}
                             className={`step ${complete ? 'done' : ''} ${current ? 'current' : ''} ${pending ? 'pending' : ''}`}
                         >
-                            <div className="step-icon">
-                                {complete ? <Check size={18} /> : current ? <Loader2 size={18} className="spin" /> : <span />}
-                            </div>
+                            <div className="step-icon">{icon}</div>
                             <div className="step-body">
                                 <div className="step-title">{step.title}</div>
                                 <div className="step-subtitle">{subtitle}</div>
