@@ -8,7 +8,7 @@ Monorepo with two distinct codebases:
 
 | Layer | Path | Stack |
 |-------|------|-------|
-| Frontend (React UI) | repo root | Vite + React, single-file app in `src/` |
+| Frontend (React UI) | repo root | Vite + React app in `src/` |
 | Backend (API) | `backend/` | Laravel 12, PHP 8.2+ |
 | Infrastructure | `doc/`, `.amp/`, `.planning/` | ADRs, Amp portal config, planning docs |
 
@@ -18,10 +18,10 @@ Monorepo with two distinct codebases:
 
 ### File Organization
 
-- **Single-file app** -- all components in `src/main.jsx` (~390 lines, 6 components)
+- **Main UI module** -- page components remain in `src/main.jsx`; API, workflow data, scrolling, and the error boundary are extracted into focused modules
 - **CSS** in `src/styles.css` (~84 lines, flat BEM-like classes)
 - **Entry point** -- `index.html` at repo root with `<script type="module" src="/src/main.jsx">`
-- **No component directory** -- no `src/components/`, no barrel files, no code splitting
+- **Supporting directories** -- `src/components/` contains shared UI boundaries, `src/data/` contains workflow/demo data, and `src/lib/` contains API and browser helpers
 - **No test files** in `src/` (no test framework configured)
 
 ### Naming Patterns
@@ -56,7 +56,7 @@ import './styles.css'
 - **Single default export** at the end via `createRoot(document.getElementById('root')).render(<App />)`
 - **Props destructured inline** in function signature
 - **No prop types** -- no TypeScript, no PropTypes
-- **Hooks used:** `useState` (5 instances), `useEffect` (1), `useMemo` (1)
+- **Hooks used:** local `useState`, `useEffect`, and `useMemo`; no external state library
 - **Inline conditional rendering** with `&&` and ternary operators
 - **JSX:** no fragment shorthand (`<>...</>`) used, explicit `<main>`, `<section>`, `<div>` wrappers
 - **Event handlers:** inline arrow functions (`onClick={() => ...}`) -- no extracted handler functions
@@ -65,7 +65,7 @@ import './styles.css'
 
 - **URL validation:** regex check in `launch()` function, sets `error` state string
 - **Error display:** conditional `<p className="input-error">` rendered when `error` is non-empty
-- **No try/catch** anywhere in the frontend
+- **API errors:** async API and run-restoration failures are caught and surfaced through UI error state
 - **Clipboard API:** optional chaining (`navigator.clipboard?.writeText(...)`) -- only defensive null-check
 
 ### CSS Conventions
@@ -111,7 +111,7 @@ import './styles.css'
 - **Routes/endpoints:** kebab-case (`/api/runs/{run}/stream`), slugs (`review-pr`, `laravel-doctor`)
 - **Table names:** snake_case plural (`launchers`, `runs`)
 - **Foreign keys:** snake_case with `_id` suffix (`launcher_id`)
-- **PHPStan/Pint:** not enforced but tools available (`pint` in require-dev)
+- **Laravel Pint:** available in `require-dev`, run locally after PHP edits, and enforced by CI with `./vendor/bin/pint --test`
 
 ### Code Style & Formatting
 
@@ -127,7 +127,7 @@ import './styles.css'
 - **Interface segregation:** `AIProviderInterface` defines `generate(string $prompt, array $schema): array`
 - **Dependency injection** in service provider: `$this->app->bind(AIProviderInterface::class, OpenAIProvider::class)`
 - **Constructor injection** in jobs: `public function __construct(public string $runId) {}`
-- **Method injection** in job handler: `public function handle(GitHubService $github, AIProviderInterface $ai, ?JsonSchemaValidator $validator = null)`
+- **Method injection** in job handler: `public function handle(GitHubService $github, AIProviderInterface $ai, JsonSchemaValidator $validator)`
 
 ### Route Patterns
 
@@ -136,7 +136,7 @@ import './styles.css'
 Route::get('/health', fn () => ...);
 Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs');
 Route::get('/runs/{run}', [RunController::class, 'show']);
-Route::get('/runs/{run}/stream', [RunController::class, 'stream']);
+Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
 ```
 
 ### Validation
@@ -195,9 +195,9 @@ Route::get('/runs/{run}/stream', [RunController::class, 'stream']);
 
 ### Dependency Management
 
-- **Frontend:** npm with `package.json` at root; pinned versions for `vite` and `@vitejs/plugin-react`, `"latest"` for React and lucide-react
+- **Frontend:** npm with `package.json` at root; dependency versions are pinned
 - **Backend:** Composer with `composer.json` in `backend/`; PHP 8.2+, Laravel 12, PHPUnit 11.5
-- **No dependency lockfile** for frontend (`package-lock.json` exists but `"latest"` version specifiers used)
+- **Frontend lockfile:** `package-lock.json` is committed and CI installs it with `npm ci`
 
 ### Documentation Patterns
 

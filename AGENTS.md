@@ -90,10 +90,10 @@ Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`
 
 ### React / frontend (repo root)
 
-- Single-file app: `src/main.jsx` (~390 lines); plain CSS in `src/styles.css` (BEM-like classes).  
+- Main UI remains in `src/main.jsx`; supporting code lives in `src/components/`, `src/data/`, and `src/lib/`. Plain CSS remains in `src/styles.css` (BEM-like classes).
 - Functional components + hooks; no TypeScript unless the project adds it.  
 - **API:** `src/lib/api.js` — `VITE_API_BASE_URL` (default `http://localhost:8000`), SSE progress, `VITE_DEMO_MODE=true` for simulated runs only.  
-- Pin `react` / `lucide-react` versions when stabilizing builds (`latest` in `package.json` today).
+- Keep React, Vite, and `lucide-react` versions pinned for reproducible builds.
 
 ## Architecture map (backend)
 

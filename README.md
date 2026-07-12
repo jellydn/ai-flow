@@ -122,7 +122,7 @@ Review Pull Request
 
 ## This repository
 
-Weekend MVP **launcher UI** synced from [Amp](https://ampcode.com) (`@productsway/AI-Flow`). It demonstrates workflows, launch flow, and report layout. Backend execution, persistence, and shareable `/runs/:id` routes are product goals—not necessarily implemented here yet.
+AI Launcher includes the Vite launcher UI and a Laravel API for queued execution, persistence, SSE progress, and structured reports. Shareable `/runs/:id` routes require the Vite build to be hosted with an SPA fallback; Laravel Cloud deploys `backend/` as the API application root only.
 
 Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README.md).
 
