@@ -1,3 +1,13 @@
 node_modules/
 dist/
 .DS_Store
+backend/.env
+backend/vendor/
+backend/node_modules/
+backend/public/build/
+backend/storage/*.key
+backend/storage/framework/cache/data/*
+backend/storage/framework/sessions/*
+backend/storage/framework/views/*
+backend/storage/logs/*
+backend/database/*.sqlite
