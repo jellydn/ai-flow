@@ -14,3 +14,4 @@ storage/framework/sessions/*
 storage/framework/views/*
 storage/logs/*
 vendor
+bootstrap/cache/*.php

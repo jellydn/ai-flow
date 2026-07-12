@@ -57,7 +57,9 @@ RUN composer dump-autoload --classmap-authoritative --no-dev \
     && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
     && chown -R www-data:www-data bootstrap/cache storage \
     && sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf
+    && sed -ri 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
+    && printf '<Directory /var/www/html/public>\n    AllowOverride All\n</Directory>\n' > /etc/apache2/conf-available/laravel.conf \
+    && a2enconf laravel
 
 EXPOSE 80
 
