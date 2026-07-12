@@ -10,7 +10,6 @@
         "test": "echo 'No frontend tests configured' && exit 0"
     },
     "dependencies": {
-        "@rolldown/binding-linux-x64-gnu": "^1.1.5",
         "lucide-react": "1.23.0",
         "react": "19.2.7",
         "react-dom": "19.2.7"

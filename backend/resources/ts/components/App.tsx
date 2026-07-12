@@ -1,14 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-    createExecution,
-    getExecution,
-    getFlows,
-    isValidGithubUrl,
-    parseGithubRepo,
-    subscribeToExecution,
-} from '../services/api.ts';
-import type { Execution, ExecutionStatus } from '../types/api.ts';
-import { buildWorkflows, demoExecutionSteps, workflowBySlug, workflows } from '../data/workflows.ts';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { demoFindings, demoSteps, launcherMetaBySlug } from '../data/launcherMeta.ts';
+import { useRunFromPath } from '../hooks/useRunFromPath.ts';
+import { useRunSubscription } from '../hooks/useRunSubscription.ts';
+import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from '../services/run.ts';
+import type { Launcher, Run } from '../types/api.ts';
 import { Footer } from './Footer.tsx';
 import { Header } from './Header.tsx';
 import { Home } from './Home.tsx';
@@ -19,180 +14,129 @@ const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === 'true';
 const DEMO_COMPLETE_DELAY_MS = 650;
 const DEMO_STEP_DELAY_MS = 780;
 
-function viewFromStatus(status: ExecutionStatus): 'running' | 'report' | 'failed' {
-    if (status === 'completed') return 'report';
-    if (status === 'failed') return 'failed';
-    return 'running';
-}
+type ViewState =
+    | { type: 'home' }
+    | { type: 'demo-running'; step: number }
+    | { type: 'live-running'; runId: string; run: Run | null }
+    | { type: 'report'; run: Run | null }
+    | { type: 'failed'; run: Run };
 
 export function App() {
-    const [selected, setSelected] = useState('review');
+    const [selected, setSelected] = useState('review-pr');
     const [url, setUrl] = useState('');
-    const [view, setView] = useState<'home' | 'running' | 'report' | 'failed'>('home');
-    const [step, setStep] = useState(0);
+    const [view, setView] = useState<ViewState>({ type: 'home' });
     const [copied, setCopied] = useState(false);
     const [error, setError] = useState('');
     const [mobileOpen, setMobileOpen] = useState(false);
-    const [runId, setRunId] = useState<string | null>(null);
-    const [runSnapshot, setRunSnapshot] = useState<Execution | null>(null);
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState('');
-    const [availableSlugs, setAvailableSlugs] = useState<Set<string> | null>(null);
-    const [liveWorkflows, setLiveWorkflows] = useState(workflows);
+    const [launchers, setLaunchers] = useState<Launcher[]>([]);
 
-    const activeWorkflow = useMemo(() => liveWorkflows.find((item) => item.id === selected), [liveWorkflows, selected]);
+    const { runId: pathRunId, ready: pathReady, navigate } = useRunFromPath();
+
+    const activeLauncher = useMemo(() => launchers.find((launcher) => launcher.slug === selected), [launchers, selected]);
+    const activeMeta = useMemo(() => launcherMetaBySlug[selected], [selected]);
     const parsedRepo = useMemo(() => parseGithubRepo(url) ?? '', [url]);
 
+    const liveRunId = view.type === 'live-running' ? view.runId : (pathRunId ?? null);
+    const liveInitialRun = view.type === 'live-running' ? view.run : null;
+    const { run: subscriptionRun } = useRunSubscription(liveRunId, liveInitialRun);
+
     useEffect(() => {
-        getFlows()
-            .then((flows) => {
-                setAvailableSlugs(new Set(flows.map((flow) => flow.slug)));
-                const built = buildWorkflows(flows);
-                if (built.length > 0) {
-                    setLiveWorkflows(built);
-                }
-            })
-            .catch(() => setAvailableSlugs(new Set()));
+        getLaunchers()
+            .then(setLaunchers)
+            .catch((e) => setError(e instanceof Error ? e.message : 'Could not load launchers.'));
     }, []);
 
     useEffect(() => {
-        if (DEMO_MODE) return undefined;
-
-        const loadFromPath = async (pathname: string) => {
-            const match = pathname.match(/^\/runs\/([0-9a-f-]+)\/?$/i);
-            if (!match) return;
-
-            const id = match[1];
-            try {
-                const snapshot = await getExecution(id);
-                const workflow = workflowBySlug[snapshot.flowId ?? ''];
-                setSelected(workflow?.id ?? 'review');
-                setUrl(snapshot.input?.source_url ?? '');
-                setRunId(snapshot.id);
-                setRunSnapshot(snapshot);
-                setView(viewFromStatus(snapshot.status));
-            } catch (e) {
-                setError(e instanceof Error ? e.message : 'Could not load this report.');
-                setView('home');
-            }
-        };
-
-        loadFromPath(window.location.pathname);
-
-        const handlePopState = () => {
-            const pathname = window.location.pathname;
-            if (pathname === '/') {
-                resetWithoutUrl();
-            } else {
-                loadFromPath(pathname);
-            }
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, []);
-
-    useEffect(() => {
-        if (view !== 'running' || runId) return undefined;
-        if (step >= demoExecutionSteps.length) {
-            const done = setTimeout(() => setView('report'), DEMO_COMPLETE_DELAY_MS);
+        if (view.type !== 'demo-running') return;
+        if (view.step >= demoSteps.length) {
+            const done = setTimeout(() => setView({ type: 'report', run: null }), DEMO_COMPLETE_DELAY_MS);
             return () => clearTimeout(done);
         }
-        const timer = setTimeout(() => setStep((value) => value + 1), DEMO_STEP_DELAY_MS);
+        const timer = setTimeout(() => setView((current) => {
+            if (current.type !== 'demo-running') return current;
+            return { ...current, step: current.step + 1 };
+        }), DEMO_STEP_DELAY_MS);
         return () => clearTimeout(timer);
-    }, [view, step, runId]);
+    }, [view.type, view.type === 'demo-running' ? view.step : 0]);
 
     useEffect(() => {
-        if (!runId || view !== 'running') return undefined;
+        const run = subscriptionRun?.id === liveRunId ? subscriptionRun : null;
 
-        const unsubscribe = subscribeToExecution(runId, {
-            onSnapshot: (snapshot) => setRunSnapshot(snapshot),
-            onTerminal: (snapshot, type) => {
-                setRunSnapshot(snapshot);
-                setView(type === 'completed' ? 'report' : 'failed');
-            },
-        });
+        if (run && view.type !== 'report') {
+            setSelected(run.launcher ? (launcherMetaBySlug[run.launcher]?.slug ?? run.launcher) : 'review-pr');
+            setUrl(run.input?.source_url ?? '');
+            if (run.status === 'completed') {
+                setView({ type: 'report', run });
+            } else if (run.status === 'failed') {
+                setView({ type: 'failed', run });
+            } else {
+                setView({ type: 'live-running', runId: run.id, run });
+            }
+            return;
+        }
 
-        return () => unsubscribe();
-    }, [runId, view]);
+        if (pathReady && pathRunId === null && view.type !== 'home' && view.type !== 'demo-running') {
+            setView({ type: 'home' });
+        }
+    }, [subscriptionRun, liveRunId, pathRunId, pathReady, view.type]);
 
-    const reset = () => {
+    const reset = useCallback(() => {
         window.history.pushState({}, '', '/');
-        setView('home');
-        setStep(0);
+        navigate('/');
+        setView({ type: 'home' });
         setUrl('');
-        setRunId(null);
-        setRunSnapshot(null);
         setApiKey('');
         setError('');
         window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
+    }, [navigate]);
 
-    const resetWithoutUrl = () => {
-        setView('home');
-        setStep(0);
-        setRunId(null);
-        setRunSnapshot(null);
-        setApiKey('');
-        setError('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    const launch = async () => {
+    const launch = useCallback(async () => {
         const trimmed = url.trim();
         if (!trimmed || !isValidGithubUrl(trimmed)) {
             setError('Enter a valid public GitHub repository, issue, or pull request URL.');
             return;
         }
-        if (!activeWorkflow?.slug) {
-            setError('This workflow is not available on the API yet. Pick Review, Plan, Explain, or Laravel doctor.');
-            return;
-        }
-        if (availableSlugs !== null && !availableSlugs.has(activeWorkflow.slug)) {
-            setError('This workflow is not currently active. Pick Review, Plan, Explain, or Laravel doctor.');
-            return;
-        }
 
         setError('');
-        setStep(0);
-        setRunId(null);
-        setRunSnapshot(null);
+        setView({ type: 'demo-running', step: 0 });
 
         if (DEMO_MODE) {
-            setView('running');
             window.scrollTo({ top: 0, behavior: 'smooth' });
             return;
         }
 
         setIsLaunching(true);
         try {
-            const body = await createExecution(activeWorkflow.slug, trimmed, apiKey);
-            setRunId(body.id);
+            const body = await createRun(selected, trimmed, apiKey);
             window.history.pushState({}, '', `/runs/${body.id}`);
-            setView('running');
+            navigate(`/runs/${body.id}`);
+            setView({ type: 'live-running', runId: body.id, run: null });
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } catch (e) {
+            setView({ type: 'home' });
             setError(e instanceof Error ? e.message : 'Could not start workflow. Is the API running?');
         } finally {
             setApiKey('');
             setIsLaunching(false);
         }
-    };
+    }, [url, selected, apiKey, navigate]);
 
-    const progressMessages = runSnapshot?.progress ?? [];
-    const progressLines = runId
-        ? (progressMessages.length > 0
-            ? progressMessages.map((line) => [line, ''] as [string, string])
-            : [['Waiting for the workflow to start', 'In queue'] as [string, string]])
-        : demoExecutionSteps;
+    const liveProgress = view.type === 'live-running' ? (view.run?.progress ?? []) : [];
+    const liveSteps = liveProgress.length > 0
+        ? liveProgress.map((message) => ({ title: message }))
+        : [{ title: 'Waiting for the workflow to start', detail: 'In queue' }];
+    const liveCurrentStep = liveProgress.length > 0 ? liveProgress.length - 1 : 0;
 
-    const progressIndex = runId ? Math.max(0, progressMessages.length - 1) : step;
+    const runningTitle = activeMeta?.title ?? activeLauncher?.name ?? 'Workflow';
+    const runningRepo = parsedRepo || '…';
 
     return (
         <div className="app-shell">
             <Header mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} reset={reset} />
 
-            {view === 'home' && (
+            {view.type === 'home' && (
                 <Home
                     selected={selected}
                     setSelected={setSelected}
@@ -204,34 +148,36 @@ export function App() {
                     isLaunching={isLaunching}
                     apiKey={apiKey}
                     setApiKey={setApiKey}
-                    workflows={liveWorkflows}
+                    launchers={launchers}
                 />
             )}
-            {view === 'running' && (
+
+            {(view.type === 'demo-running' || view.type === 'live-running') && (
                 <Running
-                    activeWorkflow={activeWorkflow}
-                    repo={parsedRepo || '…'}
-                    step={progressIndex}
-                    executionSteps={progressLines}
-                    live={Boolean(runId)}
+                    title={runningTitle}
+                    repo={runningRepo}
+                    steps={view.type === 'demo-running' ? demoSteps : liveSteps}
+                    currentStep={view.type === 'demo-running' ? view.step : liveCurrentStep}
                 />
             )}
-            {view === 'report' && (
+
+            {view.type === 'report' && (
                 <Report
-                    workflow={activeWorkflow}
+                    launcherName={runningTitle}
                     repo={parsedRepo}
                     copied={copied}
                     setCopied={setCopied}
                     reset={reset}
-                    runId={runId}
-                    result={runSnapshot?.result ?? null}
+                    runId={view.run?.id ?? null}
+                    result={view.run?.result ?? null}
                 />
             )}
-            {view === 'failed' && (
+
+            {view.type === 'failed' && (
                 <main className="running-page">
                     <div className="error-fallback">
                         <h1>Workflow failed</h1>
-                        <p>{runSnapshot?.error || 'The run did not complete. Try again or check the API logs.'}</p>
+                        <p>{view.run.error || 'The run did not complete. Try again or check the API logs.'}</p>
                         <button type="button" onClick={reset}>← New launch</button>
                     </div>
                 </main>

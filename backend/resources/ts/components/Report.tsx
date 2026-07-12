@@ -1,49 +1,28 @@
-import { ArrowRight, Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from 'lucide-react';
-import type { ExecutionResult, Finding } from '../types/api.ts';
-import type { Workflow } from '../data/workflows.ts';
-import { demoFindings } from '../data/workflows.ts';
-import { shareRunUrl } from '../services/api.ts';
+import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from 'lucide-react';
+import type { Finding, RunResult } from '../types/api.ts';
+import { demoFindings } from '../data/launcherMeta.ts';
+import { shareRunUrl } from '../services/run.ts';
 
 interface ReportProps {
-    workflow: Workflow | undefined;
-    repo: string | null;
+    launcherName: string;
+    repo: string;
     copied: boolean;
     setCopied: (copied: boolean) => void;
     reset: () => void;
     runId: string | null;
-    result: ExecutionResult | null;
+    result: RunResult | null;
 }
 
-interface DisplayFinding {
-    severity: string;
-    title: string;
-    file: string | null;
-    body: string;
-    fix: string;
-}
-
-function toDisplayFinding(finding: Finding): DisplayFinding {
-    return {
-        severity: finding.severity,
-        title: finding.title,
-        file: null,
-        body: finding.description,
-        fix: finding.recommendation,
-    };
-}
-
-export function Report({ workflow, repo, copied, setCopied, reset, runId, result }: ReportProps) {
-    const useDemo = !result;
-    const findings: DisplayFinding[] = useDemo
-        ? demoFindings
-        : (result.findings ?? []).map(toDisplayFinding);
-    const summary = useDemo
+export function Report({ launcherName, repo, copied, setCopied, reset, runId, result }: ReportProps) {
+    const isDemo = !runId && !result;
+    const findings: Finding[] = isDemo ? demoFindings : (result?.findings ?? []);
+    const summary = isDemo
         ? 'This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging.'
-        : result.summary;
-    const risk = useDemo ? 'medium' : (result.risk ?? 'medium');
-    const checklist = useDemo
+        : (result?.summary ?? '');
+    const risk = isDemo ? 'medium' : (result?.risk ?? 'medium');
+    const checklist = isDemo
         ? ['Add authorization policy check before deleting tools', 'Replace usage counter update with atomic increment', 'Add feature tests for combined filters', 'Run the full test suite before merge']
-        : (result.verificationSteps ?? []);
+        : (result?.verification_steps ?? []);
 
     const copy = async () => {
         const link = runId ? shareRunUrl(runId) : `${window.location.origin}/runs/demo`;
@@ -63,9 +42,6 @@ export function Report({ workflow, repo, copied, setCopied, reset, runId, result
                         {copied ? <Check size={16} /> : <Copy size={16} />}
                         {copied ? 'Copied' : 'Copy link'}
                     </button>
-                    <button type="button" className="primary-share">
-                        Share report <ArrowRight size={16} />
-                    </button>
                 </div>
             </div>
 
@@ -73,7 +49,7 @@ export function Report({ workflow, repo, copied, setCopied, reset, runId, result
                 <div className="report-status">
                     <CheckCircle2 size={16} /> Analysis complete
                 </div>
-                <h1>{workflow?.title}</h1>
+                <h1>{launcherName}</h1>
                 <div className="repo-name">
                     <GitFork size={18} /> {repo || 'repository'}
                 </div>
@@ -124,14 +100,13 @@ export function Report({ workflow, repo, copied, setCopied, reset, runId, result
                                 <div className="finding" key={`${finding.title}-${index}`}>
                                     <div className="finding-header">
                                         <span className={`severity ${finding.severity}`}>{finding.severity}</span>
-                                        <span className="finding-number">0{index + 1}</span>
+                                        <span className="finding-number">{String(index + 1).padStart(2, '0')}</span>
                                     </div>
                                     <h3>{finding.title}</h3>
-                                    {finding.file && <code>{finding.file}</code>}
-                                    <p>{finding.body}</p>
+                                    <p>{finding.description}</p>
                                     <div className="suggestion">
                                         <strong><Sparkles size={14} /> Suggested fix</strong>
-                                        <p>{finding.fix}</p>
+                                        <p>{finding.recommendation}</p>
                                     </div>
                                 </div>
                             ))}
