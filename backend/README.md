@@ -118,7 +118,7 @@ For CLI deployment, install the official Cloud CLI with `composer global require
 
 ## Dokku
 
-The app can also be deployed to the Dokku VPS at `docklight-staging.itman.fyi`. See **[DOKKU_DEPLOY.md](DOKKU_DEPLOY.md)** for the one-time server configuration, required environment variables, Git remote, queue-worker scaling, and deployment verification.
+The app can also be deployed to the Dokku VPS at `docklight-staging.itman.fyi` (staging URL `https://ai-flow-staging.itman.fyi`). See **[DOKKU_DEPLOY.md](DOKKU_DEPLOY.md)** for DNS/TLS, Dokku Postgres (`DATABASE_URL` → `DB_URL`), environment variables, Git remote, queue-worker scaling, and verification.
 
 ## Tests
 

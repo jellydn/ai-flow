@@ -3,6 +3,7 @@
 !.env.example
 .git
 .github
+.planning
 .phpunit.cache
 .phpunit.result.cache
 database/*.sqlite
