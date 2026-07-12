@@ -42,11 +42,16 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        // Production PostgreSQL should use TLS for external hosts (e.g., Neon).
+        // Internal Docker network hostnames (e.g., dokku-postgres-ai-flow) are
+        // exempt since container-to-container traffic does not need TLS.
+        $pgHost = (string) config('database.connections.pgsql.host');
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
             && config('database.default') === 'pgsql'
+            && str_contains($pgHost, '.')
             && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
         ) {
             throw new RuntimeException(
