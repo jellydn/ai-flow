@@ -54,6 +54,20 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        // The sync queue driver executes jobs inside the HTTP request, which
+        // would run slow GitHub + OpenAI calls synchronously and block the
+        // response. Production must use a real queue (database, redis, etc.).
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && config('queue.default') === 'sync'
+        ) {
+            throw new RuntimeException(
+                'QUEUE_CONNECTION must not be "sync" in production. Set QUEUE_CONNECTION=database (or redis) so AI and GitHub work run asynchronously.'
+            );
+        }
+
         if (app()->environment('production') && strtolower((string) env('LOG_LEVEL', 'warning')) === 'debug') {
             Log::warning('LOG_LEVEL is debug in production; set LOG_LEVEL=warning or error to reduce sensitive log exposure.');
         }
