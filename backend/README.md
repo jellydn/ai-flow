@@ -51,7 +51,7 @@ php artisan test
 
 The UI is in `resources/ts/` and built with Vite. `resources/views/app.blade.php` is the SPA shell, and `routes/web.php` provides a fallback so `/runs/{uuid}` and other client-side routes resolve correctly. Laravel Vite loads the built assets from `public/build`.
 
-The same-origin API client lives in `resources/ts/services/api.ts`. It calls `/api/health`, `/api/flows`, `/api/executions`, and `/api/executions/{uuid}/stream`.
+The same-origin API client lives in `resources/ts/services/run.ts` (with HTTP helpers in `resources/ts/lib/http.ts` and streaming hooks in `resources/ts/hooks/`). It calls `/api/health`, `/api/launchers`, `/api/runs`, and `/api/runs/{uuid}/stream` (`/api/flows` and `/api/executions` are aliases for backward compatibility).
 
 Set `VITE_DEMO_MODE=true` in `.env` to run simulated workflow executions without a backend.
 

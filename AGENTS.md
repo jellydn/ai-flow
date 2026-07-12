@@ -48,14 +48,14 @@ CI (`.github/workflows/ci.yml`): backend runs `composer validate`, `composer ins
 
 ```bash
 curl http://localhost:8000/api/health
-curl http://localhost:8000/api/flows
-curl -X POST http://localhost:8000/api/executions -H 'Content-Type: application/json' \
+curl http://localhost:8000/api/launchers
+curl -X POST http://localhost:8000/api/runs -H 'Content-Type: application/json' \
   -d '{"launcher":"laravel-doctor","source_url":"https://github.com/laravel/framework"}'
-curl http://localhost:8000/api/executions/RUN_UUID
-curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/executions/RUN_UUID/stream
+curl http://localhost:8000/api/runs/RUN_UUID
+curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/stream
 ```
 
-Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`. `POST /api/executions` is throttled (5/hour/IP).
+Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`. `POST /api/runs` is throttled (5/hour/IP); `/api/executions` is an alias.
 
 ## Laravel Cloud (production)
 
@@ -90,19 +90,19 @@ Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`
 
 - Main UI is split into `components/`, `data/`, `lib/`, `services/`, and `types/`. Entry is `resources/ts/app.tsx`; the Blade shell is `resources/views/app.blade.php`. Plain CSS remains in `resources/css/app.css` (BEM-like classes).
 - Functional components + hooks; TypeScript with strict mode. Avoid broad `any`; use `unknown` with explicit narrowing.
-- **API:** `resources/ts/services/api.ts` — same-origin `/api/*` requests, typed `Execution`/`Flow` contracts, SSE with polling fallback.
+- **API:** `resources/ts/services/run.ts` (HTTP helpers in `resources/ts/lib/http.ts`, streaming in `resources/ts/hooks/`) — same-origin `/api/*` requests, typed `Run`/`Launcher` contracts, SSE with polling fallback.
 - Vite configuration is `vite.config.ts` and uses `laravel-vite-plugin` + `@vitejs/plugin-react`.
 - Keep React, Vite, and `lucide-react` versions pinned for reproducible builds.
 
 ## Architecture map (backend)
 
 ```
-POST /api/executions → RunController::store → Run (queued) → ExecuteLauncherJob
+POST /api/runs → RunController::store → Run (queued) → ExecuteLauncherJob
   → GitHubService (parse + cached context)
   → AIProviderInterface::generate (JSON schema)
   → JsonSchemaValidator → runs.result
-GET /api/executions/{uuid} → RunResource
-GET /api/executions/{uuid}/stream → SSE (DB poll, ~55s)
+GET /api/runs/{uuid} → RunResource
+GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 ```
 
 Do not add synchronous OpenAI/GitHub calls to the HTTP request cycle.
