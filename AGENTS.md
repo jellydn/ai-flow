@@ -92,7 +92,7 @@ Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`
 
 - Single-file app: `src/main.jsx` (~390 lines); plain CSS in `src/styles.css` (BEM-like classes).  
 - Functional components + hooks; no TypeScript unless the project adds it.  
-- **Future integration:** call `backend` API (`POST /api/runs`, poll or SSE `/stream`); map launcher slugs to UI workflow ids (`review` ↔ `review-pr`, etc.).  
+- **API:** `src/lib/api.js` — `VITE_API_BASE_URL` (default `http://localhost:8000`), SSE progress, `VITE_DEMO_MODE=true` for simulated runs only.  
 - Pin `react` / `lucide-react` versions when stabilizing builds (`latest` in `package.json` today).
 
 ## Architecture map (backend)

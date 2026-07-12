@@ -23,26 +23,36 @@ class ExecuteLauncherJob implements ShouldQueue
 
     public function __construct(public string $runId) {}
 
-    public function handle(GitHubService $github, AIProviderInterface $ai, ?JsonSchemaValidator $validator = null): void
+    public function handle(GitHubService $github, AIProviderInterface $ai, JsonSchemaValidator $validator): void
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
         try {
             $this->progress($run, 'Fetching repository', true);
             $ref = $github->parse($run->source_url);
-            if ($run->launcher->input_type !== $ref['type']) {
+            if ($run->launcher->input_type !== $ref->type) {
                 throw new RuntimeException("This launcher requires a {$run->launcher->input_type} URL.");
             }
-            if ($ref['type'] === 'pull_request') {
+            if ($ref->type === 'pull_request') {
                 $this->progress($run, 'Reading changed files');
             }
             $context = $github->context($run->source_url);
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
-            $prompt = $run->launcher->prompt_template."\nGitHub context:\n".json_encode($context, JSON_UNESCAPED_SLASHES);
+            $contextJson = json_encode($context, JSON_UNESCAPED_SLASHES);
+            $maxContextBytes = 120_000;
+            if (strlen($contextJson) > $maxContextBytes) {
+                $contextJson = substr($contextJson, 0, $maxContextBytes).'…[truncated]';
+            }
+            $prompt = $run->launcher->prompt_template."\nGitHub context:\n".$contextJson;
             $result = $ai->generate($prompt, $run->launcher->output_schema);
-            ($validator ?? app(JsonSchemaValidator::class))->validate($result, $run->launcher->output_schema);
+            $validator->validate($result, $run->launcher->output_schema);
             $this->progress($run, 'Preparing report');
-            $run->update(['status' => 'completed', 'result' => $result, 'completed_at' => now()]);
+            $run->update([
+                'status' => 'completed',
+                'result' => $result,
+                'source_context' => null,
+                'completed_at' => now(),
+            ]);
             RunProgressed::dispatch($run->fresh());
         } catch (Throwable $e) {
             $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';

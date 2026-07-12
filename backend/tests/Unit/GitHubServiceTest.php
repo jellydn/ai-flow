@@ -11,9 +11,9 @@ class GitHubServiceTest extends TestCase
     public function test_parses_supported_urls(): void
     {
         $s = new GitHubService;
-        $this->assertSame('repository', $s->parse('https://github.com/a/b')['type']);
-        $this->assertSame(12, $s->parse('https://github.com/a/b/pull/12')['number']);
-        $this->assertSame('issue', $s->parse('https://github.com/a/b/issues/3')['type']);
+        $this->assertSame('repository', $s->parse('https://github.com/a/b')->type);
+        $this->assertSame(12, $s->parse('https://github.com/a/b/pull/12')->number);
+        $this->assertSame('issue', $s->parse('https://github.com/a/b/issues/3')->type);
     }
 
     public function test_rejects_other_hosts(): void

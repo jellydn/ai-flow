@@ -7,6 +7,10 @@ body { margin: 0; min-width: 320px; background: #f7f5f0; }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button { cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.error-fallback { max-width: 520px; margin: 80px auto; padding: 32px; text-align: center; background: #fff; border: 1px solid var(--line); border-radius: 12px; }
+.error-fallback h1 { font-size: 22px; margin-bottom: 12px; }
+.error-fallback button { margin-top: 16px; padding: 10px 18px; border: 0; border-radius: 8px; background: var(--ink); color: #fff; font-weight: 700; }
 .app-shell { min-height: 100vh; overflow: hidden; }
 .topbar { height: 74px; padding: 0 max(28px, calc((100vw - 1180px)/2)); display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(37,35,31,.1); background: rgba(247,245,240,.9); backdrop-filter: blur(15px); position: relative; z-index: 20; }
 .logo-button { border: 0; background: none; padding: 0; }

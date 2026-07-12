@@ -11,9 +11,9 @@
   "dependencies": {
     "@vitejs/plugin-react": "4.3.4",
     "vite": "5.4.14",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "lucide-react": "1.24.0"
   },
   "devDependencies": {}
 }

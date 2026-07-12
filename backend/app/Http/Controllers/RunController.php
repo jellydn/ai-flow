@@ -40,8 +40,8 @@ class RunController extends Controller
             $last = null;
             $deadline = microtime(true) + 55;
             while (microtime(true) < $deadline && ! connection_aborted()) {
-                $run->refresh()->load('launcher');
-                $snapshot = (new RunResource($run))->resolve();
+                $run->refresh();
+                $snapshot = (new RunResource($run->loadMissing('launcher')))->resolve();
                 $encoded = json_encode($snapshot);
                 if ($encoded !== $last) {
                     yield new StreamedEvent(event: 'progress', data: $encoded);
@@ -51,7 +51,7 @@ class RunController extends Controller
                     yield new StreamedEvent(event: $run->status, data: $encoded);
                     break;
                 }
-                usleep(500000);
+                usleep(1_000_000);
             }
         }, ['X-Accel-Buffering' => 'no', 'Cache-Control' => 'no-cache']);
     }
