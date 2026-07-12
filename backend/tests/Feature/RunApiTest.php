@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Jobs\ExecuteLauncherJob;
+use App\Models\Launcher;
+use App\Models\Run;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -60,6 +62,25 @@ class RunApiTest extends TestCase
         $this->getJson('/api/executions/'.$response->json('id'))
             ->assertOk()
             ->assertJsonPath('data.launcher', 'laravel-doctor');
+    }
+
+    public function test_stream_emits_terminal_snapshot_without_buffering(): void
+    {
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'laravel-doctor')->value('id'),
+            'source_url' => 'https://github.com/laravel/framework',
+            'input' => ['source_url' => 'https://github.com/laravel/framework'],
+            'status' => 'completed',
+            'progress' => ['Preparing report'],
+            'result' => ['summary' => 'Ready'],
+            'completed_at' => now(),
+        ]);
+
+        $response = $this->get('/api/runs/'.$run->id.'/stream');
+
+        $response->assertOk()->assertHeader('X-Accel-Buffering', 'no');
+        $this->assertStringContainsString('event: completed', $response->streamedContent());
+        $this->assertStringContainsString('"status":"completed"', $response->streamedContent());
     }
 
     public function test_rejects_invalid_url_and_unknown_launcher(): void
