@@ -6,11 +6,11 @@ Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Lara
 
 **AI Launcher** turns public GitHub URLs into structured AI workflow reports (review PR, plan issue, explain repo, Laravel doctor).
 
-| Area | Path | Stack |
-|------|------|--------|
-| **Launcher UI** | repo root (`src/`, `index.html`) | Vite + React (prototype; simulated runs unless wired to API) |
-| **API** | `backend/` | Laravel 12, PHP 8.2+, queue jobs, OpenAI + GitHub REST |
-| **Production** | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root |
+| Area            | Path                                                                         | Stack                                                     |
+| --------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Launcher UI** | repo root (`src/`, `index.html`)                                             | Vite + React; calls real API unless `VITE_DEMO_MODE=true` |
+| **API**         | `backend/`                                                                   | Laravel 12, PHP 8.2+, queue jobs, OpenAI + GitHub REST    |
+| **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root                 |
 
 Architecture decisions: [`doc/adr/README.md`](doc/adr/README.md).
 
@@ -20,12 +20,15 @@ Architecture decisions: [`doc/adr/README.md`](doc/adr/README.md).
 
 ```bash
 npm install
-npm run dev        # Vite on 0.0.0.0 (allowedHosts: all)
+npm run dev        # Vite dev binds 0.0.0.0
 npm run build      # → dist/
 npm run preview
 ```
 
 No ESLint/Prettier at root—match existing style in `src/main.jsx` and `src/styles.css`.
+
+- `vite.config.js` `server.allowedHosts` is an explicit list (`localhost`, `127.0.0.1`, `.onamp.dev`, `.amp.dev`), **not** `true`. Add your remote-preview host there, not `true`.
+- Frontend calls the real API by default (`VITE_API_BASE_URL`, default `http://localhost:8000`). Set `VITE_DEMO_MODE=true` (root `.env.local`) to run simulated runs without a backend.
 
 ### Backend (`backend/`)
 
