@@ -1,4 +1,5 @@
 # Coding Conventions
+
 **Analysis Date:** 2026-07-12
 
 ## Naming Patterns
@@ -55,8 +56,12 @@ public function execute(Run $run): void
 ```jsx
 // `src/main.jsx`
 function WorkflowIcon({ workflow, size = 20 }) {
-  const Icon = workflow.icon
-  return <div className={`workflow-icon ${workflow.tone}`}><Icon size={size} strokeWidth={2} /></div>
+  const Icon = workflow.icon;
+  return (
+    <div className={`workflow-icon ${workflow.tone}`}>
+      <Icon size={size} strokeWidth={2} />
+    </div>
+  );
 }
 ```
 
@@ -68,11 +73,11 @@ function WorkflowIcon({ workflow, size = 20 }) {
 
 ```jsx
 // `src/main.jsx`
-import React, { useEffect, useMemo, useState } from 'react'
-import { createRoot } from 'react-dom/client'
-import { ErrorBoundary } from './components/ErrorBoundary.jsx'
-import { createRun, fetchRun, streamRun } from './lib/api.js'
-import './styles.css'
+import React, { useEffect, useMemo, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
+import { createRun, fetchRun, streamRun } from "./lib/api.js";
+import "./styles.css";
 ```
 
 ## Error Handling
@@ -128,4 +133,5 @@ import './styles.css'
 - The frontend and Laravel backend are separate build roots. Root commands build Vite; backend commands and tests run from `backend/`.
 
 ---
-*Convention analysis: 2026-07-12*
+
+_Convention analysis: 2026-07-12_

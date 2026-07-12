@@ -1,4 +1,5 @@
 # Testing Patterns
+
 **Analysis Date:** 2026-07-12
 
 ## Test Framework
@@ -157,4 +158,5 @@ $this->assertNull($run->fresh()->source_context);
 - Keep tests deterministic: no real GitHub/OpenAI network calls, in-memory database, array stores, fixed payloads, and bounded generated data.
 
 ---
-*Testing analysis: 2026-07-12*
+
+_Testing analysis: 2026-07-12_

@@ -6,12 +6,12 @@ Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Lara
 
 **AI Launcher** turns public GitHub URLs into structured AI workflow reports (review PR, plan issue, explain repo, Laravel doctor).
 
-| Area | Path | Stack |
-| --- | --- | --- |
-| **Launcher UI** | `backend/resources/ts/` + `backend/resources/views/app.blade.php` | React + TypeScript, Vite (served by Laravel) |
-| **API** | `backend/` | Laravel 13, PHP 8.4+, queue jobs, OpenAI + GitHub REST |
-| **Durable DB** | Laravel Cloud Postgres/MySQL | Local dev uses SQLite; production needs a managed DB |
-| **Production** | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root |
+| Area            | Path                                                                         | Stack                                                  |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Launcher UI** | `backend/resources/ts/` + `backend/resources/views/app.blade.php`            | React + TypeScript, Vite (served by Laravel)           |
+| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.4+, queue jobs, OpenAI + GitHub REST |
+| **Durable DB**  | Laravel Cloud Postgres/MySQL                                                 | Local dev uses SQLite; production needs a managed DB   |
+| **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root              |
 
 Architecture decisions: [`doc/adr/README.md`](doc/adr/README.md).
 

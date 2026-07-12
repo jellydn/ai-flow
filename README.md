@@ -14,12 +14,12 @@ AI Launcher lets developers launch predefined AI workflows from a GitHub URL ins
 
 Developers repeatedly copy context into ChatGPT, Claude, or other AI tools:
 
-1. Open GitHub  
-2. Copy a PR or issue  
-3. Paste into AI  
-4. Write a prompt  
-5. Wait  
-6. Repeat for every task  
+1. Open GitHub
+2. Copy a PR or issue
+3. Paste into AI
+4. Write a prompt
+5. Wait
+6. Repeat for every task
 
 That flow is repetitive, inconsistent, and hard to share.
 
@@ -33,54 +33,54 @@ One-click workflows. No prompt engineering.
 
 ## Target users
 
-- Software engineers  
-- Open source maintainers  
-- Engineering managers  
-- Technical reviewers  
+- Software engineers
+- Open source maintainers
+- Engineering managers
+- Technical reviewers
 
 ## Features (product)
 
-| Area | Description |
-|------|-------------|
-| **Launcher library** | Catalog of reusable workflows (name, input type, prompt, JSON schema, result template) |
-| **Execution timeline** | Live agent progress (metadata, context, analysis, validation, report) |
-| **Structured reports** | Summary, findings, severity, fixes, checklists—not chat transcripts |
-| **Shareable runs** | Every run gets a public URL, e.g. `/runs/abc123` |
+| Area                   | Description                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| **Launcher library**   | Catalog of reusable workflows (name, input type, prompt, JSON schema, result template) |
+| **Execution timeline** | Live agent progress (metadata, context, analysis, validation, report)                  |
+| **Structured reports** | Summary, findings, severity, fixes, checklists—not chat transcripts                    |
+| **Shareable runs**     | Every run gets a public URL, e.g. `/runs/abc123`                                       |
 
 ### Built-in workflows (MVP)
 
-- Review pull request  
-- Plan GitHub issue  
-- Explain repository  
-- Laravel project doctor  
+- Review pull request
+- Plan GitHub issue
+- Explain repository
+- Laravel project doctor
 
 Marketing copy in the UI may list extra workflow ideas; the API runs the four launcher slugs seeded in the database (see [`backend/README.md`](backend/README.md)).
 
 ### Inputs (MVP)
 
-- Public GitHub repository  
-- Public GitHub pull request  
-- Public GitHub issue  
+- Public GitHub repository
+- Public GitHub pull request
+- Public GitHub issue
 
 ### Output per run
 
-- Executive summary  
-- Key findings  
-- Recommendations  
-- Verification checklist  
-- Estimated AI cost  
-- Processing time  
-- Shareable report URL  
+- Executive summary
+- Key findings
+- Recommendations
+- Verification checklist
+- Estimated AI cost
+- Processing time
+- Shareable report URL
 
 ## User flow
 
-1. Visit AI Launcher  
-2. Paste a GitHub URL  
-3. Select a workflow  
-4. Click **Launch**  
-5. Watch live execution progress  
-6. View structured report  
-7. Share the result  
+1. Visit AI Launcher
+2. Paste a GitHub URL
+3. Select a workflow
+4. Click **Launch**
+5. Watch live execution progress
+6. View structured report
+7. Share the result
 
 ## Demo scenario
 
@@ -98,27 +98,27 @@ Review Pull Request
 
 **Output**
 
-- Risk: Medium  
-- Findings with severity and suggested fixes  
-- Verification checklist  
-- Shareable report URL  
+- Risk: Medium
+- Findings with severity and suggested fixes
+- Verification checklist
+- Shareable report URL
 
 ## Success metrics
 
-- First report in under 60 seconds  
-- Fewer than 3 clicks to launch  
-- Shareable URL for every run  
-- 80%+ successful workflow completion  
-- Multiple workflows per session  
+- First report in under 60 seconds
+- Fewer than 3 clicks to launch
+- Shareable URL for every run
+- 80%+ successful workflow completion
+- Multiple workflows per session
 
 ## Tech stack
 
-| Layer | Stack |
-|-------|-------|
-| **Frontend** | React, TypeScript, Vite (served by Laravel) |
-| **Backend** | Laravel 13, Laravel Cloud, queues, cache, scheduler |
-| **AI** | OpenAI Responses API (initial), provider abstraction |
-| **Storage** | Neon PostgreSQL in production, SQLite in development |
+| Layer        | Stack                                                |
+| ------------ | ---------------------------------------------------- |
+| **Frontend** | React, TypeScript, Vite (served by Laravel)          |
+| **Backend**  | Laravel 13, Laravel Cloud, queues, cache, scheduler  |
+| **AI**       | OpenAI Responses API (initial), provider abstraction |
+| **Storage**  | Neon PostgreSQL in production, SQLite in development |
 
 ## This repository
 
@@ -189,19 +189,19 @@ php artisan test
 
 ## Roadmap (not weekend MVP)
 
-- GitHub OAuth and private repositories  
-- Multiple AI providers  
-- Custom workflows and marketplace  
-- Team workspace  
-- Markdown export, GitHub comments, Slack  
-- API access  
+- GitHub OAuth and private repositories
+- Multiple AI providers
+- Custom workflows and marketplace
+- Team workspace
+- Markdown export, GitHub comments, Slack
+- API access
 
 ## Non-goals (weekend MVP)
 
-- Autonomous coding agents  
-- Repository cloning  
-- Pull request creation  
-- Billing, authentication, private repos, team collaboration  
+- Autonomous coding agents
+- Repository cloning
+- Pull request creation
+- Billing, authentication, private repos, team collaboration
 
 ## Elevator pitch
 
