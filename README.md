@@ -124,6 +124,8 @@ Review Pull Request
 
 Weekend MVP **launcher UI** synced from [Amp](https://ampcode.com) (`@productsway/AI-Flow`). It demonstrates workflows, launch flow, and report layout. Backend execution, persistence, and shareable `/runs/:id` routes are product goals—not necessarily implemented here yet.
 
+Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README.md).
+
 ### Local development
 
 Requires [Node.js](https://nodejs.org/) (or Bun).
@@ -167,3 +169,7 @@ npm run preview  # preview production build
 <p align="center">
   <sub>Product PRD · Prototype UI · <a href="https://github.com/jellydn/ai-flow">jellydn/ai-flow</a></sub>
 </p>
+
+## API backend
+
+The Laravel queue-backed API is in [`backend/`](backend/README.md). See its README for setup, endpoints, streaming, and deployment.
