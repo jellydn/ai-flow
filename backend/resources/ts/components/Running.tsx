@@ -47,7 +47,7 @@ export function Running({ title, repo, steps, currentStep }: RunningProps) {
 
                     return (
                         <div
-                            key={`${step.title}-${index}`}
+                            key={`${step.title}::${step.detail ?? ''}`}
                             className={`step ${complete ? 'done' : ''} ${current ? 'current' : ''} ${pending ? 'pending' : ''}`}
                         >
                             <div className="step-icon">{icon}</div>

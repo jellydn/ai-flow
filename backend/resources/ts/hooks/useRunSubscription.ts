@@ -1,57 +1,61 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Run } from '../types/api.ts';
 import { decodeRun, fetchRun } from '../services/run.ts';
 
 const POLL_INTERVAL_MS = 1500;
 
-export function useRunSubscription(runId: string | null, initialRun?: Run | null) {
-    const [run, setRun] = useState<Run | null>(initialRun ?? null);
-    const [error, setError] = useState<string | null>(null);
-    const initialRunRef = useRef(initialRun ?? null);
+function seedRunForId(runId: string | null, initialRun?: Run | null): Run | null {
+    if (!runId) {
+        return null;
+    }
 
-    initialRunRef.current = initialRun ?? null;
+    return initialRun?.id === runId ? initialRun : null;
+}
+
+function syncKey(runId: string | null, initialRun?: Run | null): string {
+    return `${runId ?? ''}|${initialRun?.id ?? ''}`;
+}
+
+export function useRunSubscription(runId: string | null, initialRun?: Run | null) {
+    const [run, setRun] = useState<Run | null>(() => seedRunForId(runId, initialRun));
+    const [error, setError] = useState<string | null>(null);
+    const [appliedSyncKey, setAppliedSyncKey] = useState(() => syncKey(runId, initialRun));
+
+    const nextSyncKey = syncKey(runId, initialRun);
+    if (nextSyncKey !== appliedSyncKey) {
+        setAppliedSyncKey(nextSyncKey);
+        setRun(seedRunForId(runId, initialRun));
+    }
 
     useEffect(() => {
         setError(null);
 
         if (!runId) {
-            setRun(null);
-            return;
+            return undefined;
         }
 
         const id = runId;
-        setRun(initialRunRef.current);
-
         let cancelled = false;
         let source: EventSource | null = null;
         let pollTimer: ReturnType<typeof setInterval> | null = null;
         let terminal = false;
 
-        function stopSse() {
+        function stopSse(): void {
             if (source) {
                 source.close();
                 source = null;
             }
         }
 
-        function stopPolling() {
-            if (pollTimer) {
+        function stopPolling(): void {
+            if (pollTimer !== null) {
                 clearInterval(pollTimer);
                 pollTimer = null;
             }
         }
 
-        function stop() {
-            stopSse();
-            stopPolling();
-        }
-
-        function startPolling() {
-            if (pollTimer || cancelled) {
-                return;
-            }
-
-            pollTimer = setInterval(async () => {
+        const pollTick = () => {
+            void (async () => {
                 if (cancelled) {
                     return;
                 }
@@ -64,15 +68,16 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                     setRun(snapshot);
                     if (snapshot.status === 'completed' || snapshot.status === 'failed') {
                         terminal = true;
-                        stop();
+                        stopPolling();
+                        stopSse();
                     }
                 } catch {
                     // Keep polling until the run resolves or the hook unmounts.
                 }
-            }, POLL_INTERVAL_MS);
-        }
+            })();
+        };
 
-        function handleEvent(event: MessageEvent, type: 'progress' | 'completed' | 'failed') {
+        function handleEvent(event: MessageEvent, type: 'progress' | 'completed' | 'failed'): void {
             try {
                 const snapshot = decodeRun(JSON.parse(event.data) as unknown);
                 if (cancelled) {
@@ -81,7 +86,8 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                 setRun(snapshot);
                 if (type === 'completed' || type === 'failed') {
                     terminal = true;
-                    stop();
+                    stopPolling();
+                    stopSse();
                 }
             } catch (e) {
                 if (e instanceof Error) {
@@ -90,43 +96,54 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
             }
         }
 
-        function connectSse() {
-            if (cancelled || typeof EventSource === 'undefined') {
-                startPolling();
-                return;
-            }
+        if (typeof EventSource === 'undefined') {
+            pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
+        } else {
+            const onProgress = (event: Event) => handleEvent(event as MessageEvent, 'progress');
+            const onCompleted = (event: Event) => handleEvent(event as MessageEvent, 'completed');
+            const onFailed = (event: Event) => handleEvent(event as MessageEvent, 'failed');
+            const onStreamError = () => {
+                stopSse();
+                if (!terminal && !cancelled && pollTimer === null) {
+                    pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
+                }
+            };
 
             try {
                 source = new EventSource(`/api/runs/${encodeURIComponent(id)}/stream`);
-                source.addEventListener('progress', (event) => handleEvent(event, 'progress'));
-                source.addEventListener('completed', (event) => handleEvent(event, 'completed'));
-                source.addEventListener('failed', (event) => handleEvent(event, 'failed'));
-                source.onerror = () => {
-                    stopSse();
-                    if (!terminal && !cancelled) {
-                        startPolling();
-                    }
-                };
+                source.addEventListener('progress', onProgress);
+                source.addEventListener('completed', onCompleted);
+                source.addEventListener('failed', onFailed);
+                source.onerror = onStreamError;
             } catch {
-                if (!cancelled) {
-                    startPolling();
-                }
+                pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
             }
-        }
 
-        connectSse();
+            return () => {
+                cancelled = true;
+                if (pollTimer !== null) {
+                    clearInterval(pollTimer);
+                    pollTimer = null;
+                }
+                if (source) {
+                    source.removeEventListener('progress', onProgress);
+                    source.removeEventListener('completed', onCompleted);
+                    source.removeEventListener('failed', onFailed);
+                    source.onerror = null;
+                    source.close();
+                    source = null;
+                }
+            };
+        }
 
         return () => {
             cancelled = true;
-            stop();
+            if (pollTimer !== null) {
+                clearInterval(pollTimer);
+                pollTimer = null;
+            }
         };
     }, [runId]);
-
-    useEffect(() => {
-        if (runId && initialRunRef.current) {
-            setRun((current) => current ?? initialRunRef.current);
-        }
-    }, [runId, initialRun]);
 
     return { run, error };
 }

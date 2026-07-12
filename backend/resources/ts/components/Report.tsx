@@ -97,7 +97,7 @@ export function Report({ launcherName, repo, copied, setCopied, reset, runId, re
                         </div>
                         <div className="findings-list">
                             {findings.map((finding, index) => (
-                                <div className="finding" key={`${finding.title}-${index}`}>
+                                <div className="finding" key={`${finding.title}::${finding.description}`}>
                                     <div className="finding-header">
                                         <span className={`severity ${finding.severity}`}>{finding.severity}</span>
                                         <span className="finding-number">{String(index + 1).padStart(2, '0')}</span>
