@@ -1,4 +1,4 @@
-# AI Launcher
+# AI Flow
 
 Laravel 13 application that serves the React UI and queues GitHub workflow analyses, returning schema-constrained OpenAI results.
 

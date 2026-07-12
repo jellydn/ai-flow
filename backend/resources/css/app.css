@@ -708,6 +708,92 @@ em {
 .steps-list > div > svg {
   color: #5f5c55;
 }
+.features-section {
+  max-width: 1180px;
+  margin: auto;
+  padding: 105px 20px;
+  text-align: center;
+}
+.features-section > h2 {
+  font-size: clamp(38px, 4vw, 53px);
+  letter-spacing: -0.055em;
+  margin: 10px 0 0;
+  line-height: 1.1;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin-top: 45px;
+  text-align: left;
+}
+.feature-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  padding: 24px;
+  border-radius: 12px;
+  transition: 0.2s;
+}
+.feature-card:hover {
+  transform: translateY(-4px);
+  border-color: #bcb7ab;
+  box-shadow: 0 16px 30px rgba(30, 28, 24, 0.08);
+}
+.feature-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px 9px 9px 3px;
+  background: var(--ink);
+  color: #fff;
+  margin-bottom: 16px;
+}
+.feature-card h3 {
+  font-size: 16px;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+}
+.feature-card p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.6;
+  margin: 0;
+}
+.cta-band {
+  text-align: center;
+  padding: 100px 20px;
+  background: #1d1c19;
+  color: #fff;
+}
+.cta-mark {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto 24px;
+  border-radius: 15px 15px 15px 5px;
+  background: #26241f;
+  color: #f7f5f0;
+}
+.cta-band h2 {
+  font-size: clamp(34px, 4vw, 50px);
+  letter-spacing: -0.055em;
+  line-height: 1.1;
+  margin: 0 0 14px;
+}
+.cta-band > p {
+  color: #8e8a81;
+  font-size: 15px;
+  margin: 0 auto 30px;
+  max-width: 520px;
+}
+.cta-button {
+  width: auto;
+  margin: 0 auto;
+  padding-left: 26px;
+  padding-right: 26px;
+}
 footer {
   max-width: 1180px;
   padding: 35px 20px;
@@ -1212,6 +1298,15 @@ footer > span {
   }
   .workflow-card {
     min-height: 240px;
+  }
+  .features-section {
+    padding: 75px 18px;
+  }
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+  .cta-band {
+    padding: 75px 18px;
   }
   .how-section {
     grid-template-columns: 1fr;

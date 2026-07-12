@@ -89,7 +89,7 @@ class GitHubContextFetcher
     {
         $http = Http::baseUrl('https://api.github.com')
             ->acceptJson()
-            ->withUserAgent('ai-launcher')
+            ->withUserAgent('ai-flow')
             ->timeout(15)
             ->retry(2, 200, null, false);
 
