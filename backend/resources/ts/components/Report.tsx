@@ -1,4 +1,4 @@
-import { ArrowRight, Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from 'lucide-react';
+import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from 'lucide-react';
 import type { ExecutionResult, Finding } from '../types/api.ts';
 import type { Workflow } from '../data/workflows.ts';
 import { demoFindings } from '../data/workflows.ts';
@@ -33,17 +33,17 @@ function toDisplayFinding(finding: Finding): DisplayFinding {
 }
 
 export function Report({ workflow, repo, copied, setCopied, reset, runId, result }: ReportProps) {
-    const useDemo = !result;
+    const useDemo = !runId && !result;
     const findings: DisplayFinding[] = useDemo
         ? demoFindings
-        : (result.findings ?? []).map(toDisplayFinding);
+        : (result?.findings ?? []).map(toDisplayFinding);
     const summary = useDemo
         ? 'This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging.'
-        : result.summary;
-    const risk = useDemo ? 'medium' : (result.risk ?? 'medium');
+        : (result?.summary ?? '');
+    const risk = useDemo ? 'medium' : (result?.risk ?? 'medium');
     const checklist = useDemo
         ? ['Add authorization policy check before deleting tools', 'Replace usage counter update with atomic increment', 'Add feature tests for combined filters', 'Run the full test suite before merge']
-        : (result.verificationSteps ?? []);
+        : (result?.verificationSteps ?? []);
 
     const copy = async () => {
         const link = runId ? shareRunUrl(runId) : `${window.location.origin}/runs/demo`;
@@ -63,9 +63,7 @@ export function Report({ workflow, repo, copied, setCopied, reset, runId, result
                         {copied ? <Check size={16} /> : <Copy size={16} />}
                         {copied ? 'Copied' : 'Copy link'}
                     </button>
-                    <button type="button" className="primary-share">
-                        Share report <ArrowRight size={16} />
-                    </button>
+
                 </div>
             </div>
 

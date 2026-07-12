@@ -51,6 +51,8 @@ export function App() {
     useEffect(() => {
         if (DEMO_MODE) return undefined;
 
+        let active = true;
+
         const loadFromPath = async (pathname: string) => {
             const match = pathname.match(/^\/runs\/([0-9a-f-]+)\/?$/i);
             if (!match) return;
@@ -58,6 +60,7 @@ export function App() {
             const id = match[1];
             try {
                 const snapshot = await getExecution(id);
+                if (!active) return;
                 const workflow = workflowBySlug[snapshot.flowId ?? ''];
                 setSelected(workflow?.id ?? 'review');
                 setUrl(snapshot.input?.source_url ?? '');
@@ -65,6 +68,7 @@ export function App() {
                 setRunSnapshot(snapshot);
                 setView(viewFromStatus(snapshot.status));
             } catch (e) {
+                if (!active) return;
                 setError(e instanceof Error ? e.message : 'Could not load this report.');
                 setView('home');
             }
@@ -82,7 +86,10 @@ export function App() {
         };
 
         window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
+        return () => {
+            active = false;
+            window.removeEventListener('popstate', handlePopState);
+        };
     }, []);
 
     useEffect(() => {

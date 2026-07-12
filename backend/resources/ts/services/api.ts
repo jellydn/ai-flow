@@ -36,7 +36,7 @@ function buildErrorMessage(response: Response, body: Record<string, unknown>): s
 }
 
 function toFlow(value: unknown): Flow {
-    const item = value as Record<string, unknown>;
+    const item = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
     return {
         id: String(item.id ?? item.slug ?? ''),
         slug: String(item.slug ?? ''),
@@ -52,7 +52,7 @@ function toFindings(value: unknown): Finding[] | undefined {
     }
 
     return value.map((finding) => {
-        const f = finding as Record<string, unknown>;
+        const f = finding && typeof finding === 'object' ? (finding as Record<string, unknown>) : {};
         return {
             severity: String(f.severity ?? ''),
             title: String(f.title ?? ''),
@@ -86,11 +86,11 @@ function toExecutionStatus(value: unknown): ExecutionStatus {
     if (value === 'queued' || value === 'running' || value === 'completed' || value === 'failed') {
         return value;
     }
-    return 'failed';
+    return 'running';
 }
 
 export function toExecution(value: unknown): Execution {
-    const data = value as Record<string, unknown>;
+    const data = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
     return {
         id: String(data.id ?? ''),
         flowId: data.launcher ? String(data.launcher) : (data.flowId ? String(data.flowId) : null),
@@ -218,6 +218,7 @@ export function subscribeToExecution(
     }
 
     let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let connectTimer: ReturnType<typeof setTimeout> | null = null;
     let sseAttempts = 0;
     const maxSseAttempts = 5;
     let source: EventSource | null = null;
@@ -228,11 +229,15 @@ export function subscribeToExecution(
     }
 
     function startPolling(): void {
-        if (pollTimer !== null) {
+        if (cancelled || pollTimer !== null) {
             return;
         }
 
         pollTimer = setInterval(async () => {
+            if (cancelled) {
+                return;
+            }
+
             try {
                 const snapshot = await getExecution(id);
                 const isTerminal = snapshot.status === 'completed' || snapshot.status === 'failed'
@@ -263,10 +268,18 @@ export function subscribeToExecution(
         cancelled = true;
         stopSse();
         stopPolling();
+        if (connectTimer !== null) {
+            clearTimeout(connectTimer);
+            connectTimer = null;
+        }
     }
 
     function connectSse(): void {
-        if (cancelled || typeof EventSource === 'undefined') {
+        if (cancelled) {
+            return;
+        }
+
+        if (typeof EventSource === 'undefined') {
             startPolling();
             return;
         }
@@ -292,7 +305,10 @@ export function subscribeToExecution(
             source.onerror = () => {
                 stopSse();
                 const delay = Math.min(1000 * 2 ** (sseAttempts - 1), 5000);
-                setTimeout(connectSse, delay);
+                connectTimer = setTimeout(() => {
+                    connectTimer = null;
+                    connectSse();
+                }, delay);
             };
         } catch (error) {
             if (error instanceof Error) {

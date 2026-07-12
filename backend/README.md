@@ -110,6 +110,8 @@ Run `php artisan migrate --force` during deployment and configure a worker with 
 
 Laravel Cloud deploys the whole `backend/` directory; the React UI is built during deployment and served by Laravel. The SPA fallback route ensures `/runs/{uuid}` resolves correctly.
 
+**Build step:** `public/build` is gitignored, so the Cloud deploy must install Node dependencies and build the Vite assets from the `backend/` root. Set the build command to `npm ci && npm run build` (or run `npm install && npm run build` before `composer install` if the image requires it). `composer.json`’s `setup` script also runs `npm run build` for local/offline installs, but the Cloud build step is the authoritative source for production assets.
+
 For CLI deployment, install the official Cloud CLI with `composer global require laravel/cloud-cli`, authenticate with `cloud auth -n`, and inspect current command options with `cloud <command> -h` rather than relying on fixed signatures. Use `cloud ship -n` for initial setup or `cloud deploy ... -n` for an existing application, then always verify the deployment with `cloud deploy:monitor -n`. Creating or deleting shared Cloud resources should be confirmed separately.
 
 ## Tests
