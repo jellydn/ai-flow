@@ -1,11 +1,22 @@
-export type ExecutionStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type RunStatus = 'queued' | 'running' | 'completed' | 'failed';
 
-export interface Flow {
+export interface Run {
     id: string;
-    slug: string;
-    name: string;
-    description: string;
-    inputType: string;
+    launcher: string | null;
+    input: { source_url?: string } | null;
+    status: RunStatus;
+    progress: string[];
+    result: RunResult | null;
+    error: string | null;
+    started_at: string | null;
+    completed_at: string | null;
+}
+
+export interface RunResult {
+    summary: string;
+    risk?: string;
+    findings?: Finding[];
+    verification_steps?: string[];
 }
 
 export interface Finding {
@@ -15,27 +26,21 @@ export interface Finding {
     recommendation: string;
 }
 
-export interface ExecutionResult {
-    summary: string;
-    risk?: string;
-    findings?: Finding[];
-    verificationSteps?: string[];
+export interface Launcher {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    input_type: string;
 }
 
-export interface Execution {
+export interface CreateRunResponse {
     id: string;
-    flowId: string | null;
-    input: { source_url?: string } | null;
-    status: ExecutionStatus;
-    progress: string[];
-    result: ExecutionResult | null;
-    error: string | null;
-    startedAt: string | null;
-    completedAt: string | null;
-}
-
-export interface CreateExecutionResponse {
-    id: string;
-    status: string;
+    status: RunStatus;
     message: string;
+}
+
+export interface ProgressStep {
+    title: string;
+    detail?: string;
 }

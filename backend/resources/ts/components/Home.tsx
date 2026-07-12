@@ -10,14 +10,14 @@ import {
     X,
     Zap,
 } from 'lucide-react';
-import type { Workflow } from '../data/workflows.ts';
-import { recentRuns, workflows } from '../data/workflows.ts';
+import type { Launcher } from '../types/api.ts';
+import { launcherMetaBySlug, quickLabel, recentRuns, workflowTitleToSlug } from '../data/launcherMeta.ts';
 import { scrollToSelector } from '../lib/scroll.ts';
-import { WorkflowIcon } from './WorkflowIcon.tsx';
+import { LauncherIcon } from './LauncherIcon.tsx';
 
 interface HomeProps {
     selected: string;
-    setSelected: (id: string) => void;
+    setSelected: (slug: string) => void;
     url: string;
     setUrl: (url: string) => void;
     error: string;
@@ -26,14 +26,7 @@ interface HomeProps {
     isLaunching: boolean;
     apiKey: string;
     setApiKey: (key: string) => void;
-}
-
-function quickLabel(workflow: Workflow): string {
-    if (workflow.id === 'review') return 'Review PR';
-    if (workflow.id === 'plan') return 'Plan fix';
-    if (workflow.id === 'explain') return 'Explain';
-    if (workflow.id === 'doctor') return 'Laravel doctor';
-    return workflow.title;
+    launchers: Launcher[];
 }
 
 export function Home({
@@ -47,11 +40,14 @@ export function Home({
     isLaunching,
     apiKey,
     setApiKey,
+    launchers,
 }: HomeProps) {
+    const quickLaunchers = launchers.slice(0, 4);
+
     return (
         <main>
             <section className="hero">
-                <div className="eyebrow"><Sparkles size={14} /> AI workflows, ready to launch</div>
+                <div className="eyebrow"><Sparkles size={14} /> AI launchers, ready to run</div>
                 <h1>
                     Launch developer
                     <br />
@@ -82,20 +78,23 @@ export function Home({
                     </div>
                     {error && <p className="input-error">{error}</p>}
 
-                    <div className="step-label workflow-label"><span>2</span> Choose a workflow</div>
+                    <div className="step-label workflow-label"><span>2</span> Choose a launcher</div>
                     <div className="quick-workflows">
-                        {workflows.slice(0, 4).map((workflow) => (
-                            <button
-                                type="button"
-                                key={workflow.id}
-                                className={selected === workflow.id ? 'active' : ''}
-                                onClick={() => setSelected(workflow.id)}
-                            >
-                                <workflow.icon size={15} />
-                                <span>{quickLabel(workflow)}</span>
-                                {selected === workflow.id && <Check size={13} />}
-                            </button>
-                        ))}
+                        {quickLaunchers.map((launcher) => {
+                            const meta = launcherMetaBySlug[launcher.slug];
+                            return (
+                                <button
+                                    type="button"
+                                    key={launcher.slug}
+                                    className={selected === launcher.slug ? 'active' : ''}
+                                    onClick={() => setSelected(launcher.slug)}
+                                >
+                                    {meta && <LauncherIcon icon={meta.icon} tone={meta.tone} size={15} />}
+                                    <span>{meta ? quickLabel(launcher.slug, meta.title) : launcher.name}</span>
+                                    {selected === launcher.slug && <Check size={13} />}
+                                </button>
+                            );
+                        })}
                     </div>
 
                     <div className="provider-section">
@@ -152,27 +151,30 @@ export function Home({
                 </h2>
                 <p>Battle-tested workflows for the work developers do every day.</p>
                 <div className="workflow-grid">
-                    {workflows.map((workflow) => (
-                        <button
-                            type="button"
-                            key={workflow.id}
-                            className={`workflow-card ${selected === workflow.id ? 'selected' : ''}`}
-                            onClick={() => { setSelected(workflow.id); scrollToSelector('#launcher'); }}
-                        >
-                            <div className="card-top">
-                                <WorkflowIcon workflow={workflow} size={23} />
-                                {workflow.popular && <span className="popular">Most popular</span>}
-                                {workflow.badge && <span className="laravel-badge">{workflow.badge}</span>}
-                            </div>
-                            <h3>{workflow.title}</h3>
-                            <p>{workflow.description}</p>
-                            <div className="card-meta">
-                                <span><Clock3 size={14} /> {workflow.time}</span>
-                                <span>{workflow.accepts}</span>
-                            </div>
-                            <div className="card-action">Launch workflow <ArrowRight size={17} /></div>
-                        </button>
-                    ))}
+                    {launchers.map((launcher) => {
+                        const meta = launcherMetaBySlug[launcher.slug];
+                        return (
+                            <button
+                                type="button"
+                                key={launcher.slug}
+                                className={`workflow-card ${selected === launcher.slug ? 'selected' : ''}`}
+                                onClick={() => { setSelected(launcher.slug); scrollToSelector('#launcher'); }}
+                            >
+                                <div className="card-top">
+                                    {meta && <LauncherIcon icon={meta.icon} tone={meta.tone} size={23} />}
+                                    {meta?.popular && <span className="popular">Most popular</span>}
+                                    {meta?.badge && <span className="laravel-badge">{meta.badge}</span>}
+                                </div>
+                                <h3>{meta?.title ?? launcher.name}</h3>
+                                <p>{meta?.description ?? launcher.description}</p>
+                                <div className="card-meta">
+                                    <span><Clock3 size={14} /> {meta?.time ?? ''}</span>
+                                    <span>{meta?.accepts ?? launcher.input_type}</span>
+                                </div>
+                                <div className="card-action">Launch workflow <ArrowRight size={17} /></div>
+                            </button>
+                        );
+                    })}
                 </div>
             </section>
 
@@ -191,7 +193,7 @@ export function Home({
                             key={run.repo}
                             onClick={() => {
                                 setUrl(`https://github.com/${run.repo}/pull/42`);
-                                setSelected(run.workflow === 'Laravel Doctor' ? 'doctor' : run.workflow === 'Issue Plan' ? 'plan' : 'review');
+                                setSelected(workflowTitleToSlug(run.workflow));
                                 scrollToSelector('#launcher');
                             }}
                         >

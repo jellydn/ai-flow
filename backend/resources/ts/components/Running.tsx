@@ -1,69 +1,57 @@
-import { Bot, Check, LoaderCircle, ShieldCheck } from 'lucide-react';
-import type { Workflow } from '../data/workflows.ts';
+import { Check, Loader2 } from 'lucide-react';
+import type { ProgressStep } from '../types/api.ts';
 
 interface RunningProps {
-    activeWorkflow: Workflow | undefined;
+    title: string;
     repo: string;
-    step: number;
-    executionSteps: Array<[string, string]>;
-    live: boolean;
+    steps: ProgressStep[];
+    currentStep: number;
 }
 
-export function Running({ activeWorkflow, repo, step, executionSteps, live }: RunningProps) {
-    const total = Math.max(executionSteps.length, 5);
-    const progress = Math.min(100, Math.max(0, Math.round((step / total) * 100)));
+export function Running({ title, repo, steps, currentStep }: RunningProps) {
+    const total = Math.max(steps.length, 5);
+    const progress = Math.min((currentStep / total) * 100, 100);
 
     return (
         <main className="running-page">
-            <div className="run-heading">
-                <div className="running-pulse"><Bot size={22} /></div>
-                <div>
-                    <div className="eyebrow">Workflow in progress</div>
-                    <h1>
-                        Analyzing <em>{repo}</em>
-                    </h1>
-                    <p>{activeWorkflow?.title} · This usually takes less than a minute</p>
+            <div className="running-header">
+                <h1>{title}</h1>
+                <p className="repo-name">{repo}</p>
+                <div className="progress-bar">
+                    <div className="progress-fill" style={{ width: `${progress}%` }} />
                 </div>
             </div>
-            <div className="progress-card">
-                <div className="progress-head">
-                    <span>AI analysis</span>
-                    <strong>{progress}%</strong>
-                </div>
-                <div className="progress-track">
-                    <span style={{ width: `${progress}%` }} />
-                </div>
-                <div className="timeline">
-                    {executionSteps.map(([title, detail], index) => {
-                        const complete = index < step;
-                        const current = index === step;
-                        let subtitle = 'Waiting…';
-                        if (complete) {
-                            subtitle = detail || 'Done';
-                        } else if (current) {
-                            subtitle = detail || (live ? 'In progress…' : 'Working…');
-                        }
-                        return (
-                            <div
-                                className={`timeline-row ${complete ? 'complete' : ''} ${current ? 'current' : ''}`}
-                                key={`${title}-${index}`}
-                            >
-                                <div className="status-icon">
-                                    {complete ? <Check size={16} /> : current ? <LoaderCircle size={16} className="spin" /> : <span />}
-                                </div>
-                                <div>
-                                    <strong>{title}</strong>
-                                    <p>{subtitle}</p>
-                                </div>
-                                {complete && <span className="done-label">Done</span>}
+
+            <div className="running-steps">
+                {steps.map((step, index) => {
+                    const complete = index < currentStep;
+                    const current = index === currentStep;
+                    const pending = index > currentStep;
+                    let subtitle: string;
+                    if (complete) {
+                        subtitle = step.detail || 'Done';
+                    } else if (current) {
+                        subtitle = step.detail || 'In progress…';
+                    } else {
+                        subtitle = 'Waiting…';
+                    }
+
+                    return (
+                        <div
+                            key={`${step.title}-${index}`}
+                            className={`step ${complete ? 'done' : ''} ${current ? 'current' : ''} ${pending ? 'pending' : ''}`}
+                        >
+                            <div className="step-icon">
+                                {complete ? <Check size={18} /> : current ? <Loader2 size={18} className="spin" /> : <span />}
                             </div>
-                        );
-                    })}
-                </div>
+                            <div className="step-body">
+                                <div className="step-title">{step.title}</div>
+                                <div className="step-subtitle">{subtitle}</div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
-            <p className="running-note">
-                <ShieldCheck size={16} /> GitHub context is used for analysis and cleared from storage after the report is ready.
-            </p>
         </main>
     );
 }

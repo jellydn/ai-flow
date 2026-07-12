@@ -1,0 +1,173 @@
+import { get, post } from '../lib/http.ts';
+import type { CreateRunResponse, Finding, Launcher, Run, RunResult, RunStatus } from '../types/api.ts';
+
+const isRunStatus: { [K in RunStatus]: true } = {
+    queued: true,
+    running: true,
+    completed: true,
+    failed: true,
+};
+
+function assertObject(value: unknown): Record<string, unknown> {
+    if (value === null || typeof value !== 'object') {
+        throw new Error('Expected an object.');
+    }
+    return value as Record<string, unknown>;
+}
+
+function assertString(value: unknown, field: string): string {
+    if (typeof value !== 'string') {
+        throw new Error(`Expected ${field} to be a string.`);
+    }
+    return value;
+}
+
+function assertStringOrNull(value: unknown, field: string): string | null {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    if (typeof value !== 'string') {
+        throw new Error(`Expected ${field} to be a string or null.`);
+    }
+    return value;
+}
+
+function assertArray(value: unknown, field: string): unknown[] {
+    if (!Array.isArray(value)) {
+        throw new Error(`Expected ${field} to be an array.`);
+    }
+    return value;
+}
+
+function decodeFinding(value: unknown): Finding {
+    const data = assertObject(value);
+    return {
+        severity: assertString(data.severity, 'finding.severity'),
+        title: assertString(data.title, 'finding.title'),
+        description: assertString(data.description, 'finding.description'),
+        recommendation: assertString(data.recommendation, 'finding.recommendation'),
+    };
+}
+
+function decodeFindings(value: unknown): Finding[] {
+    return assertArray(value, 'result.findings').map(decodeFinding);
+}
+
+function decodeVerificationSteps(value: unknown): string[] {
+    return assertArray(value, 'result.verification_steps').map((item, index) =>
+        assertString(item, `verification_steps[${index}]`),
+    );
+}
+
+function decodeRunResult(value: unknown): RunResult {
+    const data = assertObject(value);
+    const result: RunResult = {
+        summary: assertString(data.summary, 'result.summary'),
+    };
+
+    if (data.risk !== undefined) {
+        result.risk = assertString(data.risk, 'result.risk');
+    }
+
+    if (data.findings !== undefined) {
+        result.findings = decodeFindings(data.findings);
+    }
+
+    if (data.verification_steps !== undefined) {
+        result.verification_steps = decodeVerificationSteps(data.verification_steps);
+    }
+
+    return result;
+}
+
+export function decodeRun(value: unknown): Run {
+    const data = assertObject(value);
+
+    const result = data.result === null || data.result === undefined ? null : decodeRunResult(data.result);
+
+    const input = data.input === null || data.input === undefined ? null : assertObject(data.input);
+
+    const progress = assertArray(data.progress, 'progress').map((item, index) =>
+        assertString(item, `progress[${index}]`),
+    );
+
+    const status = data.status;
+    if (typeof status !== 'string' || !(status in isRunStatus)) {
+        throw new Error(`Expected status to be a valid run status, got ${typeof status}.`);
+    }
+
+    return {
+        id: assertString(data.id, 'id'),
+        launcher: assertStringOrNull(data.launcher, 'launcher'),
+        input,
+        status: status as RunStatus,
+        progress,
+        result,
+        error: assertStringOrNull(data.error, 'error'),
+        started_at: assertStringOrNull(data.started_at, 'started_at'),
+        completed_at: assertStringOrNull(data.completed_at, 'completed_at'),
+    };
+}
+
+function decodeLauncher(value: unknown): Launcher {
+    const data = assertObject(value);
+    return {
+        id: assertString(data.id, 'id'),
+        slug: assertString(data.slug, 'slug'),
+        name: assertString(data.name, 'name'),
+        description: assertString(data.description, 'description'),
+        input_type: assertString(data.input_type, 'input_type'),
+    };
+}
+
+export async function getLaunchers(): Promise<Launcher[]> {
+    const body = await get('/api/launchers');
+    const items = assertArray(body, 'launchers');
+    return items.map(decodeLauncher);
+}
+
+export async function fetchRun(id: string): Promise<Run> {
+    const body = await get(`/api/runs/${encodeURIComponent(id)}`);
+    const payload = body && typeof body === 'object' && 'data' in (body as Record<string, unknown>) && typeof (body as Record<string, unknown>).data === 'object'
+        ? (body as Record<string, unknown>).data
+        : body;
+    return decodeRun(payload);
+}
+
+export async function createRun(launcher: string, sourceUrl: string, apiKey: string): Promise<CreateRunResponse> {
+    const body = await post('/api/runs', {
+        launcher,
+        source_url: sourceUrl,
+        api_key: apiKey,
+    });
+    const data = assertObject(body);
+    return {
+        id: assertString(data.id, 'id'),
+        status: assertString(data.status, 'status') as RunStatus,
+        message: assertString(data.message, 'message'),
+    };
+}
+
+export function shareRunUrl(id: string): string {
+    return `${window.location.origin}/runs/${id}`;
+}
+
+export function parseGithubRepo(url: string): string | null {
+    try {
+        const parsed = new URL(url.trim());
+        if (parsed.hostname !== 'github.com') {
+            return null;
+        }
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        if (parts.length < 2) {
+            return null;
+        }
+        return `${parts[0]}/${parts[1]}`;
+    } catch {
+        return null;
+    }
+}
+
+export function isValidGithubUrl(url: string): boolean {
+    return parseGithubRepo(url) !== null;
+}

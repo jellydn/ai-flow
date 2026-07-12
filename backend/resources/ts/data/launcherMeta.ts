@@ -7,9 +7,9 @@ import {
     ShieldCheck,
     Stethoscope,
 } from 'lucide-react';
+import type { Finding, ProgressStep } from '../types/api.ts';
 
-export interface Workflow {
-    id: string;
+export interface LauncherMeta {
     slug: string | null;
     title: string;
     description: string;
@@ -21,9 +21,8 @@ export interface Workflow {
     badge?: string;
 }
 
-export const workflows: Workflow[] = [
+export const launcherMeta: LauncherMeta[] = [
     {
-        id: 'review',
         slug: 'review-pr',
         title: 'Review pull request',
         description: 'Find bugs, security risks, and regressions before they ship.',
@@ -34,7 +33,6 @@ export const workflows: Workflow[] = [
         popular: true,
     },
     {
-        id: 'plan',
         slug: 'plan-issue',
         title: 'Plan GitHub issue',
         description: 'Turn an issue into a scoped, actionable implementation plan.',
@@ -44,7 +42,6 @@ export const workflows: Workflow[] = [
         accepts: 'Issues',
     },
     {
-        id: 'explain',
         slug: 'explain-repository',
         title: 'Explain repository',
         description: 'Understand architecture, key modules, and how everything fits.',
@@ -54,7 +51,6 @@ export const workflows: Workflow[] = [
         accepts: 'Repositories',
     },
     {
-        id: 'doctor',
         slug: 'laravel-doctor',
         title: 'Laravel project doctor',
         description: 'Audit Laravel conventions, performance, and project health.',
@@ -65,7 +61,6 @@ export const workflows: Workflow[] = [
         badge: 'Laravel',
     },
     {
-        id: 'release',
         slug: null,
         title: 'Write release notes',
         description: 'Turn a pull request or commit range into clear user-facing notes.',
@@ -75,7 +70,6 @@ export const workflows: Workflow[] = [
         accepts: 'PRs or commits',
     },
     {
-        id: 'security',
         slug: null,
         title: 'Security scan',
         description: 'Run a focused pass for auth, input, and data exposure risks.',
@@ -86,8 +80,9 @@ export const workflows: Workflow[] = [
     },
 ];
 
-export const workflowById = Object.fromEntries(workflows.map((w) => [w.id, w]));
-export const workflowBySlug = Object.fromEntries(workflows.filter((w) => w.slug).map((w) => [w.slug, w]));
+export const launcherMetaBySlug: Record<string, LauncherMeta> = Object.fromEntries(
+    launcherMeta.filter((meta) => meta.slug !== null).map((meta) => [meta.slug as string, meta]),
+);
 
 export interface RecentRun {
     repo: string;
@@ -104,42 +99,59 @@ export const recentRuns: RecentRun[] = [
     { repo: 'calcom/cal.com', run: 'Issue #20418', workflow: 'Issue Plan', risk: '—', findings: 8, time: '29s' },
 ];
 
-export const demoExecutionSteps: [string, string][] = [
-    ['Reading GitHub metadata', 'Pull request #42 · 12 files changed'],
-    ['Loading source context', '2,840 lines analyzed'],
-    ['Running AI analysis', 'Reviewing logic, security, and test coverage'],
-    ['Validating response', 'Checking findings and citations'],
-    ['Generating report', 'Formatting your shareable result'],
-];
-
-export interface DemoFinding {
-    severity: string;
-    title: string;
-    file: string | null;
-    body: string;
-    fix: string;
+export function workflowTitleToSlug(title: string): string {
+    switch (title) {
+        case 'PR Review':
+            return 'review-pr';
+        case 'Laravel Doctor':
+            return 'laravel-doctor';
+        case 'Issue Plan':
+            return 'plan-issue';
+        default:
+            return 'review-pr';
+    }
 }
 
-export const demoFindings: DemoFinding[] = [
+export function quickLabel(slug: string, title: string): string {
+    switch (slug) {
+        case 'review-pr':
+            return 'Review PR';
+        case 'plan-issue':
+            return 'Plan fix';
+        case 'explain-repository':
+            return 'Explain';
+        case 'laravel-doctor':
+            return 'Laravel doctor';
+        default:
+            return title;
+    }
+}
+
+export const demoSteps: ProgressStep[] = [
+    { title: 'Reading GitHub metadata', detail: 'Pull request #42 · 12 files changed' },
+    { title: 'Loading source context', detail: '2,840 lines analyzed' },
+    { title: 'Running AI analysis', detail: 'Reviewing logic, security, and test coverage' },
+    { title: 'Validating response', detail: 'Checking findings and citations' },
+    { title: 'Generating report', detail: 'Formatting your shareable result' },
+];
+
+export const demoFindings: Finding[] = [
     {
         severity: 'high',
         title: 'Missing authorization check on tool deletion',
-        file: 'app/Http/Controllers/ToolController.php:84',
-        body: 'The destroy action loads a tool by ID but does not verify that it belongs to the authenticated user. A user could delete another user’s tool by changing the route parameter.',
-        fix: 'Add a policy check with $this->authorize(\'delete\', $tool) before deletion.',
+        description: 'The destroy action loads a tool by ID but does not verify that it belongs to the authenticated user. A user could delete another user’s tool by changing the route parameter.',
+        recommendation: 'Add a policy check with $this->authorize(\'delete\', $tool) before deletion.',
     },
     {
         severity: 'medium',
         title: 'Race condition when updating usage counters',
-        file: 'app/Services/UsageTracker.php:31',
-        body: 'The read-modify-write sequence is not atomic. Concurrent requests can overwrite each other and undercount usage.',
-        fix: 'Use Eloquent’s atomic increment() method inside the existing transaction.',
+        description: 'The read-modify-write sequence is not atomic. Concurrent requests can overwrite each other and undercount usage.',
+        recommendation: 'Use Eloquent’s atomic increment() method inside the existing transaction.',
     },
     {
         severity: 'low',
         title: 'New filtering behavior has no test coverage',
-        file: 'tests/Feature/ToolIndexTest.php',
-        body: 'The new category and status filters are user-facing but are not covered by feature tests.',
-        fix: 'Add cases for combined filters, empty results, and invalid category values.',
+        description: 'The new category and status filters are user-facing but are not covered by feature tests.',
+        recommendation: 'Add cases for combined filters, empty results, and invalid category values.',
     },
 ];
