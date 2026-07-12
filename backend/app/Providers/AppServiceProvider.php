@@ -33,13 +33,16 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
+        // Production may use Turso (libsql); file-backed sqlite is local/CI only.
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
             && config('database.default') === 'sqlite'
         ) {
-            throw new RuntimeException('SQLite must not be used as the production database. Set DB_CONNECTION to mysql or pgsql.');
+            throw new RuntimeException(
+                'SQLite must not be used as the production database. Set DB_CONNECTION to libsql (Turso), mysql, or pgsql.'
+            );
         }
 
         if (app()->environment('production') && strtolower((string) env('LOG_LEVEL', 'warning')) === 'debug') {
