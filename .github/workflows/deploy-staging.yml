@@ -1,0 +1,36 @@
+name: Deploy Staging
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+concurrency:
+  group: deploy-staging-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.event.pull_request.user.login == 'jellydn'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Prerequisite: add the corresponding public key to the Dokku server:
+      #   dokku ssh-keys:add admin < ~/.ssh/id_ed25519.pub
+      # See backend/DOKKU_DEPLOY.md for full setup.
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
+
+      - name: Trust Dokku host key
+        run: ssh-keyscan -H docklight-staging.itman.fyi >> ~/.ssh/known_hosts
+
+      - name: Deploy to Dokku
+        run: |
+          git remote add dokku dokku@docklight-staging.itman.fyi:ai-flow
+          git push --force dokku HEAD:main
