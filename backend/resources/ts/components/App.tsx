@@ -70,7 +70,12 @@ export function App() {
     const activeMeta = useMemo(() => launcherMetaBySlug[selected], [selected]);
     const parsedRepo = useMemo(() => parseGithubRepo(url) ?? "", [url]);
 
-    const liveRunId = view.type === "live-running" ? view.runId : (pathRunId ?? null);
+    const liveRunId =
+        view.type === "live-running"
+            ? view.runId
+            : view.type === "report" || view.type === "failed"
+              ? null
+              : (pathRunId ?? null);
     let liveInitialRun: Run | null = null;
     if (liveRunId && pathRun?.id === liveRunId) {
         liveInitialRun = pathRun;
