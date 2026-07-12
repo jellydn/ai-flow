@@ -68,11 +68,11 @@ Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor
 
 ## Laravel Cloud (production)
 
-- **Console:** https://cloud.laravel.com/dung-huynh-duc/ai-flow/production  
-- **App root in repo:** `backend/` (not monorepo root).  
-- **Deploy:** `composer global require laravel/cloud-cli`, `cloud auth -n`, then `cloud repo:config` and `cloud deploy ai-flow production -n` (discover flags via `cloud deploy -h`). Always `cloud deploy:monitor -n` after deploy.  
-- **Env on Cloud:** `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, `OPENAI_API_KEY`, optional `GITHUB_TOKEN`, durable `DB_*`, `CACHE_STORE`, `QUEUE_CONNECTION`. Run `php artisan migrate --force` on deploy.  
-- **SSE:** Proxy must disable buffering for `/api/runs/*/stream` (`X-Accel-Buffering: no`); allow long-lived responses (≥60s).  
+- **Console:** https://cloud.laravel.com/dung-huynh-duc/ai-flow/production
+- **App root in repo:** `backend/` (not monorepo root).
+- **Deploy:** `composer global require laravel/cloud-cli`, `cloud auth -n`, then `cloud ship -n` (initial setup) or `cloud deploy ai-flow production -n` (existing app; discover flags via `cloud deploy -h`). Always `cloud deploy:monitor -n` after deploy.
+- **Env on Cloud:** `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, `OPENAI_API_KEY`, optional `GITHUB_TOKEN`, durable `DB_*`, `CACHE_STORE`, `QUEUE_CONNECTION`. Run `php artisan migrate --force` on deploy.
+- **SSE:** Proxy must disable buffering for `/api/runs/*/stream` (`X-Accel-Buffering: no`); allow long-lived responses (≥60s).
 - **Docs / CLI:** https://cloud.laravel.com/docs/llms.txt — use `cloud <command> -h` for signatures; prefer `-n` on all commands (never `-q`). Destructive Cloud ops need explicit user approval.
 
 Official skill reference: [deploying-laravel-cloud](https://github.com/laravel/agent-skills/tree/main/laravel-cloud/skills/deploying-laravel-cloud).
