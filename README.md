@@ -116,7 +116,7 @@ Review Pull Request
 | Layer        | Stack                                                |
 | ------------ | ---------------------------------------------------- |
 | **Frontend** | React, TypeScript, Vite (served by Laravel)          |
-| **Backend**  | Laravel 13, Laravel Cloud, queues, cache, scheduler  |
+| **Backend**  | Laravel 13, Dokku/Laravel Cloud, queues, cache       |
 | **AI**       | OpenAI Responses API (initial), provider abstraction |
 | **Storage**  | Neon PostgreSQL in production, SQLite in development |
 
@@ -216,3 +216,5 @@ php artisan test
 ## API backend
 
 The Laravel queue-backed API and UI are in [`backend/`](backend/README.md). See its README for setup, endpoints, streaming, and deployment.
+
+Dokku VPS deployment instructions are in [`backend/DOKKU_DEPLOY.md`](backend/DOKKU_DEPLOY.md).
