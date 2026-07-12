@@ -118,13 +118,28 @@ Review Pull Request
 | **Frontend** | React, Tailwind CSS (this repo: Vite + React) |
 | **Backend** | Laravel 13, Laravel Cloud, queues, cache, scheduler |
 | **AI** | OpenAI Responses API (initial), provider abstraction |
-| **Storage** | MySQL/Postgres, Laravel cache |
+| **Storage** | Neon PostgreSQL in production, SQLite in development |
 
 ## This repository
 
 AI Launcher includes the Vite launcher UI and a Laravel API for queued execution, persistence, SSE progress, and structured reports. Shareable `/runs/:id` routes require the Vite build to be hosted with an SPA fallback; Laravel Cloud deploys `backend/` as the API application root only.
 
 Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README.md).
+
+## Database
+
+Production uses [Neon PostgreSQL](https://neon.com/) through Laravel's `pgsql` connection. Development defaults to local SQLite. Configure Neon with `DB_CONNECTION=pgsql`, its `DB_HOST`, `DB_PORT=5432`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_SSLMODE=require`; credentials must remain in environment variables. Run `php artisan migrate --force` during Laravel Cloud deployment.
+
+## Bring Your Own API Key
+
+Users may optionally provide their own OpenAI-compatible API key when launching a workflow. If blank, the server's `OPENAI_API_KEY` is used. User keys are:
+
+- used only for the current execution
+- never stored in run records or plaintext queue payloads
+- never logged
+- never returned by the API
+
+Queued jobs are encrypted with Laravel's `APP_KEY`, so Laravel Cloud web and worker processes must share the same stable `APP_KEY`. OpenAI is the initial provider; the request's `provider.id` contract allows additional provider adapters later.
 
 ### Local development
 

@@ -14,7 +14,37 @@ php artisan serve
 php artisan queue:work --tries=2 --timeout=120
 ```
 
-Set `OPENAI_API_KEY`; `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Configure `AI_MODEL` and `OPENAI_TIMEOUT` as needed. The provider accepts any OpenAI-compatible endpoint via `AI_BASE_URL`. For an OpenRouter free-model demo, set `OPENROUTER_API_KEY`, `AI_BASE_URL=https://openrouter.ai/api/v1`, and `AI_MODEL=openrouter/free` instead of `OPENAI_API_KEY`. The free router selects a currently available model that supports the request's structured-output parameters; free capacity and model selection are not guaranteed. Use a durable database/cache/queue in production.
+Set `OPENAI_API_KEY`; `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Configure `OPENAI_MODEL` and `OPENAI_TIMEOUT` as needed. The provider accepts any OpenAI-compatible endpoint via `AI_BASE_URL`. Use a durable database/cache/queue in production.
+
+## Database
+
+Development defaults to SQLite. Production uses Neon PostgreSQL via Laravel's standard `pgsql` driver:
+
+```dotenv
+DB_CONNECTION=pgsql
+DB_HOST=
+DB_PORT=5432
+DB_DATABASE=
+DB_USERNAME=
+DB_PASSWORD=
+DB_SSLMODE=require
+```
+
+Copy values from the Neon connection details; never commit credentials. From the `backend/` application root, verify connectivity with `php artisan migrate --force`. Neon must be reachable from both the Laravel Cloud web process and queue worker.
+
+## Bring Your Own API Key
+
+The server key remains the default. A caller can optionally supply an OpenAI-compatible key for one execution:
+
+```json
+{
+  "flow_id": "laravel-doctor",
+  "input": { "url": "https://github.com/laravel/laravel" },
+  "provider": { "id": "openai", "api_key": "sk-..." }
+}
+```
+
+The existing `launcher` and `source_url` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
@@ -33,9 +63,9 @@ curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/s
 
 ## Laravel Cloud
 
-Deploy `backend` as the application root. Provision a database, cache, and queue; set `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, provider settings (`OPENAI_API_KEY` or `OPENROUTER_API_KEY`, `AI_BASE_URL`, `AI_MODEL`), optional `GITHUB_TOKEN`, `CORS_ALLOWED_ORIGINS`, and the relevant `DB_*`, `CACHE_STORE`, and `QUEUE_CONNECTION` variables. Laravel Cloud may expose a managed database through `DATABASE_URL`; otherwise use the individual `DB_*` values supported by Laravel.
+Deploy `backend` as the application root. Provision a cache and database queue; set a stable shared `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, `OPENAI_API_KEY`, `OPENAI_MODEL=gpt-5`, optional `GITHUB_TOKEN`, `CORS_ALLOWED_ORIGINS`, Neon `DB_*` values, `DB_SSLMODE=require`, `CACHE_STORE`, and `QUEUE_CONNECTION=database`.
 
-**Database (Laravel 13):** attach **Laravel Serverless Postgres** or **Laravel MySQL** on Cloud and redeploy so `DB_*` env vars are injected. Do not use file SQLite in production. Turso (`libsql`) is not bundled on Laravel 13 until `turso/libsql-laravel` supports it; `config/database.php` may still document `libsql` for a future upgrade.
+**Database (Laravel 13):** use a Neon pooled or direct PostgreSQL connection with SSL required. Do not use file SQLite in production. Run migrations against Neon before starting the worker.
 
 Run `php artisan migrate --force` during deployment and configure a worker with `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Ensure the HTTP proxy disables buffering for `/api/runs/*/stream` and allows responses of at least 60 seconds. Never run AI work on the web process or with `QUEUE_CONNECTION=sync` in production.
 

@@ -8,9 +8,11 @@ use RuntimeException;
 
 class OpenAIProvider implements AIProviderInterface
 {
+    public function __construct(private ?string $apiKey = null) {}
+
     public function generate(string $prompt, array $schema): array
     {
-        $key = config('services.openai.key');
+        $key = $this->apiKey ?: config('services.openai.key');
         if (! $key) {
             throw new RuntimeException('The AI provider API key is not configured.');
         }
@@ -41,6 +43,9 @@ class OpenAIProvider implements AIProviderInterface
             ->retry(2, 500, throw: false)
             ->post($baseUrl.'/chat/completions', $payload);
 
+        if (in_array($response->status(), [401, 403], true)) {
+            throw new RuntimeException('Invalid API key.');
+        }
         if (! $response->successful()) {
             throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
         }

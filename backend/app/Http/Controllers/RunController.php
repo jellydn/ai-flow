@@ -24,7 +24,11 @@ class RunController extends Controller
             'status' => 'queued',
             'progress' => [],
         ]);
-        ExecuteLauncherJob::dispatch($run->id);
+        ExecuteLauncherJob::dispatch(
+            $run->id,
+            $request->validated('provider.id', 'openai'),
+            $request->validated('provider.api_key'),
+        );
 
         return response()->json(['id' => $run->id, 'status' => 'queued', 'message' => 'Workflow started'], 202);
     }

@@ -64,6 +64,35 @@ class RunApiTest extends TestCase
             ->assertJsonPath('data.launcher', 'laravel-doctor');
     }
 
+    public function test_execution_accepts_byop_contract_without_persisting_or_returning_key(): void
+    {
+        Queue::fake();
+        $apiKey = 'sk-user-secret-value';
+
+        $response = $this->postJson('/api/executions', [
+            'flow_id' => 'laravel-doctor',
+            'input' => ['url' => 'https://github.com/laravel/laravel'],
+            'provider' => ['id' => 'openai', 'api_key' => $apiKey],
+        ])->assertStatus(202);
+
+        $run = Run::findOrFail($response->json('id'));
+        $this->assertSame(['source_url' => 'https://github.com/laravel/laravel'], $run->input);
+        $this->assertStringNotContainsString($apiKey, json_encode($run->getAttributes(), JSON_THROW_ON_ERROR));
+        $this->getJson('/api/executions/'.$run->id)->assertJsonMissing(['api_key' => $apiKey]);
+        Queue::assertPushed(ExecuteLauncherJob::class);
+    }
+
+    public function test_execution_rejects_unsupported_provider(): void
+    {
+        Queue::fake();
+
+        $this->postJson('/api/executions', [
+            'flow_id' => 'laravel-doctor',
+            'input' => ['url' => 'https://github.com/laravel/laravel'],
+            'provider' => ['id' => 'anthropic', 'api_key' => 'secret'],
+        ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
+    }
+
     public function test_stream_emits_terminal_snapshot_without_buffering(): void
     {
         $run = Run::create([
