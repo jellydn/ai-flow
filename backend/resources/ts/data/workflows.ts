@@ -3,14 +3,22 @@ import {
     BookOpen,
     GitPullRequest,
     ListTodo,
-    Newspaper,
-    ShieldCheck,
     Stethoscope,
 } from 'lucide-react';
 
+export interface WorkflowPresentation {
+    id: string;
+    icon: LucideIcon;
+    tone: 'orange' | 'blue' | 'purple' | 'green';
+    time: string;
+    accepts: string;
+    popular?: boolean;
+    badge?: string;
+}
+
 export interface Workflow {
     id: string;
-    slug: string | null;
+    slug: string;
     title: string;
     description: string;
     icon: LucideIcon;
@@ -21,6 +29,66 @@ export interface Workflow {
     badge?: string;
 }
 
+/** Presentation metadata keyed by launcher slug from the API. */
+export const presentationBySlug: Record<string, WorkflowPresentation> = {
+    'review-pr': {
+        id: 'review',
+        icon: GitPullRequest,
+        tone: 'orange',
+        time: '~45 sec',
+        accepts: 'Pull requests',
+        popular: true,
+    },
+    'plan-issue': {
+        id: 'plan',
+        icon: ListTodo,
+        tone: 'blue',
+        time: '~30 sec',
+        accepts: 'Issues',
+    },
+    'explain-repository': {
+        id: 'explain',
+        icon: BookOpen,
+        tone: 'purple',
+        time: '~55 sec',
+        accepts: 'Repositories',
+    },
+    'laravel-doctor': {
+        id: 'doctor',
+        icon: Stethoscope,
+        tone: 'green',
+        time: '~60 sec',
+        accepts: 'Repositories',
+        badge: 'Laravel',
+    },
+};
+
+/** Build full Workflow objects by merging live Flow data with static presentation metadata. */
+export function buildWorkflows(flows: Array<{ slug: string; name: string; description: string }>): Workflow[] {
+    const result: Workflow[] = [];
+    for (const flow of flows) {
+        const pres = presentationBySlug[flow.slug];
+        if (!pres) {
+            console.warn(`Workflow slug "${flow.slug}" has no presentation metadata — add it to presentationBySlug.`);
+            continue;
+        }
+        result.push({
+            id: pres.id,
+            slug: flow.slug,
+            title: flow.name,
+            description: flow.description,
+            icon: pres.icon,
+            tone: pres.tone,
+            time: pres.time,
+            accepts: pres.accepts,
+            popular: pres.popular,
+            badge: pres.badge,
+        });
+    }
+    return result;
+}
+
+/** Legacy static catalog — replaced by buildWorkflows() at runtime. Kept for demo mode compatibility. */
 export const workflows: Workflow[] = [
     {
         id: 'review',
@@ -63,26 +131,6 @@ export const workflows: Workflow[] = [
         time: '~60 sec',
         accepts: 'Repositories',
         badge: 'Laravel',
-    },
-    {
-        id: 'release',
-        slug: null,
-        title: 'Write release notes',
-        description: 'Turn a pull request or commit range into clear user-facing notes.',
-        icon: Newspaper,
-        tone: 'blue',
-        time: '~25 sec',
-        accepts: 'PRs or commits',
-    },
-    {
-        id: 'security',
-        slug: null,
-        title: 'Security scan',
-        description: 'Run a focused pass for auth, input, and data exposure risks.',
-        icon: ShieldCheck,
-        tone: 'purple',
-        time: '~50 sec',
-        accepts: 'Pull requests',
     },
 ];
 

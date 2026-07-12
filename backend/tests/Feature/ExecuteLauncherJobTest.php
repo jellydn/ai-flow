@@ -2,17 +2,17 @@
 
 namespace Tests\Feature;
 
-use App\Contracts\AIProviderFactoryInterface;
 use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Data\GitHubReference;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Services\ContextEncoder;
 use App\Services\GitHubService;
 use App\Services\JsonSchemaValidator;
+use App\Services\OpenAIProvider;
 use App\Services\RunExecutor;
-use App\Support\AiProviders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -30,7 +30,7 @@ class ExecuteLauncherJobTest extends TestCase
         $this->seed();
         $run = Run::create(['launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'), 'source_url' => 'https://github.com/a/b', 'input' => ['source_url' => 'https://github.com/a/b'], 'progress' => []]);
         $executor = Mockery::mock(RunExecutorInterface::class);
-        $executor->shouldReceive('execute')->once()->withArgs(fn (Run $executedRun, string $provider, ?string $apiKey): bool => $executedRun->is($run) && $provider === 'openai' && $apiKey === null);
+        $executor->shouldReceive('execute')->once()->withArgs(fn (Run $executedRun, AIProviderInterface $executedAi): bool => $executedRun->is($run));
 
         (new ExecuteLauncherJob($run->id))->handle($executor);
     }
@@ -72,8 +72,8 @@ class ExecuteLauncherJobTest extends TestCase
         $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
         $github->shouldReceive('context')->andReturn(['repository' => ['full_name' => 'a/b']]);
 
-        (new RunExecutor($github, app(AIProviderFactoryInterface::class), new JsonSchemaValidator))
-            ->execute($run, AiProviders::OPENAI, null);
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))
+            ->execute($run, app()->make(OpenAIProvider::class, ['apiKey' => null]));
 
         $this->assertSame('completed', $run->fresh()->status);
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer server-secret-key'));
@@ -88,9 +88,7 @@ class ExecuteLauncherJobTest extends TestCase
         $gh->shouldReceive('context')->andReturn(['repository' => ['full_name' => 'a/b']]);
         $ai = Mockery::mock(AIProviderInterface::class);
         $ai->shouldReceive('generate')->andReturn(['summary' => 'Good', 'risk' => 'low', 'findings' => [], 'verification_steps' => []]);
-        $providers = Mockery::mock(AIProviderFactoryInterface::class);
-        $providers->shouldReceive('forExecution')->with('openai', null)->andReturn($ai);
-        (new RunExecutor($gh, $providers, new JsonSchemaValidator))->execute($run);
+        (new RunExecutor($gh, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
         $this->assertSame('completed', $run->fresh()->status);
         $this->assertSame('Good', $run->fresh()->result['summary']);
     }
@@ -104,10 +102,8 @@ class ExecuteLauncherJobTest extends TestCase
         $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
         $ai = Mockery::mock(AIProviderInterface::class);
         $ai->shouldReceive('generate')->andReturn(['summary' => 'Missing required fields', 'findings' => [['severity' => 'impossible']]]);
-        $providers = Mockery::mock(AIProviderFactoryInterface::class);
-        $providers->shouldReceive('forExecution')->with('openai', null)->andReturn($ai);
 
-        (new RunExecutor($github, $providers, new JsonSchemaValidator))->execute($run);
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
         $this->assertSame('failed', $run->fresh()->status);
         $this->assertNull($run->fresh()->result);
@@ -131,10 +127,8 @@ class ExecuteLauncherJobTest extends TestCase
 
             return $context['truncated'] === true && strlen(json_encode($context)) <= 120_000;
         })->andReturn(['summary' => 'Good', 'risk' => 'low', 'findings' => [], 'verification_steps' => []]);
-        $providers = Mockery::mock(AIProviderFactoryInterface::class);
-        $providers->shouldReceive('forExecution')->with('openai', null)->andReturn($ai);
 
-        (new RunExecutor($github, $providers, new JsonSchemaValidator))->execute($run);
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
         $this->assertSame('completed', $run->fresh()->status);
     }
@@ -147,11 +141,11 @@ class ExecuteLauncherJobTest extends TestCase
         $github = Mockery::mock(GitHubService::class);
         $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
         $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
-        $providers = Mockery::mock(AIProviderFactoryInterface::class);
-        $providers->shouldReceive('forExecution')->with('openai', $apiKey)->andThrow(new RuntimeException('Invalid API key.'));
+        $ai = Mockery::mock(AIProviderInterface::class);
+        $ai->shouldReceive('generate')->andThrow(new RuntimeException('Invalid API key.'));
         Log::spy();
 
-        (new RunExecutor($github, $providers, new JsonSchemaValidator))->execute($run, 'openai', $apiKey);
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
         $this->assertSame('Invalid API key.', $run->fresh()->error);
         Log::shouldHaveReceived('error')->once()->withArgs(function (string $message, array $context) use ($apiKey): bool {
@@ -172,10 +166,10 @@ class ExecuteLauncherJobTest extends TestCase
         $github = Mockery::mock(GitHubService::class);
         $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
         $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
-        $providers = Mockery::mock(AIProviderFactoryInterface::class);
-        $providers->shouldReceive('forExecution')->andThrow(new \InvalidArgumentException('Internal parser detail.'));
+        $ai = Mockery::mock(AIProviderInterface::class);
+        $ai->shouldReceive('generate')->andThrow(new \InvalidArgumentException('Internal parser detail.'));
 
-        (new RunExecutor($github, $providers, new JsonSchemaValidator))->execute($run);
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
         $this->assertSame('Run failed unexpectedly.', $run->fresh()->error);
     }

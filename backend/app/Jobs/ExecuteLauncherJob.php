@@ -26,6 +26,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
     public function handle(RunExecutorInterface $executor): void
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
-        $executor->execute($run, $this->provider, $this->apiKey);
+        $ai = AiProviders::createProvider($this->provider, $this->apiKey);
+        $executor->execute($run, $ai);
     }
 }

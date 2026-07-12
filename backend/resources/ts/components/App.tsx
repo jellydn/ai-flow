@@ -8,7 +8,7 @@ import {
     subscribeToExecution,
 } from '../services/api.ts';
 import type { Execution, ExecutionStatus } from '../types/api.ts';
-import { demoExecutionSteps, workflowBySlug, workflows } from '../data/workflows.ts';
+import { buildWorkflows, demoExecutionSteps, workflowBySlug, workflows } from '../data/workflows.ts';
 import { Footer } from './Footer.tsx';
 import { Header } from './Header.tsx';
 import { Home } from './Home.tsx';
@@ -38,13 +38,20 @@ export function App() {
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState('');
     const [availableSlugs, setAvailableSlugs] = useState<Set<string> | null>(null);
+    const [liveWorkflows, setLiveWorkflows] = useState(workflows);
 
-    const activeWorkflow = useMemo(() => workflows.find((item) => item.id === selected), [selected]);
+    const activeWorkflow = useMemo(() => liveWorkflows.find((item) => item.id === selected), [liveWorkflows, selected]);
     const parsedRepo = useMemo(() => parseGithubRepo(url) ?? '', [url]);
 
     useEffect(() => {
         getFlows()
-            .then((flows) => setAvailableSlugs(new Set(flows.map((flow) => flow.slug))))
+            .then((flows) => {
+                setAvailableSlugs(new Set(flows.map((flow) => flow.slug)));
+                const built = buildWorkflows(flows);
+                if (built.length > 0) {
+                    setLiveWorkflows(built);
+                }
+            })
             .catch(() => setAvailableSlugs(new Set()));
     }, []);
 
@@ -197,6 +204,7 @@ export function App() {
                     isLaunching={isLaunching}
                     apiKey={apiKey}
                     setApiKey={setApiKey}
+                    workflows={liveWorkflows}
                 />
             )}
             {view === 'running' && (

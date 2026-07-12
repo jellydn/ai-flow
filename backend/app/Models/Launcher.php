@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Launcher extends Model
 {
-    protected $fillable = ['slug', 'name', 'description', 'prompt_template', 'input_type', 'output_schema', 'class_name', 'active'];
+    protected $fillable = ['slug', 'name', 'description', 'prompt_template', 'input_type', 'output_schema', 'active'];
 
     protected function casts(): array
     {

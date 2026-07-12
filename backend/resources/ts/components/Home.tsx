@@ -11,7 +11,7 @@ import {
     Zap,
 } from 'lucide-react';
 import type { Workflow } from '../data/workflows.ts';
-import { recentRuns, workflows } from '../data/workflows.ts';
+import { recentRuns } from '../data/workflows.ts';
 import { scrollToSelector } from '../lib/scroll.ts';
 import { WorkflowIcon } from './WorkflowIcon.tsx';
 
@@ -26,6 +26,7 @@ interface HomeProps {
     isLaunching: boolean;
     apiKey: string;
     setApiKey: (key: string) => void;
+    workflows: Workflow[];
 }
 
 function quickLabel(workflow: Workflow): string {
@@ -47,6 +48,7 @@ export function Home({
     isLaunching,
     apiKey,
     setApiKey,
+    workflows,
 }: HomeProps) {
     return (
         <main>

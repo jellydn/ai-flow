@@ -7,14 +7,18 @@ use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Services\RunStreamer;
 use App\Support\AiProviders;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Http\StreamedEvent;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RunController extends Controller
 {
+    public function __construct(
+        private RunStreamer $streamer,
+    ) {}
+
     public function store(StoreRunRequest $request): JsonResponse
     {
         $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
@@ -44,22 +48,7 @@ class RunController extends Controller
     public function stream(Run $run): StreamedResponse
     {
         return response()->eventStream(function () use ($run) {
-            $last = null;
-            $deadline = microtime(true) + 55;
-            while (microtime(true) < $deadline && ! connection_aborted()) {
-                $run->refresh();
-                $snapshot = (new RunResource($run->loadMissing('launcher')))->resolve();
-                $encoded = json_encode($snapshot);
-                if ($encoded !== $last) {
-                    yield new StreamedEvent(event: 'progress', data: $encoded);
-                    $last = $encoded;
-                }
-                if (in_array($run->status, ['completed', 'failed'], true)) {
-                    yield new StreamedEvent(event: $run->status, data: $encoded);
-                    break;
-                }
-                usleep(1_000_000);
-            }
+            yield from $this->streamer->stream($run);
         }, ['X-Accel-Buffering' => 'no', 'Cache-Control' => 'no-cache']);
     }
 }
