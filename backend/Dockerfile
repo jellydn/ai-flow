@@ -10,7 +10,7 @@ COPY resources ./resources
 COPY tsconfig.json vite.config.ts ./
 RUN npm run build
 
-FROM php:8.4-apache-bookworm
+FROM php:8.4-fpm-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -18,6 +18,8 @@ RUN apt-get update \
         libonig-dev \
         libpq-dev \
         libzip-dev \
+        nginx \
+        supervisor \
         unzip \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
@@ -27,9 +29,6 @@ RUN apt-get update \
         pcntl \
         pdo_pgsql \
         zip \
-    && a2enmod expires headers rewrite \
-    && printf 'ServerName localhost\n' > /etc/apache2/conf-available/servername.conf \
-    && a2enconf servername \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
@@ -52,15 +51,16 @@ RUN composer install \
 COPY . .
 COPY --from=frontend /app/public/build ./public/build
 
+COPY docker/nginx/default.conf /etc/nginx/sites-available/default
+COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
+
 RUN composer dump-autoload --classmap-authoritative --no-dev \
     && php artisan package:discover --ansi \
     && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
     && chown -R www-data:www-data bootstrap/cache storage \
-    && sed -ri 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/*.conf \
-    && sed -ri 's!/var/www/!/var/www/html/public!g' /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
-    && printf '<Directory /var/www/html/public>\n    AllowOverride All\n</Directory>\n' > /etc/apache2/conf-available/laravel.conf \
-    && a2enconf laravel
+    && chmod +x docker/bin/release-migrate.sh \
+    && ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]

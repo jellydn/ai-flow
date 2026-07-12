@@ -1,6 +1,6 @@
 # Dokku VPS deployment
 
-Dokku deploys the Laravel application from the repository's `backend/` directory. The Dockerfile builds the React assets and the production PHP image. The Procfile runs migrations and idempotent launcher seeds during the release phase, then exposes separate web and queue-worker process types.
+Dokku deploys the Laravel application from the repository's `backend/` directory. The Dockerfile builds the React assets and a production image with **nginx** and **PHP-FPM** (Laravel `public/` as document root). The Procfile runs migrations and idempotent launcher seeds during the release phase via `docker/bin/release-migrate.sh`, then exposes separate web and queue-worker process types. Dokku's edge proxy remains nginx in front of the container.
 
 ## One-time Dokku setup
 

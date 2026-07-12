@@ -1,3 +1,3 @@
-release: DB_HOST="${DB_DIRECT_HOST:-$DB_HOST}" php artisan migrate --force && php artisan db:seed --force
-web: apache2-foreground
+release: /var/www/html/docker/bin/release-migrate.sh
+web: /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
 worker: runuser -u www-data -- php artisan queue:work --sleep=1 --tries=2 --timeout=120
