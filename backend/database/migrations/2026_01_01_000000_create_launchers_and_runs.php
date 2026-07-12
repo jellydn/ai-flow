@@ -16,7 +16,6 @@ return new class extends Migration
             $table->text('prompt_template');
             $table->string('input_type');
             $table->json('output_schema');
-            $table->string('class_name');
             $table->boolean('active')->default(true)->index();
             $table->timestamps();
         });

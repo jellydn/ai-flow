@@ -1,0 +1,30 @@
+{
+  "$schema": "./backend/node_modules/konsistent/konsistent.schema.json",
+  "version": "v1",
+  "conventions": [
+    {
+      "name": "react-components",
+      "description": "PascalCase React components in components/ match file basename (function or class export)",
+      "paths": "backend/resources/ts/components/{componentName}.tsx",
+      "excludeFiles": ["backend/resources/ts/components/ErrorBoundary.tsx"],
+      "must": {
+        "exportFunctions": [{ "name": "${componentName.toPascalCase()}" }]
+      }
+    },
+    {
+      "name": "error-boundary-class",
+      "paths": "backend/resources/ts/components/ErrorBoundary.tsx",
+      "must": {
+        "exportClasses": [{ "name": "ErrorBoundary" }]
+      }
+    },
+    {
+      "name": "hooks",
+      "description": "Hooks are named use* and exported from hooks/",
+      "paths": "backend/resources/ts/hooks/{hookName}.ts",
+      "must": {
+        "exportFunctions": [{ "name": "${hookName}" }]
+      }
+    }
+  ]
+}

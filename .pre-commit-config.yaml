@@ -1,0 +1,53 @@
+# https://prek.j178.dev — run all hooks: `just prek` or `prek run --all-files`
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: composer-validate
+        name: composer validate
+        entry: scripts/hooks/composer-validate.sh
+        language: system
+        files: ^backend/composer\.(json|lock)$
+        pass_filenames: false
+
+      - id: pint
+        name: Laravel Pint
+        entry: scripts/hooks/pint.sh
+        language: system
+        files: ^backend/.*\.php$
+        pass_filenames: false
+
+      - id: frontend-typecheck
+        name: Frontend typecheck
+        entry: scripts/hooks/npm-in-backend.sh typecheck
+        language: system
+        files: ^backend/(resources|package(-lock)?\.json|tsconfig\.json|vite\.config\.).*
+        pass_filenames: false
+
+      - id: oxlint
+        name: oxlint
+        entry: scripts/hooks/npm-in-backend.sh lint:ox
+        language: system
+        files: ^backend/resources/ts/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: oxfmt
+        name: oxfmt check
+        entry: scripts/hooks/npm-in-backend.sh format:check
+        language: system
+        files: ^backend/resources/ts/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: konsistent
+        name: konsistent
+        entry: scripts/hooks/npm-in-backend.sh konsistent
+        language: system
+        files: ^backend/resources/ts/.*\.(ts|tsx)$
+        pass_filenames: false

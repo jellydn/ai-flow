@@ -4,6 +4,8 @@ dist/
 .DS_Store
 backend/.env
 backend/vendor/
+backend/composer.phar
+backend/composer-setup.php
 backend/node_modules/
 backend/public/build/
 backend/storage/*.key

@@ -6,36 +6,23 @@ Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Lara
 
 **AI Launcher** turns public GitHub URLs into structured AI workflow reports (review PR, plan issue, explain repo, Laravel doctor).
 
-| Area            | Path                                                                         | Stack                                                        |
-| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| **Launcher UI** | repo root (`src/`, `index.html`)                                             | Vite + React; calls real API unless `VITE_DEMO_MODE=true`    |
-| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.4+, queue jobs, OpenAI + GitHub REST       |
-| **Durable DB**  | Laravel Cloud Postgres/MySQL (or Turso on `main` until L13+libsql)           | Local dev uses SQLite; production needs a managed DB           |
-| **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root                    |
+| Area            | Path                                                                         | Stack                                                  |
+| --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **Launcher UI** | `backend/resources/ts/` + `backend/resources/views/app.blade.php`            | React + TypeScript, Vite (served by Laravel)           |
+| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.4+, queue jobs, OpenAI + GitHub REST |
+| **Durable DB**  | Laravel Cloud Postgres/MySQL                                                 | Local dev uses SQLite; production needs a managed DB   |
+| **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root              |
 
 Architecture decisions: [`doc/adr/README.md`](doc/adr/README.md).
 
 ## Commands
 
-### Frontend (repo root)
-
-```bash
-npm install
-npm run dev        # Vite dev binds 0.0.0.0
-npm run build      # → dist/
-npm run preview
-```
-
-No ESLint/Prettier at root—match existing style in `src/main.jsx` and `src/styles.css`.
-
-- `vite.config.js` `server.allowedHosts` is an explicit list (`localhost`, `127.0.0.1`, `.onamp.dev`, `.amp.dev`), **not** `true`. Add your remote-preview host there, not `true`.
-- Frontend calls the real API by default (`VITE_API_BASE_URL`, default `http://localhost:8000`). Set `VITE_DEMO_MODE=true` (root `.env.local`) to run simulated runs without a backend.
-
-### Backend (`backend/`)
+All development happens inside `backend/`.
 
 ```bash
 cd backend
 composer install
+npm install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate --seed
 composer run dev   # server + queue:listen + pail + vite (concurrently; watches for code changes)
@@ -46,18 +33,26 @@ php artisan test
 php artisan test --filter=SomeTest            # run a focused test
 ./vendor/bin/pint --test                      # CI checks style with --test (fails on violations)
 ./vendor/bin/pint                             # fix style locally before pushing
+npm run typecheck                             # tsc --noEmit (strict)
+npm run lint                                  # oxlint + oxfmt --check (NOT typecheck)
+npm run format                                # oxfmt --write (in place)
+npm run build                                 # tsc --noEmit && vite build → public/build
+npm run konsistent                            # structural TS convention checks (konsistent)
+npm run doctor                                # npx react-doctor (React codebase analysis)
 ```
 
-CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.4.
+CI (`.github/workflows/ci.yml`): backend (PHP 8.4, `sqlite3`+`pgsql` ext) runs `composer validate`, `composer install`, `migrate --force`, `php artisan test`, `./vendor/bin/pint --test`. Frontend (Node 20) runs `npm ci`, `npm run typecheck` (`tsc --noEmit`), `npm run lint` (oxlint + oxfmt --check), `npm run konsistent`, `npm run build` (`tsc --noEmit && vite build`); `npm run test` is a no-op placeholder.
 
-**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
+**Local hooks:** pre-commit runs via [prek](https://prek.j178.dev) (`.pre-commit-config.yaml`); `just prek` runs them all on every file (requires backend deps: `cd backend && npm ci`). Hooks: `composer-validate`, `pint`, `frontend-typecheck`, `oxlint`, `oxfmt`, `konsistent`.
+
+**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `VITE_DEMO_MODE=true` (frontend simulated runs without backend). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
 
 **Production:** never run AI on the web process; use a real queue (`QUEUE_CONNECTION` ≠ `sync`). Worker: `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.
 
 ### API smoke test
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/api/health
 curl http://localhost:8000/api/launchers
 curl -X POST http://localhost:8000/api/runs -H 'Content-Type: application/json' \
   -d '{"launcher":"laravel-doctor","source_url":"https://github.com/laravel/framework"}'
@@ -65,7 +60,7 @@ curl http://localhost:8000/api/runs/RUN_UUID
 curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/stream
 ```
 
-Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`. `POST /api/runs` is throttled (5/hour/IP).
+Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`. `POST /api/runs` is throttled (5/hour/IP); `/api/executions` is an alias.
 
 ## Laravel Cloud (production)
 
@@ -73,7 +68,7 @@ Launcher slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor
 - **App root in repo:** `backend/` (not monorepo root).
 - **Deploy:** `composer global require laravel/cloud-cli`, `cloud auth -n`, then `cloud ship -n` (initial setup) or `cloud deploy ai-flow production -n` (existing app; discover flags via `cloud deploy -h`). Always `cloud deploy:monitor -n` after deploy.
 - **Env on Cloud:** `APP_KEY`, `APP_ENV=production`, `APP_DEBUG=false`, `OPENAI_API_KEY`, optional `GITHUB_TOKEN`, durable `DB_*`, `CACHE_STORE`, `QUEUE_CONNECTION`. Run `php artisan migrate --force` on deploy.
-- **SSE:** Proxy must disable buffering for `/api/runs/*/stream` (`X-Accel-Buffering: no`); allow long-lived responses (≥60s).
+- **SSE:** Proxy must disable buffering for `/api/executions/*/stream` and `/api/runs/*/stream` (`X-Accel-Buffering: no`); allow long-lived responses (≥60s).
 - **Docs / CLI:** https://cloud.laravel.com/docs/llms.txt — use `cloud <command> -h` for signatures; prefer `-n` on all commands (never `-q`). Destructive Cloud ops need explicit user approval.
 
 Official skill reference: [deploying-laravel-cloud](https://github.com/laravel/agent-skills/tree/main/laravel-cloud/skills/deploying-laravel-cloud).
@@ -96,11 +91,14 @@ Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`
 - **Preserve behavior** when refactoring; run `php artisan test` after PHP changes.
 - **PHPUnit:** feature tests with `RefreshDatabase` + seed; `Queue::fake()` when asserting dispatch; mock GitHub/AI in job tests.
 
-### React / frontend (repo root)
+### React / frontend (`backend/resources/ts/`)
 
-- Main UI remains in `src/main.jsx`; supporting code lives in `src/components/`, `src/data/`, and `src/lib/`. Plain CSS remains in `src/styles.css` (BEM-like classes).
-- Functional components + hooks; no TypeScript unless the project adds it.
-- **API:** `src/lib/api.js` — `VITE_API_BASE_URL` (default `http://localhost:8000`), SSE progress, `VITE_DEMO_MODE=true` for simulated runs only.
+- Main UI is split into `components/`, `data/`, `lib/`, `services/`, and `types/`. Entry is `resources/ts/app.tsx`; the Blade shell is `resources/views/app.blade.php`. Plain CSS remains in `resources/css/app.css` (BEM-like classes).
+- Functional components + hooks; TypeScript with strict mode. Avoid broad `any`; use `unknown` with explicit narrowing.
+- **API:** `resources/ts/services/run.ts` (HTTP helpers in `resources/ts/lib/http.ts`, streaming in `resources/ts/hooks/`) — same-origin `/api/*` requests, typed `Run`/`Launcher` contracts, SSE with polling fallback.
+- Vite configuration is `vite.config.ts` and uses `laravel-vite-plugin` + `@vitejs/plugin-react`.
+- Frontend is linted/formatted by **oxlint + oxfmt** (Rust-based; config at repo root `.oxlintrc.json` / `.oxfmtrc.json`), not ESLint/Prettier — there is no `.prettierrc`. Fix formatting with `npm run format`, not `prettier --write`.
+- **konsistent** enforces structural TS conventions: `components/*.tsx` must export a PascalCase component matching the filename, `hooks/*.ts` must export `use*` functions.
 - Keep React, Vite, and `lucide-react` versions pinned for reproducible builds.
 
 ## Architecture map (backend)
@@ -131,7 +129,7 @@ npx skills add https://github.com/laravel/agent-skills/tree/main/laravel/skills/
 
 ## Repo-specific gotchas
 
-- **Monorepo:** Cloud deploys `backend/` only; root React is separate (Amp portal: `.amp/portals/ai-launcher.json`).
+- **Monorepo:** Cloud deploys `backend/` only; the UI is now bundled inside `backend/` and served by Laravel.
 - **Amp sync:** `origin` may point at Amp git; `github` remote is `jellydn/ai-flow`.
 - **API aliases:** `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs` (same contracts).
 - **Rate limit:** changing run creation limits → `AppServiceProvider` `RateLimiter::for('runs', ...)`.

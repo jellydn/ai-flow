@@ -1,0 +1,7 @@
+{
+  "ignorePatterns": [
+    "backend/node_modules/**",
+    "backend/public/**",
+    "backend/vendor/**"
+  ]
+}

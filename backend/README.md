@@ -1,20 +1,59 @@
-# AI Launcher API
+# AI Launcher
 
-Laravel 13 API that queues GitHub workflow analyses and returns schema-constrained OpenAI results.
+Laravel 13 application that serves the React UI and queues GitHub workflow analyses, returning schema-constrained OpenAI results.
 
 ## Setup
 
 ```bash
+cd backend
 cp .env.example .env
 composer install
+npm install
 php artisan key:generate
 touch database/database.sqlite
 php artisan migrate --seed
+```
+
+Start the local dev stack:
+
+```bash
+composer run dev
+```
+
+This runs the PHP dev server, queue listener, logs, and Vite dev server concurrently. The app is served at `http://localhost:8000`.
+
+Or run them separately:
+
+```bash
 php artisan serve
 php artisan queue:work --tries=2 --timeout=120
+npm run dev
 ```
 
 Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
+
+Frontend checks:
+
+```bash
+npm run typecheck
+npm run lint
+npm run build
+```
+
+Backend checks:
+
+```bash
+php artisan test
+./vendor/bin/pint --test
+```
+
+## Frontend
+
+The UI is in `resources/ts/` and built with Vite. `resources/views/app.blade.php` is the SPA shell, and `routes/web.php` provides a fallback so `/runs/{uuid}` and other client-side routes resolve correctly. Laravel Vite loads the built assets from `public/build`.
+
+The same-origin API client lives in `resources/ts/services/run.ts` (with HTTP helpers in `resources/ts/lib/http.ts` and streaming hooks in `resources/ts/hooks/`). It calls `/api/health`, `/api/launchers`, `/api/runs`, and `/api/runs/{uuid}/stream` (`/api/flows` and `/api/executions` are aliases for backward compatibility).
+
+Set `VITE_DEMO_MODE=true` in `.env` (and restart Vite if it is already running) to run **simulated** workflow progress and demo reports in the browser. Demo mode does not call `POST /api/runs` or require a queue worker; it uses the static launcher catalog in `resources/ts/data/launcherMeta.ts`. Share URLs such as `/runs/{uuid}` still load real runs from `GET /api/runs/{uuid}` when the API is available.
 
 ## Database
 
@@ -38,28 +77,28 @@ The server key remains the default. A caller can optionally supply an OpenAI-com
 
 ```json
 {
-  "flow_id": "laravel-doctor",
-  "input": { "url": "https://github.com/laravel/laravel" },
+  "launcher": "laravel-doctor",
+  "source_url": "https://github.com/laravel/framework",
   "provider": { "id": "openai", "api_key": "sk-..." }
 }
 ```
 
-The existing `launcher` and `source_url` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
+The launch form’s optional API key field sends the same `provider` object. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
 ```bash
 curl http://localhost:8000/api/health
-curl http://localhost:8000/api/launchers
-curl -X POST http://localhost:8000/api/runs -H 'Content-Type: application/json' \
+curl http://localhost:8000/api/flows
+curl -X POST http://localhost:8000/api/executions -H 'Content-Type: application/json' \
   -d '{"launcher":"laravel-doctor","source_url":"https://github.com/laravel/framework"}'
-curl http://localhost:8000/api/runs/RUN_UUID
-curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/stream
+curl http://localhost:8000/api/executions/RUN_UUID
+curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/executions/RUN_UUID/stream
 ```
 
 `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs`; they use the same request and response contracts.
 
-`POST /api/runs` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
+`POST /api/executions` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
 
 ## Laravel Cloud
 
@@ -67,9 +106,11 @@ Deploy `backend` as the application root. Provision a cache and database queue; 
 
 **Database (Laravel 13):** use a Neon direct PostgreSQL connection with SSL required for deployment migrations. The pooled endpoint is suitable for web and worker runtime traffic after migration. Do not use file SQLite in production. Run migrations against Neon before starting the worker.
 
-Run `php artisan migrate --force` during deployment and configure a worker with `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Ensure the HTTP proxy disables buffering for `/api/runs/*/stream` and allows responses of at least 60 seconds. Never run AI work on the web process or with `QUEUE_CONNECTION=sync` in production.
+Run `php artisan migrate --force` during deployment and configure a worker with `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Ensure the HTTP proxy disables buffering for `/api/executions/*/stream` and `/api/runs/*/stream` and allows responses of at least 60 seconds. Never run AI work on the web process or with `QUEUE_CONNECTION=sync` in production.
 
-Laravel Cloud deploys only the API because the application root is `backend/`. Host the root Vite build separately with SPA fallback enabled so `/runs/{uuid}` serves `index.html`, then set `VITE_API_BASE_URL` to the Cloud API URL, `VITE_PUBLIC_APP_URL` to the frontend origin, and allow that origin through `CORS_ALLOWED_ORIGINS`. A share URL opened on the API host is not a frontend report URL.
+Laravel Cloud deploys the whole `backend/` directory; the React UI is built during deployment and served by Laravel. The SPA fallback route ensures `/runs/{uuid}` resolves correctly.
+
+**Build step:** `public/build` is gitignored, so the Cloud deploy must install Node dependencies and build the Vite assets from the `backend/` root. Set the build command to `npm ci && npm run build` (or run `npm install && npm run build` before `composer install` if the image requires it). `composer.json`’s `setup` script also runs `npm run build` for local/offline installs, but the Cloud build step is the authoritative source for production assets.
 
 For CLI deployment, install the official Cloud CLI with `composer global require laravel/cloud-cli`, authenticate with `cloud auth -n`, and inspect current command options with `cloud <command> -h` rather than relying on fixed signatures. Use `cloud ship -n` for initial setup or `cloud deploy ... -n` for an existing application, then always verify the deployment with `cloud deploy:monitor -n`. Creating or deleting shared Cloud resources should be confirmed separately.
 
