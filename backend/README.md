@@ -1,6 +1,6 @@
 # AI Launcher API
 
-Laravel 12 API that queues GitHub workflow analyses and returns schema-constrained OpenAI results.
+Laravel 13 API that queues GitHub workflow analyses and returns schema-constrained OpenAI results.
 
 ## Setup
 
