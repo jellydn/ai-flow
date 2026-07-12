@@ -2,211 +2,44 @@
 
 **Analysis Date:** 2026-07-12
 
-## Third-Party Services
-
-### Frontend (root)
-
-**Google Fonts** (production usage, loaded from CDN)
-- Served from: `https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@1,600&display=swap`
-- Usage: Imported via `@import` at the top of `src/styles.css` (line 1)
-- Fonts loaded: DM Mono (400, 500), Manrope (400–800), Playfair Display (italic 600)
-- No self-hosted fallback; relies on Google Fonts CDN availability
-
-**Lucide React** (npm dependency)
-- Source: npm package `lucide-react` (latest, unpinned)
-- Usage: ~24 SVG icon components imported individually in `src/main.jsx`:
-  `ArrowRight`, `BookOpen`, `Bot`, `Check`, `CheckCircle2`, `CircleDot`, `Clock3`, `Code2`, `Copy`, `GitFork`, `GitPullRequest`, `ListTodo`, `LoaderCircle`, `Menu`, `Newspaper`, `ShieldCheck`, `Sparkles`, `Stethoscope`, `X`, `Zap`
-- Runtime: Rendered as inline SVG elements within React components
-
-### Backend (Laravel)
-
-**OpenAI API** (production integration via `OpenAIProvider`)
-- Endpoint: `POST https://api.openai.com/v1/chat/completions`
-- SDK: Laravel's `Illuminate\Support\Facades\Http` (no official OpenAI PHP SDK; raw HTTP calls)
-- Auth: Bearer token from `config('services.openai.key')` (env: `OPENAI_API_KEY`)
-- Default model: `gpt-4o-mini` (configurable via `OPENAI_MODEL` env)
-- Timeout: 60 seconds (configurable via `OPENAI_TIMEOUT` env)
-- Response format: JSON Schema with `response_format` set to `json_schema` with `strict: true`
-- Usage: All AI-powered workflow analysis (code review, issue planning, repo explanation, Laravel audit)
-- Error handling: Throws `RuntimeException` on HTTP failure or invalid JSON response
-
-**GitHub REST API** (production integration via `GitHubService`)
-- Endpoint: `https://api.github.com` (v3 REST API)
-- SDK: Laravel's `Illuminate\Support\Facades\Http` (no Octokit/GitHub SDK; raw HTTP calls)
-- Auth: Optional bearer token from `config('services.github.token')` (env: `GITHUB_TOKEN`)
-  - Without token: subject to unauthenticated rate limits (60 req/hour)
-  - With token: authenticated rate limits (5,000 req/hour)
-- Endpoints consumed:
-  - `GET /repos/{owner}/{repo}` — Repository metadata
-  - `GET /repos/{owner}/{repo}/languages` — Language breakdown
-  - `GET /repos/{owner}/{repo}/readme` — Repository README (base64 decoded, truncated to 20KB)
-  - `GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1` — Full file tree (first 500 paths)
-  - `GET /repos/{owner}/{repo}/pulls/{number}` — PR details
-  - `GET /repos/{owner}/{repo}/pulls/{number}/files?per_page=50` — Changed files in PR (diff truncated to 4KB each)
-  - `GET /repos/{owner}/{repo}/issues/{number}` — Issue details
-  - `GET /repos/{owner}/{repo}/issues/{number}/comments?per_page=30` — PR/issue comments (truncated to 3KB each)
-- Caching: Results cached via `Cache::remember()` with 10-minute TTL using SHA-1 URL hash as key
-- Retry: HTTP client configured with `retry(2, 200)` — 2 retries, 200ms delay
-- User-agent: `ai-launcher`
-- Error handling: Throws `Illuminate\Http\Client\RequestException` on HTTP failure; `InvalidArgumentException` for malformed URLs
-- URL parsing: Validates HTTPS scheme, github.com host, 2-4 path segments; supports repository, pull request, and issue URLs
-
 ## APIs & External Services
-
-**No additional external APIs beyond OpenAI and GitHub.**
-- No payment processor integration
-- No webhook receivers/emitters
-- No analytics service integration (Segment, GA, etc.)
-- No error monitoring service (Sentry, etc.)
-- No CI/CD pipeline integration (GitHub Actions, etc.)
+- **GitHub REST API:** `GitHubService` accepts only public HTTPS `github.com` repository, issue, and pull-request URLs, then calls `https://api.github.com` for repository metadata, languages, README, recursive tree, PR files, issues, and comments (`backend/app/Services/GitHubService.php`). `GITHUB_TOKEN` is optional but adds bearer authentication to improve rate limits (`backend/config/services.php`, `backend/.env.example`). Responses are bounded before AI submission and cached for 10 minutes (`backend/app/Services/GitHubService.php`, `backend/app/Services/RunExecutor.php`).
+- **OpenAI-compatible chat completions:** `OpenAIProvider` posts bearer-authenticated requests to `{AI_BASE_URL}/chat/completions`, defaulting to OpenAI, and requires strict JSON Schema output (`backend/app/Services/OpenAIProvider.php`, `backend/config/services.php`). The default model is `gpt-4o-mini`; timeout and model are configurable (`backend/.env.example`, `backend/config/services.php`).
+- **OpenRouter:** The same provider can use `OPENROUTER_API_KEY`, `https://openrouter.ai/api/v1`, and an OpenRouter model; it sends `HTTP-Referer`, `X-OpenRouter-Title`, and `provider.require_parameters` when that base URL is selected (`backend/app/Services/OpenAIProvider.php`, `backend/.env.example`). No vendor SDK is installed; both integrations use Laravel's HTTP client (`backend/composer.json`).
+- **Frontend-to-backend API:** The root SPA uses browser `fetch` for run creation/status and `EventSource` for progress (`src/lib/api.js`). Its API origin comes from `VITE_API_BASE_URL`, while backend CORS permits configured comma-separated origins and does not allow credentials (`.env.example`, `backend/config/cors.php`).
 
 ## Data Storage
-
-### Databases
-
-**Default (development): SQLite**
-- File-based: `backend/database/database.sqlite`
-- SQLite is the default connection in `backend/config/database.php` (`'default' => env('DB_CONNECTION', 'sqlite')`)
-- Create command: `touch database/database.sqlite && php artisan migrate`
-
-**Supported production drivers:**
-- MySQL (PDO driver: `pdo_mysql`)
-- MariaDB
-- PostgreSQL
-- SQL Server
-
-**Redis** (configured for cache/queue/session — not used by default)
-- Client: `phpredis` (default)
-- Connections: `default` (db 0), `cache` (db 1)
-- Supports clustering, persistence
-
-**Database Tables (migrations):**
-- `users` — Standard Laravel user accounts
-- `cache` + `cache_locks` — Database cache store
-- `jobs` + `job_batches` + `failed_jobs` — Database queue store
-- `launchers` — Workflow definitions (slug, name, description, prompt_template, input_type, output_schema JSON, class_name)
-- `runs` — Run instances (UUID primary key, status, progress JSON, input JSON, source_context JSON, result JSON, error text)
-
-### File Storage
-
-- **Local filesystem** (default): `storage/app/private` and `storage/app/public`
-- **S3** (configured, not default): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET`, `AWS_REGION`
-- No CDN integration
-
-### Caching
-
-- Default driver: **database** (cache table)
-- Configured drivers: array, file, memcached, redis, dynamodb, octane
-- Cache prefix: `{APP_NAME}-cache-`
-- Used by: GitHub API responses (10-min TTL via `Cache::remember`), Laravel framework internals
+- **Relational database:** Local defaults use SQLite (`backend/.env.example`, `backend/config/database.php`); production explicitly rejects SQLite in HTTP execution and documents MySQL/PostgreSQL or Laravel Cloud's managed database (`backend/app/Providers/AppServiceProvider.php`, `backend/README.md`). Laravel also ships configured SQL Server support, though it is not an indicated deployment target (`backend/config/database.php`).
+- **Application records:** Eloquent persists launcher definitions and UUID-keyed workflow runs, including status, input, transient source context, structured result, errors, and timestamps (`backend/database/migrations/2026_01_01_000000_create_launchers_and_runs.php`, `backend/app/Models/Run.php`). GitHub source context is cleared after either completion or failure (`backend/app/Services/RunExecutor.php`).
+- **Queue and cache:** Database-backed queue and cache are defaults, with jobs/cache/locks tables supplied by Laravel migrations (`backend/.env.example`, `backend/config/queue.php`, `backend/config/cache.php`, `backend/database/migrations/0001_01_01_000001_create_cache_table.php`, `backend/database/migrations/0001_01_01_000002_create_jobs_table.php`). Redis, Beanstalkd, DynamoDB cache, and other Laravel drivers are configurable but not active defaults (`backend/config/queue.php`, `backend/config/cache.php`, `backend/config/database.php`).
+- **Filesystem/session:** Local filesystem and database session drivers are configured by default (`backend/.env.example`, `backend/config/filesystems.php`, `backend/config/session.php`); no external object-storage integration is used by application workflow code (`backend/app/`).
 
 ## Authentication & Identity
-
-**Frontend:**
-- No authentication
-- No login/signup UI
-- No API keys stored client-side
-
-**Backend (Laravel):**
-- Auth guard: `session` driver with Eloquent `User` model
-- Password resets: Database token table
-- Session driver: database (default), configurable to file/cookie/memcached/redis/dynamodb/array
-- No OAuth, no socialite, no JWT, no API tokens
-- No registration/login endpoints exposed in current routes
+- Public API routes have no user-authentication middleware; access is controlled by URL validation and IP rate limits—five run creations per hour and 30 stream connections per minute (`backend/routes/api.php`, `backend/app/Providers/AppServiceProvider.php`, `backend/app/Http/Requests/StoreRunRequest.php`).
+- The Laravel scaffold retains session-based `web` authentication backed by the Eloquent `User` model and password-reset tables, but no login routes or third-party identity provider are integrated into the workflow API (`backend/config/auth.php`, `backend/routes/web.php`, `backend/database/migrations/0001_01_01_000000_create_users_table.php`). Sanctum, OAuth, SSO, and social-login packages are absent (`backend/composer.json`).
+- Outbound identity is service-token based: optional GitHub bearer token and required OpenAI/OpenRouter API key (`backend/config/services.php`). Browser CORS has `supports_credentials` disabled (`backend/config/cors.php`).
 
 ## Monitoring & Observability
-
-**Error Tracking:**
-- None — no Sentry, no Flare, no Bugsnag integration
-- Exceptions: Laravel default logging to `storage/logs/laravel.log`
-
-**Logging (via Monolog):**
-- Default: `stack` channel → `single` file (`storage/logs/laravel.log`)
-- Configured channels: single, daily, slack, papertrail, stderr, syslog, errorlog, null
-- Log level: debug (configurable via `LOG_LEVEL` env)
-
-**Health Check:**
-- `GET /api/health` returns `{"status": "ok"}` — no deep dependency checks
+- Laravel logging uses a configurable Monolog stack, defaulting locally to a single file; daily, stderr, syslog, Slack webhook, and Papertrail channels are available configuration options (`backend/config/logging.php`, `backend/.env.example`). Application failures log the run ID and exception class while storing a safe error message on the run (`backend/app/Services/RunExecutor.php`).
+- Laravel Pail is installed and included in the concurrent development command for live log viewing (`backend/composer.json`). Production warns if `LOG_LEVEL=debug` (`backend/app/Providers/AppServiceProvider.php`).
+- No active Sentry, Telescope, Pulse, Nightwatch, APM, or metrics integration is installed; test configuration explicitly disables Pulse, Telescope, and Nightwatch flags (`backend/composer.json`, `backend/phpunit.xml`). Slack/Papertrail entries are framework configuration capabilities, not evidence that either service is provisioned (`backend/config/logging.php`).
+- `GET /api/health` provides a minimal JSON liveness endpoint (`backend/routes/api.php`). Progress is observable through run status and SSE, not a monitoring vendor (`backend/app/Http/Controllers/RunController.php`).
 
 ## CI/CD & Deployment
-
-**Hosting Target:**
-- [Laravel Cloud](https://cloud.laravel.com) (production)
-- Deployed from `backend/` directory as application root
-
-**CI Pipeline:**
-- None — no GitHub Actions, no Laravel Forge, no Envoyer configuration
-
-**Deployment Commands:**
-- `composer global require laravel/cloud-cli` → `cloud deploy ai-flow production -n`
-
-**Frontend Hosting:**
-- Not yet deployed; Vite dev server only
-- Amp portal config: `.amp/portals/ai-launcher.json`
+- GitHub Actions runs on pushes and pull requests to `main`, building the Node 22 frontend and validating the PHP 8.2 backend via migration/seed, Pint, and PHPUnit (`.github/workflows/ci.yml`). It performs CI only; no deployment job or webhook is defined (`.github/workflows/ci.yml`).
+- Production targets Laravel Cloud with `backend/` as application root; deployment requires migrations and a dedicated `php artisan queue:work --sleep=1 --tries=2 --timeout=120` worker (`backend/README.md`, `AGENTS.md`). The root Vite SPA is a separate deployment and requires SPA fallback plus frontend/API origin configuration (`backend/README.md`).
+- Laravel Cloud CLI deployment and post-deploy monitoring are documented, but no checked-in Cloud manifest or automated release workflow was found (`backend/README.md`, `.github/workflows/ci.yml`).
 
 ## Environment Configuration
-
-### Required env vars (backend)
-
-| Variable | Purpose |
-|----------|---------|
-| `APP_KEY` | Laravel encryption key (AES-256-CBC) |
-| `OPENAI_API_KEY` | OpenAI API access |
-| `DB_CONNECTION` | Database driver (default: sqlite) |
-| `QUEUE_CONNECTION` | Queue driver (default: database; production: not `sync`) |
-
-### Recommended env vars
-
-| Variable | Purpose |
-|----------|---------|
-| `GITHUB_TOKEN` | Authenticated GitHub API access (rate limits) |
-
-### Optional env vars
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `OPENAI_MODEL` | `gpt-4o-mini` | OpenAI model selection |
-| `OPENAI_TIMEOUT` | `60` | OpenAI request timeout (seconds) |
-| `APP_ENV` | `production` | Environment name |
-| `APP_DEBUG` | `false` | Debug mode |
-| `APP_URL` | `http://localhost` | Application base URL |
-| `DB_DATABASE` | `database/database.sqlite` | Database path/name |
-| `CACHE_STORE` | `database` | Cache driver |
-| `SESSION_DRIVER` | `database` | Session driver |
-| `LOG_CHANNEL` | `stack` | Log channel |
-| `MAIL_MAILER` | `log` | Mail driver |
-| `AWS_*` | — | AWS services (S3, SES) |
-| `REDIS_*` | — | Redis connections |
-
-### Frontend
-
-- No env vars; no `.env` files
-
-## Rate Limiting
-
-- `POST /api/runs` is throttled via named limiter `throttle:runs` (configured in `AppServiceProvider`)
-- Default: 5 runs per hour per IP (defined in AGENTS.md)
+- **Required backend:** `APP_KEY` and an AI credential (`OPENAI_API_KEY`, or `OPENROUTER_API_KEY` for the alternate endpoint) (`backend/.env.example`, `backend/config/services.php`). Production additionally needs `APP_ENV=production`, `APP_DEBUG=false`, durable `DB_*`/`DATABASE_URL`, `CACHE_STORE`, and non-`sync` `QUEUE_CONNECTION` (`backend/README.md`).
+- **Optional backend:** `GITHUB_TOKEN`, `AI_BASE_URL`, `AI_MODEL`/`OPENAI_MODEL`, `AI_SITE_URL`, `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS`, and logging settings (`backend/.env.example`, `backend/config/services.php`, `backend/config/cors.php`, `backend/config/logging.php`).
+- **Frontend:** `VITE_API_BASE_URL` selects the Laravel API, `VITE_PUBLIC_APP_URL` generates report share links, and `VITE_DEMO_MODE=true` enables simulation (`.env.example`, `src/lib/api.js`, `src/main.jsx`). Vite exposes these at build time, so deployment environments must build with the correct values (`package.json`).
+- The stock Laravel service config includes Postmark, Resend, SES, and Slack-notification variables, but no application code invokes those services and no matching packages are declared (`backend/config/services.php`, `backend/composer.json`).
 
 ## Webhooks & Callbacks
+- No inbound webhook or OAuth callback routes are defined; API routes consist of health, launcher/flow listings, run/execution creation, status, and streams (`backend/routes/api.php`, `backend/routes/web.php`).
+- Outbound webhooks are not part of workflow execution. Laravel's optional Slack logging channel can send to `LOG_SLACK_WEBHOOK_URL` if configured, but it is not enabled by default (`backend/config/logging.php`, `backend/.env.example`).
+- Run updates dispatch an internal Laravel `RunProgressed` event, but current SSE does not consume an event bus; it polls the database once per second for up to about 55 seconds (`backend/app/Events/RunProgressed.php`, `backend/app/Http/Controllers/RunController.php`, `doc/adr/0013-sse-run-stream-via-database-polling.md`). The browser receives `progress`, `completed`, and `failed` SSE events through `EventSource` (`src/lib/api.js`).
 
-**Incoming:**
-- None — no webhook endpoints registered in routes
-
-**Outgoing:**
-- None — no callback/notification webhooks sent
-
-## Dependency Summary
-
-| Integration | Type | Status | Auth |
-|-------------|------|--------|------|
-| Google Fonts CDN | External asset | Active (frontend) | None |
-| Lucide React | npm package | Active (frontend) | None |
-| OpenAI API | REST API | Active (backend) | Bearer token |
-| GitHub REST API | REST API | Active (backend) | Optional bearer token |
-| SQLite | Database | Active (dev default) | None |
-| MySQL/MariaDB/PgSQL/SQL Server | Database | Configured (production) | Username/password |
-| Redis | Cache/Queue/Session | Configured (not active by default) | Optional password |
-| S3 | File storage | Configured (not active by default) | AWS IAM keys |
-| Postmark / SES / Resend / SMTP | Mail | Configured (not active by default) | API keys |
-| Slack | Logging / Notifications | Configured (not active by default) | Webhook URL / OAuth token |
-| Laravel Cloud | Hosting | Target (not yet deployed) | Cloud CLI auth |
+---
+*Integration audit: 2026-07-12*

@@ -32,6 +32,15 @@ return [
 
     'connections' => [
 
+        'libsql' => [
+            'driver' => 'libsql',
+            // Empty database + url = remote Turso (required on Laravel Cloud; no local replica file).
+            'database' => env('TURSO_LOCAL_DATABASE', ''),
+            'url' => env('TURSO_DATABASE_URL'),
+            'password' => env('TURSO_AUTH_TOKEN'),
+            'syncInterval' => (int) env('TURSO_SYNC_INTERVAL', 0),
+        ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),
