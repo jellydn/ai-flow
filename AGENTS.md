@@ -9,8 +9,8 @@ Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Lara
 | Area            | Path                                                                         | Stack                                                        |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------ |
 | **Launcher UI** | repo root (`src/`, `index.html`)                                             | Vite + React; calls real API unless `VITE_DEMO_MODE=true`    |
-| **API**         | `backend/`                                                                   | Laravel 12, PHP 8.2+, queue jobs, OpenAI + GitHub REST       |
-| **Durable DB**  | Turso (`libsql`)                                                             | Local dev uses SQLite; production uses Turso, not Cloud disk |
+| **API**         | `backend/`                                                                   | Laravel 13, PHP 8.3+, queue jobs, OpenAI + GitHub REST       |
+| **Durable DB**  | Laravel Cloud Postgres/MySQL (or Turso on `main` until L13+libsql)           | Local dev uses SQLite; production needs a managed DB           |
 | **Production**  | [Laravel Cloud](https://cloud.laravel.com/dung-huynh-duc/ai-flow/production) | Deploy **`backend/`** as application root                    |
 
 Architecture decisions: [`doc/adr/README.md`](doc/adr/README.md).
@@ -48,9 +48,9 @@ php artisan test --filter=SomeTest            # run a focused test
 ./vendor/bin/pint                             # fix style locally before pushing
 ```
 
-CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.2.
+CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.3.
 
-**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production). Production DB: `DB_CONNECTION=libsql` + `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (local dev uses SQLite).
+**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
 
 **Production:** never run AI on the web process; use a real queue (`QUEUE_CONNECTION` ≠ `sync`). Worker: `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.
 
@@ -136,8 +136,7 @@ npx skills add https://github.com/laravel/agent-skills/tree/main/laravel/skills/
 - **API aliases:** `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs` (same contracts).
 - **Rate limit:** changing run creation limits → `AppServiceProvider` `RateLimiter::for('runs', ...)`.
 - **New launcher:** PHP class + `DatabaseSeeder` entry + feature test coverage; shared `outputSchema` in `BaseLauncher`.
-- **Durable DB is Turso (`libsql`), not Cloud disk.** Local dev uses SQLite (`DB_CONNECTION=sqlite`); production sets `DB_CONNECTION=libsql` + `TURSO_DATABASE_URL`/`TURSO_AUTH_TOKEN` (see `backend/.env.example`). Turso config remains in `backend/config/database.php` even on branches without the package.
-- **In-flight Laravel 13 upgrade (PR #5):** `backend/` is being upgraded to Laravel 13 (PHP `^8.3`, PHPUnit 12). `turso/libsql-laravel` only supports `illuminate/database ^11|^12`, so it was dropped on that branch and must not be re-added until it supports L13. Main stays on Laravel 12 + Turso until the upgrade lands.
+- **Laravel 13 + DB:** `turso/libsql-laravel` does not support Laravel 13 yet; production on this line uses **Laravel Cloud managed Postgres/MySQL**. Re-add Turso when the package supports `illuminate/database ^13`. `libsql` connection in `config/database.php` may remain for a future Turso return.
 
 ## When editing docs
 

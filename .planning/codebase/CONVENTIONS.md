@@ -17,7 +17,7 @@
 
 ### Backend
 
-- PHP targets 8.2+ and Laravel 12. Formatting is Laravel Pint's default Laravel preset; there is no custom `backend/pint.json`. Run `backend/vendor/bin/pint` after PHP edits.
+- PHP targets 8.3+ and Laravel 13. Formatting is Laravel Pint's default Laravel preset; there is no custom `backend/pint.json`. Run `backend/vendor/bin/pint` after PHP edits.
 - Files use `<?php`, a blank line, namespace, grouped `use` imports, then one primary class/interface. Indentation is four spaces.
 - Methods have explicit return types where practical. Constructor property promotion, named arguments, readonly data objects, arrow functions, spread syntax, and `match` are used where they improve clarity.
 - Laravel helpers and facades are preferred over hand-built framework plumbing (`response()->json`, `now()`, `config()`, `Http`, `Cache`, `Log`).

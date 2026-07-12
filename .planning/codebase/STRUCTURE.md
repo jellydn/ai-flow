@@ -8,7 +8,7 @@
 ai-flow/
 ├── .amp/portals/              # Amp preview metadata
 ├── .planning/codebase/        # Generated codebase maps
-├── backend/                   # Independently deployable Laravel 12 API root
+├── backend/                   # Independently deployable Laravel 13 API root
 │   ├── app/
 │   │   ├── Contracts/         # Swappable application/integration interfaces
 │   │   ├── Data/              # Small typed data carriers

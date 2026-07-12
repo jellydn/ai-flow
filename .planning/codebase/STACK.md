@@ -3,12 +3,12 @@
 **Analysis Date:** 2026-07-12
 
 ## Languages
-**Primary:** JavaScript/JSX powers the root SPA (`src/main.jsx`, `src/lib/api.js`); PHP 8.2+ powers the API and workers (`backend/composer.json`, `backend/app/`).
+**Primary:** JavaScript/JSX powers the root SPA (`src/main.jsx`, `src/lib/api.js`); PHP 8.3+ powers the API and workers (`backend/composer.json`, `backend/app/`).
 
 **Secondary:** CSS and HTML provide the SPA presentation and entry point (`src/styles.css`, `index.html`); Blade, JavaScript, and CSS remain in the Laravel scaffold (`backend/resources/`). JSON, YAML, XML, and Markdown define packages, CI, tests, and documentation (`package.json`, `backend/composer.json`, `.github/workflows/ci.yml`, `backend/phpunit.xml`).
 
 ## Runtime
-**Environment:** The monorepo has two independently built applications: a browser SPA at the repository root and a Laravel API under `backend/` (`doc/adr/0007-laravel-api-in-backend-subdirectory.md`). CI fixes Node.js 22 and PHP 8.2 (`.github/workflows/ci.yml`); Laravel itself requires PHP `^8.2` (`backend/composer.json`).
+**Environment:** The monorepo has two independently built applications: a browser SPA at the repository root and a Laravel API under `backend/` (`doc/adr/0007-laravel-api-in-backend-subdirectory.md`). CI fixes Node.js 22 and PHP 8.3 (`.github/workflows/ci.yml`); Laravel itself requires PHP `^8.3` (`backend/composer.json`).
 
 **Package Manager:** npm manages both JavaScript dependency trees, locked by `package-lock.json` and `backend/package-lock.json`; Composer manages backend PHP packages through `backend/composer.json` and `backend/composer.lock`.
 
@@ -30,7 +30,7 @@
 **Build:** Root Vite enables the React plugin and restricts development hosts to localhost and Amp domains (`vite.config.js`). Backend Vite compiles `backend/resources/css/app.css` and `backend/resources/js/app.js` with Laravel and Tailwind plugins (`backend/vite.config.js`). CI performs `npm ci && npm run build` at root, then Composer installation, migration/seed, Pint check, and PHPUnit in `backend/` (`.github/workflows/ci.yml`).
 
 ## Platform Requirements
-**Development:** Node.js 22 is the CI baseline (`.github/workflows/ci.yml`); PHP 8.2+, Composer, npm, SQLite, and `mbstring` are required for the backend path (`backend/composer.json`, `.github/workflows/ci.yml`). Local frontend and backend defaults are ports 5173 and 8000 with explicit CORS origins (`.env.example`, `backend/.env.example`, `backend/config/cors.php`). A queue listener/worker is needed for non-synchronous workflow execution (`backend/composer.json`).
+**Development:** Node.js 22 is the CI baseline (`.github/workflows/ci.yml`); PHP 8.3+, Composer, npm, SQLite, and `mbstring` are required for the backend path (`backend/composer.json`, `.github/workflows/ci.yml`). Local frontend and backend defaults are ports 5173 and 8000 with explicit CORS origins (`.env.example`, `backend/.env.example`, `backend/config/cors.php`). A queue listener/worker is needed for non-synchronous workflow execution (`backend/composer.json`).
 
 **Production:** Laravel Cloud deploys only `backend/`; the root SPA must be hosted separately with SPA fallback (`backend/README.md`, `doc/adr/0007-laravel-api-in-backend-subdirectory.md`). Production requires a durable MySQL or PostgreSQL database, durable cache, a non-`sync` queue, and a worker (`backend/README.md`, `backend/app/Providers/AppServiceProvider.php`). The proxy must support roughly 55-second SSE responses without buffering (`backend/app/Http/Controllers/RunController.php`, `doc/adr/0013-sse-run-stream-via-database-polling.md`).
 

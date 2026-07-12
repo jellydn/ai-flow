@@ -8,7 +8,7 @@ Accepted
 
 ## Context
 
-ADR 0001 recorded a Vite + React prototype at the repository root with Laravel deferred. The tree now includes a full Laravel 12 application under `backend/` (API, jobs, migrations, tests) while the root remains the Amp-synced React launcher UI.
+ADR 0001 recorded a Vite + React prototype at the repository root with Laravel deferred. The tree now includes a full Laravel 13 application under `backend/` (API, jobs, migrations, tests) while the root remains the Amp-synced React launcher UI.
 
 ## Decision
 
