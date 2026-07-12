@@ -4,7 +4,7 @@ Date: 2026-07-12
 
 ## Status
 
-Accepted
+Accepted (superseded in part by [ADR 0007](0007-laravel-api-in-backend-subdirectory.md))
 
 ## Context
 

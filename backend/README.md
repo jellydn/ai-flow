@@ -38,3 +38,7 @@ For CLI deployment, install the official Cloud CLI with `composer global require
 ## Tests
 
 `php artisan test` covers endpoint validation/queueing/rate limiting, URL parsing, and job execution with mocked GitHub and AI providers.
+
+## Architecture
+
+Backend decisions are recorded in the repo root: [`doc/adr/`](../doc/adr/README.md) (ADRs 0007–0014).

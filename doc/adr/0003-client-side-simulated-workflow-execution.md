@@ -4,7 +4,7 @@ Date: 2026-07-12
 
 ## Status
 
-Accepted
+Accepted for root SPA only; backend uses real execution per [ADR 0008](0008-queue-backed-execute-launcher-job.md)
 
 ## Context
 
