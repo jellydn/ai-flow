@@ -83,23 +83,23 @@ Official skill reference: [deploying-laravel-cloud](https://github.com/laravel/a
 
 Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`./vendor/bin/pint`). Mirrors [laravel-simplifier](https://github.com/laravel/agent-skills/blob/main/laravel/agents/laravel-simplifier.md):
 
-- **Explicit return types** on methods where practical.  
-- **Form requests** for HTTP validation (`StoreRunRequest`), not fat controllers.  
-- **API resources** for JSON shape (`RunResource`).  
-- **Contracts + container binding** for swappable services (`AIProviderInterface` → `OpenAIProvider`).  
-- **Jobs** for slow/IO work (`ExecuteLauncherJob`); controllers return **202** and dispatch.  
-- **Thin routes** in `routes/api.php`; logic in controllers, services, jobs, launchers.  
-- **Launchers:** one class per workflow under `app/Launchers/`, metadata via `BaseLauncher::make()`; seed in `DatabaseSeeder`.  
-- **Exceptions:** domain failures as `RuntimeException` / `InvalidArgumentException` with safe user-facing messages in `runs.error`; log details server-side.  
-- **No nested ternaries**—prefer `match`, early returns, or clear `if/else`.  
-- **Preserve behavior** when refactoring; run `php artisan test` after PHP changes.  
+- **Explicit return types** on methods where practical.
+- **Form requests** for HTTP validation (`StoreRunRequest`), not fat controllers.
+- **API resources** for JSON shape (`RunResource`).
+- **Contracts + container binding** for swappable services (`AIProviderInterface` → `OpenAIProvider`).
+- **Jobs** for slow/IO work (`ExecuteLauncherJob`); controllers return **202** and dispatch.
+- **Thin routes** in `routes/api.php`; logic in controllers, services, jobs, launchers.
+- **Launchers:** one class per workflow under `app/Launchers/`, metadata via `BaseLauncher::make()`; seed in `DatabaseSeeder`.
+- **Exceptions:** domain failures as `RuntimeException` / `InvalidArgumentException` with safe user-facing messages in `runs.error`; log details server-side.
+- **No nested ternaries**—prefer `match`, early returns, or clear `if/else`.
+- **Preserve behavior** when refactoring; run `php artisan test` after PHP changes.
 - **PHPUnit:** feature tests with `RefreshDatabase` + seed; `Queue::fake()` when asserting dispatch; mock GitHub/AI in job tests.
 
 ### React / frontend (repo root)
 
 - Main UI remains in `src/main.jsx`; supporting code lives in `src/components/`, `src/data/`, and `src/lib/`. Plain CSS remains in `src/styles.css` (BEM-like classes).
-- Functional components + hooks; no TypeScript unless the project adds it.  
-- **API:** `src/lib/api.js` — `VITE_API_BASE_URL` (default `http://localhost:8000`), SSE progress, `VITE_DEMO_MODE=true` for simulated runs only.  
+- Functional components + hooks; no TypeScript unless the project adds it.
+- **API:** `src/lib/api.js` — `VITE_API_BASE_URL` (default `http://localhost:8000`), SSE progress, `VITE_DEMO_MODE=true` for simulated runs only.
 - Keep React, Vite, and `lucide-react` versions pinned for reproducible builds.
 
 ## Architecture map (backend)
@@ -130,14 +130,14 @@ npx skills add https://github.com/laravel/agent-skills/tree/main/laravel/skills/
 
 ## Repo-specific gotchas
 
-- **Monorepo:** Cloud deploys `backend/` only; root React is separate (Amp portal: `.amp/portals/ai-launcher.json`).  
-- **Amp sync:** `origin` may point at Amp git; `github` remote is `jellydn/ai-flow`.  
-- **Root `vite.config.js`:** `server.allowedHosts: true` for remote preview.  
-- **Rate limit:** changing run creation limits → `AppServiceProvider` `RateLimiter::for('runs', ...)`.  
-- **New launcher:** PHP class + `DatabaseSeeder` entry + feature test coverage; shared `output_schema` in `BaseLauncher`.
+- **Monorepo:** Cloud deploys `backend/` only; root React is separate (Amp portal: `.amp/portals/ai-launcher.json`).
+- **Amp sync:** `origin` may point at Amp git; `github` remote is `jellydn/ai-flow`.
+- **API aliases:** `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs` (same contracts).
+- **Rate limit:** changing run creation limits → `AppServiceProvider` `RateLimiter::for('runs', ...)`.
+- **New launcher:** PHP class + `DatabaseSeeder` entry + feature test coverage; shared `outputSchema` in `BaseLauncher`.
 
 ## When editing docs
 
-- Product/marketing: root `README.md`  
-- API/setup/Cloud: `backend/README.md`  
+- Product/marketing: root `README.md`
+- API/setup/Cloud: `backend/README.md`
 - Decisions: new ADR under `doc/adr/` and index in `doc/adr/README.md`
