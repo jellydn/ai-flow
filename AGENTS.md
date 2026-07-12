@@ -33,12 +33,17 @@ php artisan test
 php artisan test --filter=SomeTest            # run a focused test
 ./vendor/bin/pint --test                      # CI checks style with --test (fails on violations)
 ./vendor/bin/pint                             # fix style locally before pushing
-npm run typecheck                             # TypeScript check
-npm run lint                                  # alias for typecheck
-npm run build                                 # production Vite build → public/build
+npm run typecheck                             # tsc --noEmit (strict)
+npm run lint                                  # oxlint + oxfmt --check (NOT typecheck)
+npm run format                                # oxfmt --write (in place)
+npm run build                                 # tsc --noEmit && vite build → public/build
+npm run konsistent                            # structural TS convention checks (konsistent)
+npm run doctor                                # npx react-doctor (React codebase analysis)
 ```
 
-CI (`.github/workflows/ci.yml`): backend runs `composer validate`, `composer install`, `migrate --force`, `php artisan test`, `./vendor/bin/pint --test` on PHP 8.4; frontend runs `npm ci`, `npm run typecheck`, `npm run lint`, `npm run build` on Node 20.
+CI (`.github/workflows/ci.yml`): backend (PHP 8.4, `sqlite3`+`pgsql` ext) runs `composer validate`, `composer install`, `migrate --force`, `php artisan test`, `./vendor/bin/pint --test`. Frontend (Node 20) runs `npm ci`, `npm run typecheck` (`tsc --noEmit`), `npm run lint` (oxlint + oxfmt --check), `npm run konsistent`, `npm run build` (`tsc --noEmit && vite build`); `npm run test` is a no-op placeholder.
+
+**Local hooks:** pre-commit runs via [prek](https://prek.j178.dev) (`.pre-commit-config.yaml`); `just prek` runs them all on every file (requires backend deps: `cd backend && npm ci`). Hooks: `composer-validate`, `pint`, `frontend-typecheck`, `oxlint`, `oxfmt`, `konsistent`.
 
 **Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `VITE_DEMO_MODE=true` (frontend simulated runs without backend). Default `QUEUE_CONNECTION=database` (never `sync` in production). **Production DB (Laravel 13):** attach Laravel Cloud Serverless Postgres or MySQL (`DB_CONNECTION=pgsql` or `mysql`); do not use file SQLite on Cloud. Local dev: `DB_CONNECTION=sqlite` + `database/database.sqlite`.
 
@@ -92,6 +97,8 @@ Follow **Laravel conventions** and **PSR-12**, enforced with **Laravel Pint** (`
 - Functional components + hooks; TypeScript with strict mode. Avoid broad `any`; use `unknown` with explicit narrowing.
 - **API:** `resources/ts/services/run.ts` (HTTP helpers in `resources/ts/lib/http.ts`, streaming in `resources/ts/hooks/`) — same-origin `/api/*` requests, typed `Run`/`Launcher` contracts, SSE with polling fallback.
 - Vite configuration is `vite.config.ts` and uses `laravel-vite-plugin` + `@vitejs/plugin-react`.
+- Frontend is linted/formatted by **oxlint + oxfmt** (Rust-based; config at repo root `.oxlintrc.json` / `.oxfmtrc.json`), not ESLint/Prettier — there is no `.prettierrc`. Fix formatting with `npm run format`, not `prettier --write`.
+- **konsistent** enforces structural TS conventions: `components/*.tsx` must export a PascalCase component matching the filename, `hooks/*.ts` must export `use*` functions.
 - Keep React, Vite, and `lucide-react` versions pinned for reproducible builds.
 
 ## Architecture map (backend)
