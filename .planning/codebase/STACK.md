@@ -3,149 +3,36 @@
 **Analysis Date:** 2026-07-12
 
 ## Languages
+**Primary:** JavaScript/JSX powers the root SPA (`src/main.jsx`, `src/lib/api.js`); PHP 8.2+ powers the API and workers (`backend/composer.json`, `backend/app/`).
 
-**Primary:**
-- JavaScript (ES Modules, `"type": "module"`) — Frontend in `src/`
-- PHP 8.2+ — Backend in `backend/`
-
-**Secondary:**
-- HTML — `index.html` entry point (root), `backend/resources/views/` (Laravel Blade)
-- CSS — `src/styles.css` (root, frontend), `backend/resources/css/` (Laravel)
-- SQL — Database migrations in `backend/database/migrations/`
-- JSON — Configuration, schemas, API payloads
+**Secondary:** CSS and HTML provide the SPA presentation and entry point (`src/styles.css`, `index.html`); Blade, JavaScript, and CSS remain in the Laravel scaffold (`backend/resources/`). JSON, YAML, XML, and Markdown define packages, CI, tests, and documentation (`package.json`, `backend/composer.json`, `.github/workflows/ci.yml`, `backend/phpunit.xml`).
 
 ## Runtime
+**Environment:** The monorepo has two independently built applications: a browser SPA at the repository root and a Laravel API under `backend/` (`doc/adr/0007-laravel-api-in-backend-subdirectory.md`). CI fixes Node.js 22 and PHP 8.2 (`.github/workflows/ci.yml`); Laravel itself requires PHP `^8.2` (`backend/composer.json`).
 
-**Environment:**
-- Node.js — Vite dev server for frontend
-- PHP CLI + built-in server — Laravel backend (`php artisan serve`)
-
-**Package Managers:**
-- npm — Frontend dependencies (root `package.json`)
-- Composer — PHP dependencies (`backend/composer.json`)
-- Lockfiles: `package-lock.json` (root), `backend/composer.lock`
+**Package Manager:** npm manages both JavaScript dependency trees, locked by `package-lock.json` and `backend/package-lock.json`; Composer manages backend PHP packages through `backend/composer.json` and `backend/composer.lock`.
 
 ## Frameworks
+**Core:** React 19.2.7 with React DOM renders the root SPA (`package.json`, `src/main.jsx`). Vite 5.4.14 and `@vitejs/plugin-react` 4.3.4 build it (`package.json`, `vite.config.js`). Laravel Framework 12 is the backend framework (`backend/composer.json`), using Eloquent models, HTTP resources/form requests, queued jobs, facades, and streamed responses (`backend/app/Models/`, `backend/app/Http/`, `backend/app/Jobs/ExecuteLauncherJob.php`).
 
-**Core:**
-- React (latest, unpinned) — Frontend UI library (functional components, hooks, no TypeScript)
-- Vite 5.4.14 — Build tool and dev server with HMR (`--host 0.0.0.0`)
-- Laravel ^12.0 — Backend full-stack framework (Eloquent ORM, queue, cache, auth)
+**Testing:** PHPUnit 11.5 provides backend unit and feature testing (`backend/composer.json`, `backend/phpunit.xml`, `backend/tests/`); Mockery supports mocks and Faker supports generated fixtures (`backend/composer.json`). Tests use in-memory SQLite, array cache/session/mail, and a synchronous queue (`backend/phpunit.xml`). No root frontend test framework is declared (`package.json`).
 
-**Testing:**
-- PHPUnit ^11.5.50 — Backend tests (`backend/phpunit.xml` with Unit + Feature suites, in-memory SQLite)
-- Mockery ^1.6 — PHP mocking framework (dev dependency)
-- Laravel Pail ^1.2.2 — Dev log viewer (for `composer run dev`)
+**Build/Dev:** Root scripts expose Vite dev, build, and preview commands (`package.json`). The Laravel development script runs the PHP server, queue listener, Laravel Pail, and its Vite process concurrently (`backend/composer.json`). The backend asset scaffold uses Vite 7, Laravel Vite Plugin 2, Tailwind CSS 4, and Axios (`backend/package.json`, `backend/vite.config.js`); this asset pipeline is separate from the product SPA at the root.
 
-**Build/Dev Tools:**
-- @vitejs/plugin-react 4.3.4 — Vite plugin for React JSX transform (root)
-- Laravel Vite Plugin ^2.0 — Vite integration for Laravel (`backend/vite.config.js`)
-- Tailwind CSS ^4.0 — CSS utility framework (backend admin/views)
-- @tailwindcss/vite ^4.0 — Tailwind Vite plugin (backend)
-- Laravel Pint ^1.24 — PHP code style fixer (PSR-12 / Laravel conventions)
-- concurrently ^9.0.1 — Run multiple dev processes simultaneously (backend `composer run dev`)
-- Axios ^1.11 — HTTP client (backend npm devDependency, for Laravel frontend assets)
+## Key Dependencies
+**Critical:** `react`, `react-dom`, and `lucide-react` implement the launcher UI and iconography (`package.json`, `src/main.jsx`). `laravel/framework` provides HTTP, database, cache, queue, validation, and HTTP-client facilities, while `laravel/tinker` provides an interactive shell (`backend/composer.json`). The backend intentionally uses Laravel's HTTP client rather than dedicated OpenAI or GitHub SDK packages (`backend/app/Services/OpenAIProvider.php`, `backend/app/Services/GitHubService.php`).
 
-## Key Frontend Dependencies
-
-**Critical (root `package.json`):**
-- react + react-dom (latest, unpinned) — UI rendering
-- lucide-react (latest, unpinned) — SVG icon component library (~24 icons imported)
-- vite 5.4.14 — Build tool
-
-**Infrastructure (root):**
-- @vitejs/plugin-react 4.3.4 — React JSX transform
-
-## Key Backend Dependencies
-
-**Critical (`backend/composer.json`):**
-- laravel/framework ^12.0 — Core framework
-- laravel/tinker ^2.10 — REPL for artisan
-
-**Dev (`backend/composer.json require-dev`):**
-- phpunit/phpunit ^11.5 — Testing
-- laravel/pint ^1.24 — Code style
-- laravel/sail ^1.41 — Docker dev environment
-- fakerphp/faker ^1.23 — Fake data generation
-- mockery/mockery ^1.6 — Test mocking
-- nunomaduro/collision ^8.6 — Error handling for CLI
-
-**Backend npm devDependencies (`backend/package.json`):**
-- vite ^7.0.7 — Laravel-side Vite
-- laravel-vite-plugin ^2.0 — Laravel Vite bridge
-- tailwindcss ^4.0 — CSS framework
-- @tailwindcss/vite ^4.0 — Tailwind for Vite
-- axios ^1.11 — HTTP client
-- concurrently ^9.0.1 — Dev process orchestration
-
-## Backend Architecture
-
-**Design Patterns:**
-- Controller → Service → Provider — HTTP layer delegates to services
-- Contracts/Interfaces — `AIProviderInterface`, `LauncherInterface` for swappable implementations
-- Queue Jobs — `ExecuteLauncherJob` for async AI/GitHub processing
-- Form Requests — Dedicated classes for HTTP validation (e.g., `StoreRunRequest`)
-- API Resources — Dedicated classes for JSON response shaping (e.g., `RunResource`)
-- Repository-style Models — `Launcher`, `Run`, `User` Eloquent models
-
-**Directory Layout (`backend/app/`):**
-- `Contracts/` — `AIProviderInterface.php`, `LauncherInterface.php`
-- `Http/Controllers/` — `RunController.php`
-- `Http/Requests/` — Form request validation classes
-- `Http/Resources/` — API resource transformers
-- `Jobs/` — `ExecuteLauncherJob.php`
-- `Launchers/` — 5 workflow classes: `BaseLauncher.php`, `ReviewPullRequestLauncher.php`, `PlanIssueLauncher.php`, `ExplainRepositoryLauncher.php`, `LaravelDoctorLauncher.php`
-- `Models/` — `Launcher.php`, `Run.php`, `User.php`
-- `Providers/` — `AppServiceProvider.php`
-- `Services/` — `OpenAIProvider.php`, `GitHubService.php`, `JsonSchemaValidator.php`
-
-**API Routes (`backend/routes/api.php`):**
-- `GET /api/health` — Health check
-- `GET /api/launchers` — List active launchers
-- `POST /api/runs` — Create a run (throttled: `throttle:runs`)
-- `GET /api/runs/{run}` — Get run status/results
-- `GET /api/runs/{run}/stream` — SSE stream for live progress
-
-**Database Schema (`backend/database/migrations/`):**
-- `users` table — Standard Laravel users
-- `cache` + `cache_locks` tables — Database cache driver
-- `jobs` + `job_batches` + `failed_jobs` tables — Database queue driver
-- `launchers` table — Workflow definitions (slug, name, prompt_template, output_schema, class_name)
-- `runs` table — Run instances (UUID pk, launcher FK, source_url, status, progress, result, error)
+**Infrastructure:** Database-backed queues and cache are defaults (`backend/config/queue.php`, `backend/config/cache.php`, `backend/.env.example`). Laravel Pint enforces backend formatting, Pail tails logs, Sail offers containerised development, and Collision formats console/test failures (`backend/composer.json`). Queue work is isolated in `ExecuteLauncherJob` with two attempts and a 120-second timeout (`backend/app/Jobs/ExecuteLauncherJob.php`).
 
 ## Configuration
+**Environment:** Frontend settings are Vite variables: `VITE_API_BASE_URL`, `VITE_PUBLIC_APP_URL`, and optional `VITE_DEMO_MODE` (`.env.example`, `src/lib/api.js`, `src/main.jsx`). Backend application, database, cache, queue, CORS, AI-provider, GitHub, session, filesystem, and logging settings come from `backend/.env.example` and the files under `backend/config/`. AI configuration accepts OpenAI or OpenRouter credentials and any OpenAI-compatible base URL (`backend/config/services.php`).
 
-**Frontend:**
-- No `.env` files
-- `vite.config.js` — `plugins: [react()]`, `server.allowedHosts: true`
-- `index.html` — Client entry with `<script type="module" src="/src/main.jsx">`
-
-**Backend:**
-- `.env.example` is absent (the `composer.json` `post-root-package-install` script copies `.env.example` to `.env` during project creation)
-- Default env from `composer.json` setup: SQLite database, `APP_KEY` generated
-- `config/app.php` — APP_NAME, APP_ENV, APP_DEBUG, APP_URL, timezone UTC
-- `config/database.php` — Default SQLite, supports MySQL, MariaDB, PostgreSQL, SQL Server, Redis
-- `config/cache.php` — Default database store, supports file/memcached/redis/dynamodb/octane
-- `config/queue.php` — Default database connection, supports sync/beanstalkd/SQS/redis
-- `config/session.php` — Default database driver, supports file/cookie/memcached/redis/dynamodb/array
-- `config/filesystems.php` — Default local disk, supports S3
-- `config/logging.php` — Default stack channel (single), supports daily/slack/papertrail/syslog/errorlog
-- `config/mail.php` — Default log mailer, supports SMTP/SES/Postmark/Resend/sendmail
-- `config/auth.php` — Session guard, Eloquent user provider
-- `config/services.php` — OpenAI API (key, model, timeout), GitHub REST API (token), Postmark, Resend, SES, Slack
+**Build:** Root Vite enables the React plugin and restricts development hosts to localhost and Amp domains (`vite.config.js`). Backend Vite compiles `backend/resources/css/app.css` and `backend/resources/js/app.js` with Laravel and Tailwind plugins (`backend/vite.config.js`). CI performs `npm ci && npm run build` at root, then Composer installation, migration/seed, Pint check, and PHPUnit in `backend/` (`.github/workflows/ci.yml`).
 
 ## Platform Requirements
+**Development:** Node.js 22 is the CI baseline (`.github/workflows/ci.yml`); PHP 8.2+, Composer, npm, SQLite, and `mbstring` are required for the backend path (`backend/composer.json`, `.github/workflows/ci.yml`). Local frontend and backend defaults are ports 5173 and 8000 with explicit CORS origins (`.env.example`, `backend/.env.example`, `backend/config/cors.php`). A queue listener/worker is needed for non-synchronous workflow execution (`backend/composer.json`).
 
-**Development:**
-- Node.js 18+ (Vite 5 requirement)
-- PHP 8.2+ with extensions: PDO SQLite, mbstring, JSON, fileinfo, OpenSSL
-- Composer 2.x
-- SQLite (default dev database) or MySQL/PostgreSQL
+**Production:** Laravel Cloud deploys only `backend/`; the root SPA must be hosted separately with SPA fallback (`backend/README.md`, `doc/adr/0007-laravel-api-in-backend-subdirectory.md`). Production requires a durable MySQL or PostgreSQL database, durable cache, a non-`sync` queue, and a worker (`backend/README.md`, `backend/app/Providers/AppServiceProvider.php`). The proxy must support roughly 55-second SSE responses without buffering (`backend/app/Http/Controllers/RunController.php`, `doc/adr/0013-sse-run-stream-via-database-polling.md`).
 
-**Production (Laravel Cloud):**
-- PHP 8.2+ runtime
-- Database (SQLite or MySQL via Cloud)
-- Queue worker (separate process from web)
-- Required env vars: `APP_KEY`, `OPENAI_API_KEY`, `DB_*`, `QUEUE_CONNECTION`
-- Recommended: `GITHUB_TOKEN` (for rate limits)
-- Optional: `OPENAI_MODEL`, `OPENAI_TIMEOUT`
+---
+*Stack analysis: 2026-07-12*
