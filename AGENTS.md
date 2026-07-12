@@ -37,15 +37,19 @@ cd backend
 composer install
 cp .env.example .env && php artisan key:generate
 touch database/database.sqlite && php artisan migrate --seed
-composer run dev   # serve + queue + pail + vite (concurrently)
+composer run dev   # server + queue:listen + pail + vite (concurrently; watches for code changes)
 # Or separately:
 php artisan serve
-php artisan queue:work --tries=2 --timeout=120
+php artisan queue:work --sleep=1 --tries=2 --timeout=120   # production/standalone worker (not queue:listen)
 php artisan test
-./vendor/bin/pint   # Laravel Pint (PSR-12 / Laravel style)
+php artisan test --filter=SomeTest            # run a focused test
+./vendor/bin/pint --test                      # CI checks style with --test (fails on violations)
+./vendor/bin/pint                             # fix style locally before pushing
 ```
 
-**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `OPENAI_MODEL`, `OPENAI_TIMEOUT`.
+CI (`.github/workflows/ci.yml`): frontend runs `npm ci` + `npm run build`; backend runs `composer install`, `migrate --force --seed`, `./vendor/bin/pint --test`, then `php artisan test` on PHP 8.2.
+
+**Required env (local & Cloud):** `OPENAI_API_KEY`. **Recommended:** `GITHUB_TOKEN` (rate limits). Optional: `AI_MODEL` (default `gpt-4o-mini`), `AI_BASE_URL` (OpenAI-compatible; set `https://openrouter.ai/api/v1` + `OPENROUTER_API_KEY` for the free-router demo), `OPENAI_TIMEOUT`, `CORS_ALLOWED_ORIGINS` (browser SPA origins, e.g. `http://localhost:5173`). Default `QUEUE_CONNECTION=database` (never `sync` in production).
 
 **Production:** never run AI on the web process; use a real queue (`QUEUE_CONNECTION` ≠ `sync`). Worker: `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.
 
