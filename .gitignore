@@ -1,3 +1,4 @@
+.amp/live-sync.pid
 node_modules/
 dist/
 .DS_Store
