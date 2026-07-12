@@ -54,7 +54,7 @@ One-click workflows. No prompt engineering.
 - Explain repository  
 - Laravel project doctor  
 
-Additional UI workflows in this prototype: release notes, security scan, and more.
+Marketing copy in the UI may list extra workflow ideas; the API runs the four launcher slugs seeded in the database (see [`backend/README.md`](backend/README.md)).
 
 ### Inputs (MVP)
 
@@ -132,7 +132,7 @@ Production uses [Neon PostgreSQL](https://neon.com/) through Laravel's `pgsql` c
 
 ## Bring Your Own API Key
 
-Users may optionally provide their own OpenAI-compatible API key when launching a workflow. If blank, the server's `OPENAI_API_KEY` is used. User keys are:
+Users may optionally provide their own OpenAI-compatible API key in the launch form when starting a workflow. The UI sends it as `provider.api_key` on `POST /api/runs` (with `provider.id`, default `openai`). If blank, the server's `OPENAI_API_KEY` is used. User keys are:
 
 - used only for the current execution
 - never stored in run records or plaintext queue payloads

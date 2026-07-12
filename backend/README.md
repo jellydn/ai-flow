@@ -53,7 +53,7 @@ The UI is in `resources/ts/` and built with Vite. `resources/views/app.blade.php
 
 The same-origin API client lives in `resources/ts/services/run.ts` (with HTTP helpers in `resources/ts/lib/http.ts` and streaming hooks in `resources/ts/hooks/`). It calls `/api/health`, `/api/launchers`, `/api/runs`, and `/api/runs/{uuid}/stream` (`/api/flows` and `/api/executions` are aliases for backward compatibility).
 
-Set `VITE_DEMO_MODE=true` in `.env` to run simulated workflow executions without a backend.
+Set `VITE_DEMO_MODE=true` in `.env` (and restart Vite if it is already running) to run **simulated** workflow progress and demo reports in the browser. Demo mode does not call `POST /api/runs` or require a queue worker; it uses the static launcher catalog in `resources/ts/data/launcherMeta.ts`. Share URLs such as `/runs/{uuid}` still load real runs from `GET /api/runs/{uuid}` when the API is available.
 
 ## Database
 
@@ -83,7 +83,7 @@ The server key remains the default. A caller can optionally supply an OpenAI-com
 }
 ```
 
-The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
+The launch form’s optional API key field sends the same `provider` object. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
