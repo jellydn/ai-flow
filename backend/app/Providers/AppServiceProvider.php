@@ -45,18 +45,21 @@ class AppServiceProvider extends ServiceProvider
         // Production PostgreSQL should use TLS for external hosts (e.g., Neon).
         // Internal Docker network hostnames (e.g., dokku-postgres-ai-flow) are
         // exempt since container-to-container traffic does not need TLS.
-        $pgHost = (string) config('database.connections.pgsql.host');
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
             && config('database.default') === 'pgsql'
-            && str_contains($pgHost, '.')
-            && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
         ) {
-            throw new RuntimeException(
-                'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
-            );
+            $pgHost = (string) config('database.connections.pgsql.host');
+            if (
+                str_contains($pgHost, '.')
+                && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
+            ) {
+                throw new RuntimeException(
+                    'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
+                );
+            }
         }
 
         // The sync queue driver executes jobs inside the HTTP request, which
