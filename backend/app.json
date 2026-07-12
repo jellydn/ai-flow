@@ -1,0 +1,20 @@
+{
+  "healthchecks": [
+    {
+      "name": "web",
+      "path": "/up",
+      "port": 80,
+      "scheme": "http",
+      "timeout": 5,
+      "wait_after_deploy": 5
+    },
+    {
+      "name": "worker",
+      "path": "/up",
+      "port": 80,
+      "scheme": "http",
+      "timeout": 5,
+      "wait_after_deploy": 5
+    }
+  ]
+}
