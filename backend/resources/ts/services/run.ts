@@ -59,6 +59,17 @@ function decodeVerificationSteps(value: unknown): string[] {
     );
 }
 
+function decodeRunInput(value: unknown): Run['input'] {
+    if (value === null || value === undefined) {
+        return null;
+    }
+    const data = assertObject(value);
+    if (data.source_url === undefined) {
+        return {};
+    }
+    return { source_url: assertString(data.source_url, 'input.source_url') };
+}
+
 function decodeRunResult(value: unknown): RunResult {
     const data = assertObject(value);
     const result: RunResult = {
@@ -85,7 +96,7 @@ export function decodeRun(value: unknown): Run {
 
     const result = data.result === null || data.result === undefined ? null : decodeRunResult(data.result);
 
-    const input = data.input === null || data.input === undefined ? null : assertObject(data.input);
+    const input = decodeRunInput(data.input);
 
     const progress = assertArray(data.progress, 'progress').map((item, index) =>
         assertString(item, `progress[${index}]`),

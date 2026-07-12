@@ -32,14 +32,27 @@ export function App() {
     const [apiKey, setApiKey] = useState('');
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
 
-    const { runId: pathRunId, ready: pathReady, navigate } = useRunFromPath();
+    const {
+        runId: pathRunId,
+        run: pathRun,
+        loading: pathLoading,
+        error: pathError,
+        ready: pathReady,
+        navigate,
+    } = useRunFromPath();
 
     const activeLauncher = useMemo(() => launchers.find((launcher) => launcher.slug === selected), [launchers, selected]);
     const activeMeta = useMemo(() => launcherMetaBySlug[selected], [selected]);
     const parsedRepo = useMemo(() => parseGithubRepo(url) ?? '', [url]);
 
     const liveRunId = view.type === 'live-running' ? view.runId : (pathRunId ?? null);
-    const liveInitialRun = view.type === 'live-running' ? view.run : null;
+    let liveInitialRun: Run | null = null;
+    if (liveRunId && pathRun?.id === liveRunId) {
+        liveInitialRun = pathRun;
+    } else if (view.type === 'live-running') {
+        liveInitialRun = view.run;
+    }
+    const deepLinkLoading = Boolean(pathRunId && pathLoading);
     const { run: subscriptionRun } = useRunSubscription(liveRunId, liveInitialRun);
 
     useEffect(() => {
@@ -68,6 +81,32 @@ export function App() {
         }), DEMO_STEP_DELAY_MS);
         return () => clearTimeout(timer);
     }, [view.type, view.type === 'demo-running' ? view.step : 0]);
+
+    useEffect(() => {
+        if (!pathReady || !pathRunId) {
+            return;
+        }
+        if (pathError) {
+            setError(pathError);
+            setView({ type: 'home' });
+            return;
+        }
+        if (pathLoading || !pathRun) {
+            return;
+        }
+        if (subscriptionRun?.id === pathRunId) {
+            return;
+        }
+        setSelected(pathRun.launcher ? (launcherMetaBySlug[pathRun.launcher]?.slug ?? pathRun.launcher) : 'review-pr');
+        setUrl(pathRun.input?.source_url ?? '');
+        if (pathRun.status === 'completed') {
+            setView({ type: 'report', run: pathRun });
+        } else if (pathRun.status === 'failed') {
+            setView({ type: 'failed', run: pathRun });
+        } else {
+            setView({ type: 'live-running', runId: pathRun.id, run: pathRun });
+        }
+    }, [pathReady, pathRunId, pathRun, pathLoading, pathError, subscriptionRun?.id]);
 
     useEffect(() => {
         const run = subscriptionRun?.id === liveRunId ? subscriptionRun : null;
@@ -144,7 +183,16 @@ export function App() {
         <div className="app-shell">
             <Header mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} reset={reset} />
 
-            {view.type === 'home' && (
+            {deepLinkLoading && (
+                <main className="running-page">
+                    <div className="error-fallback">
+                        <h1>Loading report…</h1>
+                        <p>Fetching workflow status for this link.</p>
+                    </div>
+                </main>
+            )}
+
+            {view.type === 'home' && !deepLinkLoading && (
                 <Home
                     selected={selected}
                     setSelected={setSelected}
