@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Contracts\RunExecutorInterface;
 use App\Models\Run;
+use App\Support\AiProviders;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -18,7 +19,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
 
     public function __construct(
         public string $runId,
-        private string $provider = 'openai',
+        private string $provider = AiProviders::OPENAI,
         private ?string $apiKey = null,
     ) {}
 

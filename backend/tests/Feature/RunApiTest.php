@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Support\AiProviders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -91,6 +92,27 @@ class RunApiTest extends TestCase
             'input' => ['url' => 'https://github.com/laravel/laravel'],
             'provider' => ['id' => 'anthropic', 'api_key' => 'secret'],
         ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
+    }
+
+    public function test_run_defaults_openai_provider_when_provider_id_is_null(): void
+    {
+        Queue::fake();
+
+        $response = $this->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => null],
+        ])->assertStatus(202);
+
+        Queue::assertPushed(ExecuteLauncherJob::class, function (ExecuteLauncherJob $job) use ($response): bool {
+            if ($job->runId !== $response->json('id')) {
+                return false;
+            }
+            $provider = (new \ReflectionProperty(ExecuteLauncherJob::class, 'provider'));
+            $provider->setAccessible(true);
+
+            return $provider->getValue($job) === AiProviders::OPENAI;
+        });
     }
 
     public function test_stream_emits_terminal_snapshot_without_buffering(): void

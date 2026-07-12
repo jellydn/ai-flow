@@ -50,7 +50,8 @@ class RunExecutor implements RunExecutorInterface
             RunProgressed::dispatch($run->fresh());
         } catch (Throwable $e) {
             $message = match (true) {
-                $e instanceof RuntimeException, $e instanceof InvalidArgumentException => $e->getMessage(),
+                $e instanceof RuntimeException => $e->getMessage(),
+                $e instanceof InvalidArgumentException && $e->getMessage() === 'Unsupported AI provider.' => $e->getMessage(),
                 default => 'Run failed unexpectedly.',
             };
             $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);

@@ -45,6 +45,18 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && config('database.default') === 'pgsql'
+            && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
+        ) {
+            throw new RuntimeException(
+                'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
+            );
+        }
+
         if (app()->environment('production') && strtolower((string) env('LOG_LEVEL', 'warning')) === 'debug') {
             Log::warning('LOG_LEVEL is debug in production; set LOG_LEVEL=warning or error to reduce sensitive log exposure.');
         }

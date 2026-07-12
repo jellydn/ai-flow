@@ -14,7 +14,7 @@ php artisan serve
 php artisan queue:work --tries=2 --timeout=120
 ```
 
-Set `OPENAI_API_KEY`; `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Configure `OPENAI_MODEL` and `OPENAI_TIMEOUT` as needed. The provider accepts any OpenAI-compatible endpoint via `AI_BASE_URL`. Use a durable database/cache/queue in production.
+Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
 
 ## Database
 

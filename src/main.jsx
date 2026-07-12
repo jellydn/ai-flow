@@ -164,7 +164,6 @@ function App() {
     setIsLaunching(true)
     try {
       const body = await createRun(activeWorkflow.slug, trimmed, apiKey)
-      setApiKey('')
       setRunId(body.id)
       window.history.pushState({}, '', `/runs/${body.id}`)
       setView('running')
@@ -172,6 +171,7 @@ function App() {
     } catch (e) {
       setError(e.message || 'Could not start workflow. Is the API running?')
     } finally {
+      setApiKey('')
       setIsLaunching(false)
     }
   }

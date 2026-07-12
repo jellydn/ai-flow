@@ -12,8 +12,10 @@ use App\Models\Run;
 use App\Services\GitHubService;
 use App\Services\JsonSchemaValidator;
 use App\Services\RunExecutor;
+use App\Support\AiProviders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use RuntimeException;
@@ -43,6 +45,37 @@ class ExecuteLauncherJobTest extends TestCase
         $payload = DB::table('jobs')->value('payload');
 
         $this->assertStringNotContainsString($apiKey, $payload);
+    }
+
+    public function test_run_executor_uses_server_key_when_byok_omitted(): void
+    {
+        $this->seed();
+        config()->set('services.openai', [
+            'key' => 'server-secret-key',
+            'base_url' => 'https://api.openai.com/v1',
+            'model' => 'gpt-4o-mini',
+            'timeout' => 30,
+        ]);
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [['message' => ['content' => '{"summary":"Ok","risk":"low","findings":[],"verification_steps":[]}']]]],
+            ]),
+        ]);
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'source_url' => 'https://github.com/a/b',
+            'input' => ['source_url' => 'https://github.com/a/b'],
+            'progress' => [],
+        ]);
+        $github = Mockery::mock(GitHubService::class);
+        $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
+        $github->shouldReceive('context')->andReturn(['repository' => ['full_name' => 'a/b']]);
+
+        (new RunExecutor($github, app(AIProviderFactoryInterface::class), new JsonSchemaValidator))
+            ->execute($run, AiProviders::OPENAI, null);
+
+        $this->assertSame('completed', $run->fresh()->status);
+        Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer server-secret-key'));
     }
 
     public function test_job_records_structured_result(): void
@@ -124,5 +157,25 @@ class ExecuteLauncherJobTest extends TestCase
             return ! str_contains($message.json_encode($context), $apiKey)
                 && ! array_key_exists('message', $context);
         });
+    }
+
+    public function test_run_executor_hides_non_allowlisted_invalid_argument_messages(): void
+    {
+        $this->seed();
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'source_url' => 'https://github.com/a/b',
+            'input' => ['source_url' => 'https://github.com/a/b'],
+            'progress' => [],
+        ]);
+        $github = Mockery::mock(GitHubService::class);
+        $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
+        $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
+        $providers = Mockery::mock(AIProviderFactoryInterface::class);
+        $providers->shouldReceive('forExecution')->andThrow(new \InvalidArgumentException('Internal parser detail.'));
+
+        (new RunExecutor($github, $providers, new JsonSchemaValidator))->execute($run);
+
+        $this->assertSame('Run failed unexpectedly.', $run->fresh()->error);
     }
 }
