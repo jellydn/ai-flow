@@ -32,8 +32,10 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
+        // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
         if (
             app()->environment('production')
+            && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
             && config('database.default') === 'sqlite'
         ) {
