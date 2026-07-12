@@ -13,7 +13,17 @@ dokku builder:set ai-flow selected dockerfile
 dokku ports:set ai-flow http:80:80
 ```
 
-Skip `apps:create` if the app already exists. If DNS is configured for an application domain, set it before enabling TLS:
+Skip `apps:create` if the app already exists.
+
+Confirm the app uses the Dockerfile builder (not Herokuish). If deploy logs show `Building ai-flow from herokuish` or `Unable to select a buildpack`, run on the server:
+
+```bash
+dokku builder:report ai-flow
+dokku builder:set ai-flow selected dockerfile
+dokku builder:set ai-flow build-dir backend
+```
+
+Install the [dockerfile builder plugin](https://github.com/dokku/dokku/tree/master/plugins/builder-dockerfile) if `selected` cannot be set to `dockerfile`. If DNS is configured for an application domain, set it before enabling TLS:
 
 ```bash
 dokku domains:set ai-flow ai-flow.docklight-staging.itman.fyi
@@ -52,13 +62,14 @@ dokku config:set --no-restart ai-flow \
   OPENAI_API_KEY='replace-me' \
   GITHUB_TOKEN='replace-me' \
   DB_HOST='replace-me' \
+  DB_DIRECT_HOST='replace-me' \
   DB_PORT=5432 \
   DB_DATABASE='replace-me' \
   DB_USERNAME='replace-me' \
   DB_PASSWORD='replace-me'
 ```
 
-Use the Neon direct hostname for release-phase migrations. The pooled hostname may be used for normal web and worker traffic after migrations complete.
+For Neon, set `DB_HOST` to the **pooled** hostname for web and worker traffic. Set `DB_DIRECT_HOST` to the **direct** hostname; the `release` process in `Procfile` uses it for migrations (falls back to `DB_HOST` if unset).
 
 ## Deploy
 
@@ -68,12 +79,14 @@ Add the Dokku Git remote once:
 git remote add dokku dokku@docklight-staging.itman.fyi:ai-flow
 ```
 
-Deploy the main branch:
+Deploy from a branch that includes `backend/Dockerfile` and `backend/Procfile` (for example `main` or your Dokku PR branch):
 
 ```bash
-git push dokku main
+git push dokku main:main
 dokku ps:scale ai-flow web=1 worker=1
 ```
+
+Use `git push dokku <local-branch>:main` if Dokku’s deploy branch is `main` but your work is on another branch. Avoid `main:HEAD` unless you intend to update Dokku’s default branch ref explicitly.
 
 Dokku starts one web process automatically on the first deploy. The explicit scale command also starts the queue worker required to execute AI runs.
 
