@@ -67,39 +67,35 @@ class AnthropicProvider implements AIProviderInterface
             throw new RuntimeException('The AI provider timeout is not configured.');
         }
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $key,
-                'anthropic-version' => '2023-06-01',
-            ])
-                ->acceptJson()
-                ->timeout($timeout)
-                ->retry(2, 500, throw: false)
-                ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => config('services.anthropic.model', 'claude-sonnet-4-20250514'),
-                    'max_tokens' => 4096,
-                    'system' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.',
-                    'messages' => [
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                ]);
+        $response = Http::withHeaders([
+            'x-api-key' => $key,
+            'anthropic-version' => '2023-06-01',
+        ])
+            ->acceptJson()
+            ->timeout($timeout)
+            ->retry(2, 500, throw: false)
+            ->post('https://api.anthropic.com/v1/messages', [
+                'model' => config('services.anthropic.model', 'claude-sonnet-4-20250514'),
+                'max_tokens' => 4096,
+                'system' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.',
+                'messages' => [
+                    ['role' => 'user', 'content' => $prompt],
+                ],
+            ]);
 
-            if (in_array($response->status(), [401, 403], true)) {
-                throw new RuntimeException('Invalid API key.');
-            }
-            if (! $response->successful()) {
-                throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
-            }
-
-            $content = $response->json('content.0.text', '');
-            $json = json_decode($content, true);
-            if (! is_array($json)) {
-                throw new RuntimeException('AI provider returned invalid JSON.');
-            }
-
-            return $json;
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
-            throw new RuntimeException('Unable to reach the AI provider. Check your network.');
+        if (in_array($response->status(), [401, 403], true)) {
+            throw new RuntimeException('Invalid API key.');
         }
+        if (! $response->successful()) {
+            throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
+        }
+
+        $content = $response->json('content.0.text', '');
+        $json = json_decode($content, true);
+        if (! is_array($json)) {
+            throw new RuntimeException('AI provider returned invalid JSON.');
+        }
+
+        return $json;
     }
 }
