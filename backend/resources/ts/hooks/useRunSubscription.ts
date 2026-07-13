@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { Run } from "../types/api.ts";
 import { decodeRun, fetchRun } from "../services/run.ts";
+import { logger } from "../lib/logger.ts";
 
 const POLL_INTERVAL_MS = 1500;
 
@@ -71,7 +72,8 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                         stopPolling();
                         stopSse();
                     }
-                } catch {
+                } catch (err) {
+                    logger.warn("Polling failed for run", id, err);
                     // Keep polling until the run resolves or the hook unmounts.
                 }
             })();
@@ -90,6 +92,7 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                     stopSse();
                 }
             } catch (e) {
+                logger.warn("Failed to handle SSE event for run", id, e);
                 if (e instanceof Error) {
                     setError(e.message);
                 }
@@ -115,7 +118,8 @@ export function useRunSubscription(runId: string | null, initialRun?: Run | null
                 source.addEventListener("completed", onCompleted);
                 source.addEventListener("failed", onFailed);
                 source.onerror = onStreamError;
-            } catch {
+            } catch (e) {
+                logger.warn("EventSource unavailable, falling back to polling for run", id, e);
                 pollTimer = setInterval(pollTick, POLL_INTERVAL_MS);
             }
 

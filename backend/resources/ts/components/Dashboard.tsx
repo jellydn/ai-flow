@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { deleteAccount, logout, type User } from "../services/auth.ts";
+import { logger } from "../lib/logger.ts";
 import { ProviderSettings } from "./ProviderSettings.tsx";
 import { RunHistory } from "./RunHistory.tsx";
 
@@ -25,7 +26,7 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
         } catch (error) {
             // Log the failure but still sign out locally — onLogout runs
             // in finally regardless, so the user is not stuck.
-            console.error("Logout request failed:", error);
+            logger.error("Logout request failed:", error);
         } finally {
             onLogout();
         }
