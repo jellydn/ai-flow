@@ -1,198 +1,226 @@
-# Codebase Structure
+# Directory Structure
 
 **Analysis Date:** 2026-07-13
 
-## Directory Layout
+## Layout
 
 ```
-ai-flow-pr-25/                         # Monorepo root
-├── backend/                           # Laravel 13 app = deployable application root
-│   ├── app/                           # PHP application code (PSR-12, Laravel conventions)
-│   │   ├── Console/                   # (reserved) console commands
-│   │   ├── Contracts/                 # Interfaces: AIProvider, Launcher, RunExecutor
-│   │   ├── Data/                      # Readonly DTOs (GitHubReference)
-│   │   ├── Events/                    # RunProgressed event
-│   │   ├── Http/                      # Controllers, Requests, Resources
-│   │   │   ├── Controllers/           # RunController
-│   │   │   ├── Requests/              # StoreRunRequest (form validation)
-│   │   │   └── Resources/             # RunResource (JSON shape)
-│   │   ├── Jobs/                      # ExecuteLauncherJob (queue worker unit)
-│   │   ├── Launchers/                 # BaseLauncher + 4 workflow launchers
-│   │   ├── Models/                    # Run, Launcher, User (Eloquent)
-│   │   ├── Providers/                 # AppServiceProvider (bindings, rate limits)
-│   │   ├── Services/                  # RunExecutor, GitHub*, OpenAIProvider, etc.
-│   │   └── Support/                   # AiProviders factory
-│   ├── bootstrap/                     # App bootstrap (Laravel framework)
-│   ├── config/                        # Laravel config (app, database, queue, services...)
-│   ├── database/                      # Migrations, factories, seeders
-│   │   ├── migrations/                # Schema (launchers, runs, users, jobs, cache)
-│   │   ├── factories/                 # Model factories
-│   │   └── seeders/                   # DatabaseSeeder (seeds launchers)
-│   ├── public/                        # Web root (Vite build output -> build/)
-│   ├── resources/                     # Frontend source + Blade shell
-│   │   ├── css/app.css                # Plain BEM-like CSS
-│   │   ├── ts/                        # React/TypeScript SPA source
-│   │   │   ├── app.tsx                # Entry point
-│   │   │   ├── components/            # UI components
-│   │   │   ├── data/                  # Static launcher metadata
-│   │   │   ├── hooks/                 # useRunSubscription, useRunFromPath
-│   │   │   ├── lib/                   # http.ts, scroll.ts
-│   │   │   ├── services/              # run.ts (API client + decoders)
-│   │   │   └── types/                 # api.ts (Typed contracts)
-│   │   └── views/app.blade.php        # Blade shell mounting the SPA
-│   ├── routes/                        # api.php, web.php, console.php
-│   ├── storage/                       # Logs, framework cache, compiled views
-│   ├── tests/                         # PHPUnit feature/unit tests
-│   ├── artisan                        # Laravel CLI entry
-│   ├── composer.json                  # PHP deps (Laravel 13, PHP 8.4+)
-│   ├── package.json                   # Node deps (React, Vite, oxlint, oxfmt)
-│   ├── phpunit.xml                    # PHP test config
-│   ├── tsconfig.json                  # TS strict config
-│   └── vite.config.ts                 # Vite + laravel-vite-plugin + react
-├── doc/                               # Architecture Decision Records (doc/adr)
-├── scripts/                           # Repo-level helper scripts
-├── .github/                           # CI workflows (ci.yml)
-├── AGENTS.md                          # Project instructions / conventions
-├── README.md                          # Product/marketing docs
-├── justfile                           # Task runner shortcuts
-├── konsistent.json                    # TS structural convention config
-├── renovate.json                      # Dependency bot config
-├── .oxlintrc.json / .oxfmtrc.json     # Frontend lint/format config
-└── .pre-commit-config.yaml            # prek pre-commit hooks
+ai-flow/
+├── .agents/                    # Agent skills setup
+├── .amp/                       # Amp portal config
+│   └── portals/
+│       └── ai-launcher.json
+├── .github/
+│   └── workflows/
+│       ├── ci.yml              # CI: PHP + frontend checks
+│       └── react-doctor.yml    # React codebase analysis
+├── .planning/
+│   └── codebase/               # Codebase documentation (these files)
+├── backend/                    # Laravel application (monorepo root for deploy)
+│   ├── app/
+│   │   ├── Console/
+│   │   │   └── Commands/
+│   │   │       └── ReapStuckRuns.php
+│   │   ├── Contracts/          # Interfaces (3)
+│   │   │   ├── AIProviderInterface.php
+│   │   │   ├── LauncherInterface.php
+│   │   │   └── RunExecutorInterface.php
+│   │   ├── Data/               # DTOs (1)
+│   │   │   └── GitHubReference.php
+│   │   ├── Events/             # Events (1)
+│   │   │   └── RunProgressed.php
+│   │   ├── Http/
+│   │   │   ├── Controllers/    # 6 controllers
+│   │   │   │   ├── Auth/
+│   │   │   │   │   └── MagicLinkController.php
+│   │   │   │   ├── Controller.php
+│   │   │   │   ├── ProviderController.php
+│   │   │   │   ├── ProviderCredentialController.php
+│   │   │   │   ├── RunController.php
+│   │   │   │   └── RunHistoryController.php
+│   │   │   ├── Requests/       # Form requests (3)
+│   │   │   │   ├── StoreProviderCredentialRequest.php
+│   │   │   │   ├── StoreRunRequest.php
+│   │   │   │   └── UpdateProviderCredentialRequest.php
+│   │   │   └── Resources/      # API resources (3)
+│   │   │       ├── ProviderCredentialResource.php
+│   │   │       ├── RunResource.php
+│   │   │       └── UserResource.php
+│   │   ├── Jobs/               # Queue jobs (1)
+│   │   │   └── ExecuteLauncherJob.php
+│   │   ├── Launchers/          # Workflow definitions (5)
+│   │   │   ├── BaseLauncher.php
+│   │   │   ├── ExplainRepositoryLauncher.php
+│   │   │   ├── LaravelDoctorLauncher.php
+│   │   │   ├── PlanIssueLauncher.php
+│   │   │   └── ReviewPullRequestLauncher.php
+│   │   ├── Mail/               # Mailables (1)
+│   │   │   └── MagicLinkMail.php
+│   │   ├── Models/             # Eloquent models (5)
+│   │   │   ├── Launcher.php
+│   │   │   ├── MagicLoginToken.php
+│   │   │   ├── ProviderCredential.php
+│   │   │   ├── Run.php
+│   │   │   └── User.php
+│   │   ├── Providers/          # Service providers (1)
+│   │   │   └── AppServiceProvider.php
+│   │   ├── Services/           # Domain services (10)
+│   │   │   ├── AnthropicProvider.php
+│   │   │   ├── ContextEncoder.php
+│   │   │   ├── GeminiProvider.php
+│   │   │   ├── GitHubContextAssembler.php
+│   │   │   ├── GitHubContextFetcher.php
+│   │   │   ├── GitHubService.php
+│   │   │   ├── JsonSchemaValidator.php
+│   │   │   ├── OpenAIProvider.php
+│   │   │   ├── RunExecutor.php
+│   │   │   └── RunStreamer.php
+│   │   └── Support/            # Support classes (1)
+│   │       └── AiProviders.php
+│   ├── bootstrap/
+│   │   ├── app.php             # Application bootstrap
+│   │   └── providers.php
+│   ├── config/                 # Config files (11)
+│   │   ├── app.php, auth.php, cache.php, cors.php
+│   │   ├── database.php, filesystems.php, logging.php
+│   │   ├── mail.php, queue.php, services.php, session.php
+│   ├── database/
+│   │   ├── factories/
+│   │   │   └── UserFactory.php
+│   │   ├── migrations/         # 11 migrations
+│   │   └── seeders/
+│   │       └── DatabaseSeeder.php
+│   ├── public/                 # Web root
+│   │   └── index.php
+│   ├── resources/
+│   │   ├── css/
+│   │   │   └── app.css         # Plain CSS (BEM-like)
+│   │   ├── ts/                 # TypeScript frontend
+│   │   │   ├── app.tsx         # Vite entry point
+│   │   │   ├── components/     # 13 React components
+│   │   │   │   ├── App.tsx, appUiState.ts
+│   │   │   │   ├── Dashboard.tsx, ErrorBoundary.tsx
+│   │   │   │   ├── Footer.tsx, Header.tsx, Home.tsx
+│   │   │   │   ├── LauncherIcon.tsx, Logo.tsx
+│   │   │   │   ├── ProviderSettings.tsx
+│   │   │   │   ├── Report.tsx, Running.tsx, SignIn.tsx
+│   │   │   │   └── RunHistory.tsx
+│   │   │   ├── data/
+│   │   │   │   └── launcherMeta.ts
+│   │   │   ├── hooks/          # 2 custom hooks
+│   │   │   │   ├── useRunFromPath.ts
+│   │   │   │   └── useRunSubscription.ts
+│   │   │   ├── lib/
+│   │   │   │   ├── http.ts     # Fetch wrapper
+│   │   │   │   └── scroll.ts
+│   │   │   ├── services/       # 2 API service modules
+│   │   │   │   ├── auth.ts
+│   │   │   │   └── run.ts
+│   │   │   └── types/
+│   │   │       └── api.ts      # TypeScript API contracts
+│   │   └── views/
+│   │       └── app.blade.php   # Blade shell (SPA mount)
+│   ├── routes/
+│   │   ├── api.php             # API routes (public + auth)
+│   │   ├── console.php         # Artisan commands
+│   │   └── web.php             # SPA catch-all route
+│   ├── storage/                # Logs, cache, sessions
+│   └── tests/                  # 16 test files
+│       ├── Feature/            # 8 feature tests
+│       │   ├── ExecuteLauncherJobTest.php
+│       │   ├── MagicLinkAuthTest.php
+│       │   ├── ProviderCredentialApiTest.php
+│       │   ├── ReapStuckRunsTest.php
+│       │   ├── RunApiTest.php
+│       │   ├── RunHistoryTest.php
+│       │   └── RunOwnershipTest.php
+│       ├── Unit/               # 8 unit tests
+│       │   ├── CacheRunProgressedVersionTest.php
+│       │   ├── ContextEncoderTest.php
+│       │   ├── CredentialCipherTest.php
+│       │   ├── GitHubContextAssemblerTest.php
+│       │   ├── GitHubContextFetcherTest.php
+│       │   ├── GitHubServiceTest.php
+│       │   ├── OpenAIProviderTest.php
+│       │   └── RunStreamerTest.php
+│       └── TestCase.php
+├── doc/
+│   └── adr/                    # Architecture Decision Records (14)
+│       ├── README.md
+│       ├── 0001-vite-react-prototype-before-laravel-backend.md
+│       ├── 0002-single-file-react-app-for-mvp-ui.md
+│       ├── 0003-client-side-simulated-workflow-execution.md
+│       ├── 0004-structured-report-ux-not-chat.md
+│       ├── 0005-workflow-catalog-as-declarative-metadata.md
+│       ├── 0006-amp-portal-for-preview-hosting.md
+│       ├── 0007-laravel-api-in-backend-subdirectory.md
+│       ├── 0008-queue-backed-execute-launcher-job.md
+│       ├── 0009-launcher-classes-seeded-to-database.md
+│       ├── 0010-github-rest-context-with-cache-no-clone.md
+│       ├── 0011-ai-provider-interface-openai-json-schema.md
+│       ├── 0012-runs-as-uuid-records-with-json-columns.md
+│       ├── 0013-sse-run-stream-via-database-polling.md
+│       └── 0014-api-throttling-and-public-unauthenticated-runs.md
+├── scripts/
+│   └── hooks/                  # Pre-commit hook scripts
+│       ├── composer-validate.sh
+│       ├── ensure-composer.sh
+│       ├── env.sh
+│       ├── npm-in-backend.sh
+│       └── pint.sh
+├── AGENTS.md                   # AI agent instructions
+├── LICENSE
+├── README.md
+├── justfile
+├── konsistent.json
+├── renovate.json
+└── .pre-commit-config.yaml
 ```
 
-## Directory Purposes
+## Key Locations
 
-**backend/app/Http/:**
-- Purpose: HTTP-facing code only.
-- Contains: `Controllers/RunController.php`, `Requests/StoreRunRequest.php`, `Resources/RunResource.php`.
-- Key files: `backend/app/Http/Controllers/RunController.php` (store/show/stream), `backend/app/Http/Requests/StoreRunRequest.php` (validation + `flow_id`/`input.url` aliases).
+| What | Where |
+|------|-------|
+| Application entry (HTTP) | `backend/public/index.php` |
+| Application bootstrap | `backend/bootstrap/app.php` |
+| SPA entry (TypeScript) | `backend/resources/ts/app.tsx` |
+| Blade shell | `backend/resources/views/app.blade.php` |
+| API routes | `backend/routes/api.php` |
+| Web routes | `backend/routes/web.php` |
+| AI provider interfaces | `backend/app/Contracts/AIProviderInterface.php` |
+| Workflow definitions | `backend/app/Launchers/` |
+| Domain logic | `backend/app/Services/` |
+| Queue jobs | `backend/app/Jobs/ExecuteLauncherJob.php` |
+| Database migrations | `backend/database/migrations/` |
+| Tests | `backend/tests/Feature/` and `backend/tests/Unit/` |
+| Architecture decisions | `doc/adr/` |
+| Agent instructions | `AGENTS.md` |
+| Project planning docs | `.planning/codebase/` |
 
-**backend/app/Services/:**
-- Purpose: domain logic and I/O.
-- Contains: `RunExecutor.php`, `GitHubService.php`, `GitHubContextFetcher.php`, `GitHubContextAssembler.php`, `ContextEncoder.php`, `JsonSchemaValidator.php`, `OpenAIProvider.php`, `RunStreamer.php`.
-- Key files: `backend/app/Services/RunExecutor.php` (pipeline orchestrator), `backend/app/Services/OpenAIProvider.php` (AI call), `backend/app/Services/RunStreamer.php` (SSE).
+## File Counts
 
-**backend/app/Launchers/:**
-- Purpose: one class per workflow; metadata seeded into `launchers`.
-- Contains: `BaseLauncher.php` + `ReviewPullRequestLauncher.php`, `PlanIssueLauncher.php`, `ExplainRepositoryLauncher.php`, `LaravelDoctorLauncher.php`.
-- Key files: `backend/app/Launchers/BaseLauncher.php` (shared `outputSchema()`/`make()`).
-
-**backend/app/Jobs/:**
-- Purpose: queue unit executed by `queue:work`.
-- Contains: `backend/app/Jobs/ExecuteLauncherJob.php` (builds provider, calls `RunExecutor`, handles failures).
-
-**backend/app/Contracts/:**
-- Purpose: swappable boundaries.
-- Contains: `AIProviderInterface.php`, `LauncherInterface.php`, `RunExecutorInterface.php`.
-
-**backend/app/Models/ & backend/app/Data/:**
-- Purpose: persistence + value objects.
-- Key files: `backend/app/Models/Run.php` (UUID, casts), `backend/app/Models/Launcher.php`, `backend/app/Data/GitHubReference.php` (readonly DTO).
-
-**backend/routes/:**
-- Purpose: route definitions.
-- Key files: `backend/routes/api.php` (the API surface + aliases + throttles), `backend/routes/web.php` (SPA catch-all), `backend/routes/console.php` (artisan stubs).
-
-**backend/resources/ts/:**
-- Purpose: React/TypeScript SPA source.
-- Key files: `backend/resources/ts/app.tsx` (entry), `backend/resources/ts/components/App.tsx` (root component/reducer), `backend/resources/ts/services/run.ts` (API client + decoders), `backend/resources/ts/hooks/useRunSubscription.ts` (SSE + polling), `backend/resources/ts/types/api.ts` (typed contracts).
-
-**backend/database/:**
-- Purpose: persistence schema + seed data.
-- Key files: `backend/database/migrations/2026_01_01_000000_create_launchers_and_runs.php` (core schema), `backend/database/seeders/DatabaseSeeder.php` (seeds 4 launchers).
-
-## Key File Locations
-
-**Entry Points:**
-- `backend/routes/api.php`: JSON API surface (runs, launchers, stream, health).
-- `backend/routes/web.php`: SPA catch-all → `backend/resources/views/app.blade.php`.
-- `backend/resources/ts/app.tsx`: React entry mounted via `backend/resources/views/app.blade.php`.
-- `backend/artisan`: Laravel CLI (migrate, seed, queue:work, test).
-
-**Configuration:**
-- `backend/config/services.php`: GitHub token + OpenAI/OpenRouter keys, base URL, model, timeout.
-- `backend/config/queue.php`: queue connection (must be non-`sync` in prod).
-- `backend/config/database.php`: sqlite (local/CI) vs pgsql/mysql (prod).
-- `backend/vite.config.ts`: Vite input + React plugin + allowed hosts.
-- `backend/.env.example`: required env (`OPENAI_API_KEY`, optional `GITHUB_TOKEN`, `AI_MODEL`, `AI_BASE_URL`, `QUEUE_CONNECTION`).
-
-**Core Logic:**
-- `backend/app/Http/Controllers/RunController.php`: request handling + SSE.
-- `backend/app/Jobs/ExecuteLauncherJob.php`: queue entry.
-- `backend/app/Services/RunExecutor.php`: end-to-end run pipeline.
-- `backend/app/Services/GitHubService.php`: GitHub URL parsing + cached context.
-- `backend/app/Services/OpenAIProvider.php`: AI generation.
-- `backend/app/Launchers/BaseLauncher.php`: shared output schema.
-
-**Testing:**
-- `backend/tests/`: PHPUnit feature/unit tests (uses `RefreshDatabase` + seed, `Queue::fake()`).
-- `backend/phpunit.xml`: test config.
+| Type | Count |
+|------|-------|
+| PHP application files | 44 |
+| TypeScript/TSX files | 23 |
+| Test files (PHP) | 16 |
+| Migration files | 11 |
+| Configuration files | 11 |
+| ADR documents | 14 |
+| React components | 13 |
 
 ## Naming Conventions
 
-**Files (PHP):**
-- PSR-12 / Laravel PascalCase class names matching filenames: `RunController.php`, `StoreRunRequest.php`, `RunResource.php`, `ExecuteLauncherJob.php`, `OpenAIProvider.php`, `GitHubContextFetcher.php`.
-- Interfaces in `app/Contracts/` are `*Interface` (`AIProviderInterface`, `LauncherInterface`, `RunExecutorInterface`).
-- Launchers are `{Workflow}Launcher.php`; all extend `BaseLauncher` and implement `metadata(): array`.
-- Services are concrete nouns (`RunExecutor`, `JsonSchemaValidator`, `RunStreamer`).
-
-**Files (TypeScript/React):**
-- `components/*.tsx` export a PascalCase component matching the filename (`App.tsx` → `App`, `Home.tsx` → `Home`) enforced by `konsistent` (see `konsistent.json`).
-- `hooks/*.ts` export `use*` functions (`useRunSubscription`, `useRunFromPath`).
-- `services/run.ts` holds API client + runtime decoders; `types/api.ts` holds shared interfaces; `lib/*.ts` holds utilities (`http`, `scroll`).
-- Strict mode enabled (`tsconfig.json`); prefer `unknown` + narrowing over `any`.
-- Frontend lint/format via `oxlint` + `oxfmt` (`.oxlintrc.json`, `.oxfmtrc.json`), NOT ESLint/Prettier.
-
-## Where to Add New Code
-
-**New Launcher (workflow):**
-- Primary code: `backend/app/Launchers/{Slug}Launcher.php` extending `BaseLauncher` implementing `metadata()`.
-- Add to seed list: `backend/database/seeders/DatabaseSeeder.php` (array in `run()`).
-- Tests: `backend/tests/` feature test covering store + dispatch + result shape.
-- (Optional) frontend metadata: `backend/resources/ts/data/launcherMeta.ts`.
-
-**New AI Provider:**
-- Primary code: implement `backend/app/Contracts/AIProviderInterface.php` (e.g. `backend/app/Services/OpenAIProvider.php`); register in `backend/app/Support/AiProviders.php` (`ids()` + `createProvider()` match) and add id to `StoreRunRequest` `Rule::in(...)`.
-
-**New API Endpoint / Validation:**
-- Routes: `backend/routes/api.php`.
-- Validation: new `backend/app/Http/Requests/*.php` form request.
-- JSON shape: new `backend/app/Http/Resources/*.php` or extend `RunResource`.
-
-**New Frontend Feature / Component:**
-- Implementation: `backend/resources/ts/components/*.tsx` (PascalCase filename) and/or `backend/resources/ts/hooks/*.ts` (`use*`).
-- API call: extend `backend/resources/ts/services/run.ts`; update `backend/resources/ts/types/api.ts` if contracts change.
-
-**Utilities:**
-- Shared PHP helpers: add to a `backend/app/Services/` class or `backend/app/Support/`.
-- Shared TS helpers: `backend/resources/ts/lib/`.
-
-## Special Directories
-
-**backend/public/build/:**
-- Purpose: compiled Vite assets (JS/CSS).
-- Generated: Yes (by `npm run build` → `tsc --noEmit && vite build`).
-- Committed: No (build artifact; served by Laravel).
-
-**backend/storage/:**
-- Purpose: logs, framework cache, compiled views, session.
-- Generated: Yes (runtime).
-- Committed: No (see `backend/.gitignore`).
-
-**backend/database/database.sqlite:**
-- Purpose: local/CI SQLite database file.
-- Generated: Yes (created via `touch`; migrations populate it).
-- Committed: No (local only; production uses managed Postgres/MySQL).
-
-**doc/adr/:**
-- Purpose: Architecture Decision Records.
-- Generated: No (authored). See `doc/adr/README.md` for index.
-
-**.planning/:**
-- Purpose: planning/analysis artifacts (this document lives in `.planning/codebase/`).
-- Generated: Yes (analysis output).
-- Committed: per-repo policy.
+- **Controllers:** PascalCase, suffixed with `Controller` (e.g., `RunController`, `ProviderCredentialController`).
+- **Models:** PascalCase, singular (e.g., `Run`, `Launcher`, `User`, `ProviderCredential`).
+- **Services:** PascalCase, descriptive (e.g., `RunExecutor`, `GitHubService`, `JsonSchemaValidator`).
+- **Jobs:** PascalCase, descriptive verb (e.g., `ExecuteLauncherJob`).
+- **Contracts:** PascalCase, suffixed with `Interface` (e.g., `AIProviderInterface`).
+- **Launchers:** PascalCase, descriptive workflow name suffixed with `Launcher` (e.g., `ReviewPullRequestLauncher`).
+- **Migrations:** `YYYY_MM_DD_HHMMSS_descriptive_snake_case.php`.
+- **React components:** PascalCase, filename matches default export (enforced by `konsistent`).
+- **React hooks:** camelCase, `use*` prefix, filename matches export (enforced by `konsistent`).
+- **CSS:** BEM-like classes (e.g., `.header-cta`, `.auth-card`, `.run-item`).
 
 ---
 
