@@ -10,6 +10,7 @@ Route::get('/flows', fn () => Launcher::query()->where('active', true)->get()->m
 Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs');
 Route::get('/runs/{run}', [RunController::class, 'show']);
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
+Route::get('/user', fn () => request()->user())->middleware('auth');
 Route::post('/executions', [RunController::class, 'store'])->middleware('throttle:runs');
 Route::get('/executions/{run}', [RunController::class, 'show']);
 Route::get('/executions/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
