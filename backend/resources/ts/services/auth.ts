@@ -130,3 +130,15 @@ export async function deleteRun(id: string): Promise<void> {
     });
     if (!raw.ok) throw new Error("Failed to delete run.");
 }
+
+export async function deleteAccount(): Promise<void> {
+    const raw = await fetch(`/api/user/account`, {
+        method: "DELETE",
+        headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: true }),
+    });
+    if (!raw.ok) throw new Error("Failed to delete account.");
+}

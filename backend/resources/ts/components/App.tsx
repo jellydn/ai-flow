@@ -2,7 +2,13 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
-import { fetchUser, logout as apiLogout, type User } from "../services/auth.ts";
+import {
+    fetchCredentials,
+    fetchUser,
+    logout as apiLogout,
+    type ProviderCredential,
+    type User,
+} from "../services/auth.ts";
 import {
     createRun,
     getLaunchers,
@@ -61,11 +67,24 @@ export function App() {
     const [apiKey, setApiKey] = useState("");
     const [selectedProvider, setSelectedProvider] = useState<RunProviderId>("openai");
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
+    const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
+    const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
 
     const [user, setUser] = useState<User | null>(null);
     const [authChecked, setAuthChecked] = useState(false);
     const [showSignIn, setShowSignIn] = useState(false);
     const [checkEmail, setCheckEmail] = useState("");
+
+    useEffect(() => {
+        if (!user) {
+            setCredentials([]);
+            setSelectedCredentialId(null);
+            return;
+        }
+        fetchCredentials()
+            .then(setCredentials)
+            .catch(() => setCredentials([]));
+    }, [user]);
 
     useEffect(() => {
         fetchUser()
@@ -192,6 +211,7 @@ export function App() {
         dispatch({ type: "reset-ui" });
         setApiKey("");
         setSelectedProvider("openai");
+        setSelectedCredentialId(null);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }, [navigate]);
 
@@ -217,7 +237,13 @@ export function App() {
 
         setIsLaunching(true);
         try {
-            const body = await createRun(selected, trimmed, selectedProvider, apiKey);
+            const body = await createRun(
+                selected,
+                trimmed,
+                selectedProvider,
+                apiKey,
+                selectedCredentialId ?? undefined,
+            );
             goto(`/runs/${body.id}`, navigate);
             dispatch({
                 type: "set-view",
@@ -265,6 +291,9 @@ export function App() {
         selectedProvider,
         setSelectedProvider,
         launchers,
+        credentials,
+        selectedCredentialId,
+        setSelectedCredentialId,
     };
 
     return (
