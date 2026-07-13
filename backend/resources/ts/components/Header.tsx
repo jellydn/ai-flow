@@ -42,35 +42,39 @@ export function Header({ mobileOpen, setMobileOpen, reset, user, onAuthClick }: 
                     <GitFork size={17} /> GitHub
                 </a>
             </nav>
-            {user ? (
-                <button type="button" className="header-cta" onClick={onAuthClick}>
-                    {user.email}
+            <div className="header-end">
+                <div className="header-actions">
+                    {user ? (
+                        <button type="button" className="header-cta" onClick={onAuthClick}>
+                            {user.email}
+                        </button>
+                    ) : (
+                        <>
+                            <button
+                                type="button"
+                                className="header-cta"
+                                onClick={() => {
+                                    reset();
+                                    scrollToSelector("#launcher");
+                                }}
+                            >
+                                Launch a workflow <ArrowRight size={16} />
+                            </button>
+                            <button type="button" className="header-auth-btn" onClick={onAuthClick}>
+                                Sign in
+                            </button>
+                        </>
+                    )}
+                </div>
+                <button
+                    type="button"
+                    className="mobile-menu"
+                    onClick={() => setMobileOpen(!mobileOpen)}
+                    aria-label="Toggle menu"
+                >
+                    {mobileOpen ? <X /> : <Menu />}
                 </button>
-            ) : (
-                <>
-                    <button
-                        type="button"
-                        className="header-cta"
-                        onClick={() => {
-                            reset();
-                            scrollToSelector("#launcher");
-                        }}
-                    >
-                        Launch a workflow <ArrowRight size={16} />
-                    </button>
-                    <button type="button" className="header-auth-btn" onClick={onAuthClick}>
-                        Sign in
-                    </button>
-                </>
-            )}
-            <button
-                type="button"
-                className="mobile-menu"
-                onClick={() => setMobileOpen(!mobileOpen)}
-                aria-label="Toggle menu"
-            >
-                {mobileOpen ? <X /> : <Menu />}
-            </button>
+            </div>
         </header>
     );
 }
