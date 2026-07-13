@@ -92,7 +92,7 @@
 - Pre-commit hooks via prek (`just prek`) — `.pre-commit-config.yaml`: composer-validate, pint, frontend-typecheck, oxlint, oxfmt, konsistent.
 
 **Production:**
-- Deployment target: **Laravel Cloud** (app root `backend/`), deploy via `cloud deploy ai-flow production` (per `AGENTS.md`).
+- Deployment targets: **Laravel Cloud** (app root `backend/`, `cloud deploy ai-flow production`) and optional **Dokku VPS** (`backend/DOKKU_DEPLOY.md`, Dockerfile + Procfile).
 - Managed DB only: Laravel Cloud Postgres/MySQL (`DB_CONNECTION=pgsql` or `mysql`); file SQLite forbidden in production (`backend/app/Providers/AppServiceProvider.php:34-43` throws if `sqlite` in production).
 - Real queue required: `QUEUE_CONNECTION` must NOT be `sync` in production (`AGENTS.md`).
 - SSE proxy must disable buffering for `/api/runs/*/stream` and `/api/executions/*/stream` (`X-Accel-Buffering: no`), allow >=60s responses.

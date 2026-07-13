@@ -13,7 +13,7 @@
 - Declarative launchers: each workflow is a small class returning static `metadata()` seeded into the `launchers` table (`backend/app/Launchers/`, `backend/database/seeders/DatabaseSeeder.php`).
 - Database-as-state: a `Run` row is the single source of truth for status/progress/result; both the job and the SSE stream read/write that same row.
 - SSE streaming via DB polling: `RunStreamer` yields `StreamedEvent`s every second for up to ~55s (`backend/app/Services/RunStreamer.php`).
-- Monorepo deploy: only `backend/` is the application root on Laravel Cloud; the React UI is bundled inside it.
+- Monorepo deploy: only `backend/` is the application root on Laravel Cloud and Dokku VPS; the React UI is bundled inside it.
 
 ## Layers
 

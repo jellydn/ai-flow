@@ -66,6 +66,7 @@
 
 **Hosting:**
 - Laravel Cloud — production app `ai-flow` (per `AGENTS.md`); deploy app root `backend/`. CLI: `cloud deploy ai-flow production`. Worker runs `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.
+- Dokku VPS — optional staging/production on a VPS; deploy app root `backend/` via `git push dokku` (see `backend/DOKKU_DEPLOY.md`). Procfile runs web (nginx+php-fpm), `release` migrations, and queue worker.
 
 **CI Pipeline:**
 - GitHub Actions `.github/workflows/ci.yml`:
