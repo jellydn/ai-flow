@@ -16,6 +16,7 @@ import type { RunProviderId, RecentRunSummary } from "../services/run.ts";
 import { fetchRecentRuns } from "../services/run.ts";
 import type { ProviderCredential } from "../services/auth.ts";
 import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
+import { goto } from "../lib/navigate.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
 import { FlowMark } from "./Logo.tsx";
@@ -63,6 +64,7 @@ export interface HomeProps {
     credentials?: ProviderCredential[];
     selectedCredentialId?: string | null;
     setSelectedCredentialId?: (id: string | null) => void;
+    navigate: (pathname: string) => void;
 }
 
 const TRENDING_REPO = {
@@ -98,6 +100,7 @@ export function Home({
     credentials,
     selectedCredentialId,
     setSelectedCredentialId,
+    navigate,
 }: HomeProps) {
     const [realRuns, setRealRuns] = useState<RecentRunSummary[]>([]);
 
@@ -280,13 +283,7 @@ export function Home({
                                   href={`/runs/${run.id}`}
                                   onClick={(e) => {
                                       e.preventDefault();
-                                      if (run.repo) {
-                                          setUrl(`https://github.com/${run.repo}`);
-                                      }
-                                      if (run.launcher_slug) {
-                                          setSelected(run.launcher_slug);
-                                      }
-                                      scrollToSelector("#launcher");
+                                      goto(`/runs/${run.id}`, navigate);
                                   }}
                               >
                                   <span className="run-repo">

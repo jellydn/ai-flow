@@ -297,6 +297,7 @@ export function App() {
         credentials,
         selectedCredentialId,
         setSelectedCredentialId,
+        navigate,
     };
 
     return (

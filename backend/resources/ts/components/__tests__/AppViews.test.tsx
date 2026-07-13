@@ -87,6 +87,7 @@ const baseHomeProps = {
     selectedProvider: "openai" as RunProviderId,
     setSelectedProvider: vi.fn<(provider: RunProviderId) => void>(),
     launchers: [],
+    navigate: vi.fn<(pathname: string) => void>(),
 };
 
 const baseRunningData = {
