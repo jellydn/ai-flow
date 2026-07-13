@@ -8,8 +8,9 @@ use App\Events\RunProgressed;
 use App\Models\Run;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
-use function Sentry\captureException as sentryCapture;
 use Throwable;
+
+use function Sentry\captureException as sentryCapture;
 
 class RunExecutor implements RunExecutorInterface
 {
