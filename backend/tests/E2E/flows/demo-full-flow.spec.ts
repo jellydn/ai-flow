@@ -47,8 +47,12 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         const activePill = page.locator(".quick-workflows button.active");
         await expect(activePill).toBeVisible();
 
-        // 5. Launch the workflow.
-        await page.getByRole("button", { name: /Launch workflow/ }).click();
+        // 5. Launch the workflow (scoped to launcher-card to avoid
+        //    ambiguous matches with workflow-grid cards).
+        await page
+            .locator(".launcher-card")
+            .getByRole("button", { name: /Launch workflow/ })
+            .click();
 
         // 6. Verify we transition to the running/demo-running view.
         await expect(page.locator(".running-page")).toBeVisible({ timeout: 5000 });
@@ -71,10 +75,13 @@ test.describe("Demo mode: sign-in → launch → report", () => {
     test("shows validation error for invalid GitHub URL", async ({ page }) => {
         await page.goto("/");
 
-        // Type an invalid URL and try to launch.
+        // Type an invalid URL and try to launch (scoped to launcher-card).
         const urlInput = page.getByPlaceholder(/github.com/);
         await urlInput.fill("not-a-url");
-        await page.getByRole("button", { name: /Launch workflow/ }).click();
+        await page
+            .locator(".launcher-card")
+            .getByRole("button", { name: /Launch workflow/ })
+            .click();
 
         // Should show validation error, not transition to running.
         await expect(page.getByText(/valid.*GitHub/)).toBeVisible({ timeout: 3000 });
