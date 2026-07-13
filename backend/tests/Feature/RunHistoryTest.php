@@ -129,4 +129,99 @@ class RunHistoryTest extends TestCase
 
         $this->assertDatabaseMissing('runs', ['id' => $run->id]);
     }
+
+    public function test_per_page_above_100_is_rejected(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?per_page=200')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['per_page']);
+    }
+
+    public function test_per_page_minimum_is_1(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?per_page=0')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['per_page']);
+    }
+
+    public function test_valid_per_page_passes(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?per_page=50')
+            ->assertOk();
+    }
+
+    public function test_invalid_status_returns_validation_error(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?status=archived')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['status']);
+    }
+
+    public function test_valid_statuses_pass(): void
+    {
+        $user = User::factory()->create();
+        $launcherId = Launcher::where('slug', 'explain-repository')->value('id');
+
+        Run::create([
+            'launcher_id' => $launcherId, 'user_id' => $user->id,
+            'source_url' => 'https://github.com/a/b', 'input' => [], 'status' => 'completed', 'progress' => [],
+        ]);
+
+        foreach (['completed', 'failed', 'queued', 'running'] as $status) {
+            $this->actingAs($user)
+                ->getJson('/api/user/runs?status='.$status)
+                ->assertOk();
+        }
+    }
+
+    public function test_invalid_date_format_returns_validation_error(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?date_from=not-a-date')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['date_from']);
+    }
+
+    public function test_date_from_after_date_to_returns_validation_error(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?date_from=2026-06-01&date_to=2026-01-01')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['date_to']);
+    }
+
+    public function test_date_range_with_equal_dates_passes(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?date_from=2026-06-01&date_to=2026-06-01')
+            ->assertOk();
+    }
+
+    public function test_search_max_length_is_enforced(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->getJson('/api/user/runs?search='.str_repeat('x', 501))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['search']);
+    }
 }
