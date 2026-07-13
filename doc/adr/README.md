@@ -14,8 +14,11 @@
 | [0010](0010-github-rest-context-with-cache-no-clone.md)        | GitHub REST context with cache, no clone       | Accepted            |
 | [0011](0011-ai-provider-interface-openai-json-schema.md)       | `AIProviderInterface` + OpenAI JSON schema     | Accepted            |
 | [0012](0012-runs-as-uuid-records-with-json-columns.md)         | Runs as UUID records with JSON columns         | Accepted            |
-| [0013](0013-sse-run-stream-via-database-polling.md)            | SSE run stream via database polling            | Accepted            |
-| [0014](0014-api-throttling-and-public-unauthenticated-runs.md) | API throttling and public unauthenticated runs | Accepted            |
+| [0013](0013-sse-run-stream-via-database-polling.md)            | SSE run stream via database polling            | Accepted            || [0014](0014-api-throttling-and-public-unauthenticated-runs.md) | API throttling and public unauthenticated runs | Accepted |
+| [0015](0015-magic-link-authentication.md) | Magic-link authentication | Accepted |
+| [0016](0016-stored-encrypted-byok-credentials.md) | Stored encrypted BYOK credentials | Accepted |
+| [0017](0017-multi-provider-registry.md) | Multi-provider registry | Accepted |
+| [0018](0018-run-ownership-and-visibility.md) | Run ownership and visibility | Accepted |
 
 **Frontend / Amp prototype:** 0001–0006
-**Laravel API (`backend/`):** 0007–0014 — see [`backend/README.md`](../../backend/README.md)
+**Laravel API (`backend/`):** 0007–0018 — see [`backend/README.md`](../../backend/README.md)
