@@ -37,11 +37,13 @@
 
 ### Provider Registry (`backend/app/Support/AiProviderRegistry.php`)
 
-- **Pattern:** Central registry mapping provider IDs → adapter classes
-- **Providers:** `openai`, `openrouter`, `anthropic`, `gemini`
-- **Resolution:** `AiProviderRegistry::get($id, $apiKey)` instantiates the adapter with an optional API key
+- **Single source of truth:** Replaces the former `config/services.php` provider array. The registry's `PROVIDERS` constant is the authoritative list of supported provider IDs; `config/services.php` is now only for per-provider credentials, base URLs, and model defaults.
+- **Providers:** `openai`, `openrouter`, `anthropic`, `gemini` (hardcoded in `PROVIDERS` constant)
+- **Resolution:** `get($id, $apiKey)` instantiates the adapter with an optional API key; throws `InvalidArgumentException` for unknown IDs
+- **ID lookup:** `ids()` returns the full list of registered provider IDs; `has($id)` checks membership — used by `StoreRunRequest` for validation
+- **Metadata:** `list()` returns `{ id, name, models }` for each provider — consumed by `GET /api/providers`
 - **Singleton:** Registered as a singleton in `AppServiceProvider`
-- **Metadata:** `list()` returns `{ id, name, models }` for each provider
+- **Test sync:** `AppServiceProvider::CREDENTIAL_VERIFY_PER_MINUTE` constant shared with tests so the credentials rate limiter and its test stay in sync
 
 ## GitHub
 
