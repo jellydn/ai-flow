@@ -7,6 +7,9 @@ import {
     verifyCredential,
     type ProviderCredential,
 } from "../services/auth.ts";
+import { CredentialForm } from "./CredentialForm.tsx";
+import { CredentialList } from "./CredentialList.tsx";
+import { PrivacyNote } from "./PrivacyNote.tsx";
 
 export function ProviderSettings() {
     const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
@@ -88,74 +91,29 @@ export function ProviderSettings() {
             </div>
 
             {showForm && (
-                <form className="credential-form" onSubmit={handleCreate}>
-                    <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-                        {providers.map((p) => (
-                            <option key={p.id} value={p.id}>
-                                {p.name}
-                            </option>
-                        ))}
-                    </select>
-                    <input
-                        type="text"
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
-                        placeholder="Label (e.g. Personal OpenAI)"
-                    />
-                    <input
-                        type="password"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="API key"
-                        autoComplete="off"
-                    />
-                    {error && <p className="auth-error">{error}</p>}
-                    <button type="submit" disabled={submitting}>
-                        {submitting ? "Saving…" : "Save"}
-                    </button>
-                </form>
+                <CredentialForm
+                    provider={provider}
+                    setProvider={setProvider}
+                    label={label}
+                    setLabel={setLabel}
+                    apiKey={apiKey}
+                    setApiKey={setApiKey}
+                    submitting={submitting}
+                    error={error}
+                    onSubmit={handleCreate}
+                    providers={providers}
+                />
             )}
 
-            {loading ? (
-                <p>Loading credentials…</p>
-            ) : credentials.length === 0 ? (
-                <p className="empty-state">
-                    No API keys saved yet. Add one to use your own provider.
-                </p>
-            ) : (
-                <ul className="credential-list">
-                    {credentials.map((c) => (
-                        <li key={c.id} className="credential-item">
-                            <div>
-                                <strong>{c.label}</strong>
-                                <span className="provider-tag">{c.provider}</span>
-                                {c.is_default && <span className="default-tag">default</span>}
-                                <code>{c.masked_key}</code>
-                                {verifyResults[c.id] && (
-                                    <p className="verify-result">{verifyResults[c.id]}</p>
-                                )}
-                            </div>
-                            <div className="credential-actions">
-                                <button type="button" onClick={() => handleVerify(c.id)}>
-                                    Verify
-                                </button>
-                                <button
-                                    type="button"
-                                    className="danger"
-                                    onClick={() => handleDelete(c.id)}
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
-            )}
+            <CredentialList
+                loading={loading}
+                credentials={credentials}
+                verifyResults={verifyResults}
+                onVerify={handleVerify}
+                onDelete={handleDelete}
+            />
 
-            <p className="privacy-note">
-                Your API keys are encrypted before storage. They are decrypted only when sending a
-                request to your provider.
-            </p>
+            <PrivacyNote />
         </div>
     );
 }
