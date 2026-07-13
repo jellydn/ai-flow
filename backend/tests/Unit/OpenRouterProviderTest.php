@@ -136,4 +136,53 @@ class OpenRouterProviderTest extends TestCase
 
         (new OpenRouterProvider)->generate('Analyze.', ['type' => 'object']);
     }
+
+    public function test_base_url_is_resolved_from_config(): void
+    {
+        config()->set('services.openai.openrouter_base_url', 'https://custom.openrouter.io/v1');
+
+        Http::fake([
+            'custom.openrouter.io/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => '{"summary":"ok","risk":"low","findings":[],"verification_steps":[]}']]],
+            ]),
+        ]);
+
+        config()->set('services.openai.openrouter_model', 'openai/gpt-4o-mini');
+        config()->set('services.openai.timeout', 30);
+
+        $result = (new OpenRouterProvider('sk-or-test'))->generate('Analyze.', ['type' => 'object']);
+
+        $this->assertSame('ok', $result['summary']);
+    }
+
+    public function test_referer_header_is_resolved_from_config(): void
+    {
+        config()->set('services.openai.referer', 'https://myapp.example.com');
+
+        Http::fake([
+            'openrouter.ai/api/v1/chat/completions' => Http::response([
+                'choices' => [['message' => ['content' => '{"summary":"ok","risk":"low","findings":[],"verification_steps":[]}']]],
+            ]),
+        ]);
+
+        config()->set('services.openai.openrouter_model', 'openai/gpt-4o-mini');
+        config()->set('services.openai.timeout', 30);
+
+        (new OpenRouterProvider('sk-or-test'))->generate('Analyze.', ['type' => 'object']);
+
+        Http::assertSent(fn ($request) => $request->hasHeader('HTTP-Referer', 'https://myapp.example.com'));
+    }
+
+    public function test_constructor_accepts_explicit_base_url_and_referer(): void
+    {
+        Http::fake([
+            'custom.example.io/v2/key' => Http::response(['data' => ['usage' => 100]], 200),
+        ]);
+
+        $provider = new OpenRouterProvider('sk-or-test', 'https://custom.example.io/v2', 'https://myapp.example.com');
+        $result = $provider->verifyCredential('sk-or-test');
+
+        $this->assertTrue($result['valid']);
+        Http::assertSent(fn ($request) => $request->hasHeader('HTTP-Referer', 'https://myapp.example.com'));
+    }
 }

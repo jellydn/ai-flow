@@ -8,7 +8,7 @@ use App\Services\OpenAIProvider;
 use App\Services\OpenRouterProvider;
 use App\Support\AiProviderRegistry;
 use InvalidArgumentException;
-use PHPUnit\Framework\TestCase;
+use Tests\TestCase;
 
 class AiProviderRegistryTest extends TestCase
 {

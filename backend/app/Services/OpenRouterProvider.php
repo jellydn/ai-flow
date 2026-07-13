@@ -17,9 +17,14 @@ use RuntimeException;
  */
 class OpenRouterProvider implements AIProviderInterface
 {
-    private const BASE_URL = 'https://openrouter.ai/api/v1';
-
-    public function __construct(private ?string $apiKey = null) {}
+    public function __construct(
+        private ?string $apiKey = null,
+        private ?string $baseUrl = null,
+        private ?string $referer = null,
+    ) {
+        $this->baseUrl ??= config('services.openai.openrouter_base_url', 'https://openrouter.ai/api/v1');
+        $this->referer ??= config('services.openai.referer', config('app.url'));
+    }
 
     public function id(): string
     {
@@ -49,11 +54,11 @@ class OpenRouterProvider implements AIProviderInterface
             $response = Http::withToken($key)
                 ->acceptJson()
                 ->withHeaders([
-                    'HTTP-Referer' => config('app.url'),
+                    'HTTP-Referer' => $this->referer,
                     'X-Title' => config('app.name'),
                 ])
                 ->timeout(10)
-                ->get(self::BASE_URL.'/key');
+                ->get($this->baseUrl.'/key');
 
             if (in_array($response->status(), [401, 403], true)) {
                 return ['valid' => false, 'message' => 'Invalid API key.'];
@@ -86,12 +91,12 @@ class OpenRouterProvider implements AIProviderInterface
             $response = Http::withToken($key)
                 ->acceptJson()
                 ->withHeaders([
-                    'HTTP-Referer' => config('app.url'),
+                    'HTTP-Referer' => $this->referer,
                     'X-Title' => config('app.name'),
                 ])
                 ->timeout($timeout)
                 ->retry(2, 500, throw: false)
-                ->post(self::BASE_URL.'/chat/completions', [
+                ->post($this->baseUrl.'/chat/completions', [
                     'model' => $model,
                     'messages' => [
                         ['role' => 'system', 'content' => 'Return accurate JSON matching the supplied schema.'],
