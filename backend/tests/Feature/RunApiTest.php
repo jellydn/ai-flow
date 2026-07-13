@@ -93,6 +93,19 @@ class RunApiTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
     }
 
+    public function test_execution_accepts_openrouter_provider(): void
+    {
+        Queue::fake();
+
+        $this->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => 'openrouter', 'api_key' => 'or-user-key'],
+        ])->assertStatus(202);
+
+        Queue::assertPushed(ExecuteLauncherJob::class);
+    }
+
     public function test_run_passes_null_provider_when_provider_id_omitted(): void
     {
         Queue::fake();
