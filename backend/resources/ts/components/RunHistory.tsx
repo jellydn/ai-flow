@@ -25,7 +25,9 @@ export function RunHistory() {
         }
     }, [status]);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        load();
+    }, [load]);
 
     const handleRetry = async (id: string) => {
         try {
@@ -52,7 +54,9 @@ export function RunHistory() {
                 <select value={status} onChange={(e) => setStatus(e.target.value)}>
                     <option value="">All statuses</option>
                     {STATUS_OPTIONS.filter(Boolean).map((s) => (
-                        <option key={s} value={s}>{s}</option>
+                        <option key={s} value={s}>
+                            {s}
+                        </option>
                     ))}
                 </select>
             </div>
@@ -69,11 +73,16 @@ export function RunHistory() {
                                 <span className={`status-badge ${run.status}`}>{run.status}</span>
                                 <span className="run-launcher">{run.launcher ?? "—"}</span>
                                 <span className="run-date">
-                                    {run.created_at ? new Date(run.created_at).toLocaleDateString() : "—"}
+                                    {run.created_at
+                                        ? new Date(run.created_at).toLocaleDateString()
+                                        : "—"}
                                 </span>
                             </div>
                             <div className="run-actions">
-                                <button type="button" onClick={() => window.open(`/runs/${run.id}`, "_blank")}>
+                                <button
+                                    type="button"
+                                    onClick={() => window.open(`/runs/${run.id}`, "_blank")}
+                                >
                                     Open
                                 </button>
                                 {(run.status === "completed" || run.status === "failed") && (
@@ -81,7 +90,11 @@ export function RunHistory() {
                                         Retry
                                     </button>
                                 )}
-                                <button type="button" className="danger" onClick={() => handleDelete(run.id)}>
+                                <button
+                                    type="button"
+                                    className="danger"
+                                    onClick={() => handleDelete(run.id)}
+                                >
                                     Delete
                                 </button>
                             </div>

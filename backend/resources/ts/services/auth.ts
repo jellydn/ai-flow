@@ -28,8 +28,14 @@ export function decodeUser(value: unknown): User {
         id: Number(assertString(data.id, "id")),
         name: data.name && typeof data.name === "string" ? data.name : null,
         email: assertString(data.email, "email"),
-        email_verified_at: data.email_verified_at && typeof data.email_verified_at === "string" ? data.email_verified_at : null,
-        last_login_at: data.last_login_at && typeof data.last_login_at === "string" ? data.last_login_at : null,
+        email_verified_at:
+            data.email_verified_at && typeof data.email_verified_at === "string"
+                ? data.email_verified_at
+                : null,
+        last_login_at:
+            data.last_login_at && typeof data.last_login_at === "string"
+                ? data.last_login_at
+                : null,
     };
 }
 
@@ -40,10 +46,17 @@ export function decodeCredential(value: unknown): ProviderCredential {
         provider: assertString(data.provider, "provider"),
         label: assertString(data.label, "label"),
         masked_key: assertString(data.masked_key, "masked_key"),
-        default_model: data.default_model && typeof data.default_model === "string" ? data.default_model : null,
+        default_model:
+            data.default_model && typeof data.default_model === "string"
+                ? data.default_model
+                : null,
         is_default: Boolean(data.is_default),
-        last_verified_at: data.last_verified_at && typeof data.last_verified_at === "string" ? data.last_verified_at : null,
-        last_used_at: data.last_used_at && typeof data.last_used_at === "string" ? data.last_used_at : null,
+        last_verified_at:
+            data.last_verified_at && typeof data.last_verified_at === "string"
+                ? data.last_verified_at
+                : null,
+        last_used_at:
+            data.last_used_at && typeof data.last_used_at === "string" ? data.last_used_at : null,
         created_at: assertString(data.created_at, "created_at"),
         updated_at: assertString(data.updated_at, "updated_at"),
     };

@@ -63,7 +63,10 @@ export function App() {
     const [checkEmail, setCheckEmail] = useState("");
 
     useEffect(() => {
-        fetchUser().then(setUser).catch(() => setUser(null)).finally(() => setAuthChecked(true));
+        fetchUser()
+            .then(setUser)
+            .catch(() => setUser(null))
+            .finally(() => setAuthChecked(true));
     }, []);
 
     const {
@@ -264,22 +267,42 @@ export function App() {
                 <div className="auth-page">
                     <div className="auth-card">
                         <h2>Check your email</h2>
-                        <p>A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link in the email to continue.</p>
-                        <button type="button" onClick={() => setCheckEmail("")}>Back</button>
+                        <p>
+                            A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link
+                            in the email to continue.
+                        </p>
+                        <button type="button" onClick={() => setCheckEmail("")}>
+                            Back
+                        </button>
                     </div>
                 </div>
             )}
 
             {!authChecked && !checkEmail && (
-                <main className="running-page"><div className="error-fallback"><p>Loading…</p></div></main>
+                <main className="running-page">
+                    <div className="error-fallback">
+                        <p>Loading…</p>
+                    </div>
+                </main>
             )}
 
             {showSignIn && !user && !checkEmail && (
-                <SignIn onRequested={(email) => { setShowSignIn(false); setCheckEmail(email); }} />
+                <SignIn
+                    onRequested={(email) => {
+                        setShowSignIn(false);
+                        setCheckEmail(email);
+                    }}
+                />
             )}
 
             {user && !deepLinkLoading && view.type === "home" && authChecked && (
-                <Dashboard user={user} onLogout={async () => { await apiLogout(); setUser(null); }} />
+                <Dashboard
+                    user={user}
+                    onLogout={async () => {
+                        await apiLogout();
+                        setUser(null);
+                    }}
+                />
             )}
 
             {deepLinkLoading && (
@@ -291,21 +314,26 @@ export function App() {
                 </main>
             )}
 
-            {!user && view.type === "home" && !deepLinkLoading && !showSignIn && !checkEmail && authChecked && (
-                <Home
-                    selected={selected}
-                    setSelected={setSelected}
-                    url={url}
-                    setUrl={setUrl}
-                    error={error}
-                    setError={setError}
-                    launch={launch}
-                    isLaunching={isLaunching}
-                    apiKey={apiKey}
-                    setApiKey={setApiKey}
-                    launchers={launchers}
-                />
-            )}
+            {!user &&
+                view.type === "home" &&
+                !deepLinkLoading &&
+                !showSignIn &&
+                !checkEmail &&
+                authChecked && (
+                    <Home
+                        selected={selected}
+                        setSelected={setSelected}
+                        url={url}
+                        setUrl={setUrl}
+                        error={error}
+                        setError={setError}
+                        launch={launch}
+                        isLaunching={isLaunching}
+                        apiKey={apiKey}
+                        setApiKey={setApiKey}
+                        launchers={launchers}
+                    />
+                )}
 
             {(view.type === "demo-running" || view.type === "live-running") && (
                 <Running

@@ -34,7 +34,9 @@ export function ProviderSettings() {
         }
     }, []);
 
-    useEffect(() => { load(); }, [load]);
+    useEffect(() => {
+        load();
+    }, [load]);
 
     const handleCreate = async (e: FormEvent) => {
         e.preventDefault();
@@ -89,7 +91,9 @@ export function ProviderSettings() {
                 <form className="credential-form" onSubmit={handleCreate}>
                     <select value={provider} onChange={(e) => setProvider(e.target.value)}>
                         {providers.map((p) => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
+                            <option key={p.id} value={p.id}>
+                                {p.name}
+                            </option>
                         ))}
                     </select>
                     <input
@@ -115,7 +119,9 @@ export function ProviderSettings() {
             {loading ? (
                 <p>Loading credentials…</p>
             ) : credentials.length === 0 ? (
-                <p className="empty-state">No API keys saved yet. Add one to use your own provider.</p>
+                <p className="empty-state">
+                    No API keys saved yet. Add one to use your own provider.
+                </p>
             ) : (
                 <ul className="credential-list">
                     {credentials.map((c) => (
@@ -133,7 +139,11 @@ export function ProviderSettings() {
                                 <button type="button" onClick={() => handleVerify(c.id)}>
                                     Verify
                                 </button>
-                                <button type="button" className="danger" onClick={() => handleDelete(c.id)}>
+                                <button
+                                    type="button"
+                                    className="danger"
+                                    onClick={() => handleDelete(c.id)}
+                                >
                                     Delete
                                 </button>
                             </div>
@@ -143,7 +153,8 @@ export function ProviderSettings() {
             )}
 
             <p className="privacy-note">
-                Your API keys are encrypted before storage. They are decrypted only when sending a request to your provider.
+                Your API keys are encrypted before storage. They are decrypted only when sending a
+                request to your provider.
             </p>
         </div>
     );

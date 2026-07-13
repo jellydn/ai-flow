@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { logout, type User } from "../services/auth.ts";
 import { ProviderSettings } from "./ProviderSettings.tsx";
 import { RunHistory } from "./RunHistory.tsx";
@@ -35,7 +35,12 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                     <h2>Dashboard</h2>
                     <p className="user-email">{user.email}</p>
                 </div>
-                <button type="button" className="logout-btn" onClick={handleLogout} disabled={loggingOut}>
+                <button
+                    type="button"
+                    className="logout-btn"
+                    onClick={handleLogout}
+                    disabled={loggingOut}
+                >
                     {loggingOut ? "Signing out…" : "Sign out"}
                 </button>
             </div>
