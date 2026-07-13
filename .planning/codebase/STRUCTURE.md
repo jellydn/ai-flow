@@ -1,226 +1,261 @@
-# Directory Structure
+# Codebase Structure
 
 **Analysis Date:** 2026-07-13
 
-## Layout
+## Directory Layout
 
 ```
-ai-flow/
-├── .agents/                    # Agent skills setup
-├── .amp/                       # Amp portal config
-│   └── portals/
-│       └── ai-launcher.json
-├── .github/
-│   └── workflows/
-│       ├── ci.yml              # CI: PHP + frontend checks
-│       └── react-doctor.yml    # React codebase analysis
-├── .planning/
-│   └── codebase/               # Codebase documentation (these files)
-├── backend/                    # Laravel application (monorepo root for deploy)
-│   ├── app/
-│   │   ├── Console/
-│   │   │   └── Commands/
-│   │   │       └── ReapStuckRuns.php
-│   │   ├── Contracts/          # Interfaces (3)
-│   │   │   ├── AIProviderInterface.php
-│   │   │   ├── LauncherInterface.php
-│   │   │   └── RunExecutorInterface.php
-│   │   ├── Data/               # DTOs (1)
-│   │   │   └── GitHubReference.php
-│   │   ├── Events/             # Events (1)
-│   │   │   └── RunProgressed.php
-│   │   ├── Http/
-│   │   │   ├── Controllers/    # 6 controllers
-│   │   │   │   ├── Auth/
-│   │   │   │   │   └── MagicLinkController.php
-│   │   │   │   ├── Controller.php
-│   │   │   │   ├── ProviderController.php
-│   │   │   │   ├── ProviderCredentialController.php
-│   │   │   │   ├── RunController.php
-│   │   │   │   └── RunHistoryController.php
-│   │   │   ├── Requests/       # Form requests (3)
-│   │   │   │   ├── StoreProviderCredentialRequest.php
-│   │   │   │   ├── StoreRunRequest.php
-│   │   │   │   └── UpdateProviderCredentialRequest.php
-│   │   │   └── Resources/      # API resources (3)
-│   │   │       ├── ProviderCredentialResource.php
-│   │   │       ├── RunResource.php
-│   │   │       └── UserResource.php
-│   │   ├── Jobs/               # Queue jobs (1)
-│   │   │   └── ExecuteLauncherJob.php
-│   │   ├── Launchers/          # Workflow definitions (5)
-│   │   │   ├── BaseLauncher.php
-│   │   │   ├── ExplainRepositoryLauncher.php
-│   │   │   ├── LaravelDoctorLauncher.php
-│   │   │   ├── PlanIssueLauncher.php
-│   │   │   └── ReviewPullRequestLauncher.php
-│   │   ├── Mail/               # Mailables (1)
-│   │   │   └── MagicLinkMail.php
-│   │   ├── Models/             # Eloquent models (5)
-│   │   │   ├── Launcher.php
-│   │   │   ├── MagicLoginToken.php
-│   │   │   ├── ProviderCredential.php
-│   │   │   ├── Run.php
-│   │   │   └── User.php
-│   │   ├── Providers/          # Service providers (1)
-│   │   │   └── AppServiceProvider.php
-│   │   ├── Services/           # Domain services (10)
-│   │   │   ├── AnthropicProvider.php
-│   │   │   ├── ContextEncoder.php
-│   │   │   ├── GeminiProvider.php
-│   │   │   ├── GitHubContextAssembler.php
-│   │   │   ├── GitHubContextFetcher.php
-│   │   │   ├── GitHubService.php
-│   │   │   ├── JsonSchemaValidator.php
-│   │   │   ├── OpenAIProvider.php
-│   │   │   ├── RunExecutor.php
-│   │   │   └── RunStreamer.php
-│   │   └── Support/            # Support classes (1)
-│   │       └── AiProviders.php
-│   ├── bootstrap/
-│   │   ├── app.php             # Application bootstrap
-│   │   └── providers.php
-│   ├── config/                 # Config files (11)
-│   │   ├── app.php, auth.php, cache.php, cors.php
-│   │   ├── database.php, filesystems.php, logging.php
-│   │   ├── mail.php, queue.php, services.php, session.php
-│   ├── database/
-│   │   ├── factories/
-│   │   │   └── UserFactory.php
-│   │   ├── migrations/         # 11 migrations
-│   │   └── seeders/
-│   │       └── DatabaseSeeder.php
-│   ├── public/                 # Web root
-│   │   └── index.php
-│   ├── resources/
-│   │   ├── css/
-│   │   │   └── app.css         # Plain CSS (BEM-like)
-│   │   ├── ts/                 # TypeScript frontend
-│   │   │   ├── app.tsx         # Vite entry point
-│   │   │   ├── components/     # 13 React components
-│   │   │   │   ├── App.tsx, appUiState.ts
-│   │   │   │   ├── Dashboard.tsx, ErrorBoundary.tsx
-│   │   │   │   ├── Footer.tsx, Header.tsx, Home.tsx
-│   │   │   │   ├── LauncherIcon.tsx, Logo.tsx
-│   │   │   │   ├── ProviderSettings.tsx
-│   │   │   │   ├── Report.tsx, Running.tsx, SignIn.tsx
-│   │   │   │   └── RunHistory.tsx
-│   │   │   ├── data/
-│   │   │   │   └── launcherMeta.ts
-│   │   │   ├── hooks/          # 2 custom hooks
-│   │   │   │   ├── useRunFromPath.ts
-│   │   │   │   └── useRunSubscription.ts
-│   │   │   ├── lib/
-│   │   │   │   ├── http.ts     # Fetch wrapper
-│   │   │   │   └── scroll.ts
-│   │   │   ├── services/       # 2 API service modules
-│   │   │   │   ├── auth.ts
-│   │   │   │   └── run.ts
-│   │   │   └── types/
-│   │   │       └── api.ts      # TypeScript API contracts
-│   │   └── views/
-│   │       └── app.blade.php   # Blade shell (SPA mount)
-│   ├── routes/
-│   │   ├── api.php             # API routes (public + auth)
-│   │   ├── console.php         # Artisan commands
-│   │   └── web.php             # SPA catch-all route
-│   ├── storage/                # Logs, cache, sessions
-│   └── tests/                  # 16 test files
-│       ├── Feature/            # 8 feature tests
-│       │   ├── ExecuteLauncherJobTest.php
-│       │   ├── MagicLinkAuthTest.php
-│       │   ├── ProviderCredentialApiTest.php
-│       │   ├── ReapStuckRunsTest.php
-│       │   ├── RunApiTest.php
-│       │   ├── RunHistoryTest.php
-│       │   └── RunOwnershipTest.php
-│       ├── Unit/               # 8 unit tests
-│       │   ├── CacheRunProgressedVersionTest.php
-│       │   ├── ContextEncoderTest.php
-│       │   ├── CredentialCipherTest.php
-│       │   ├── GitHubContextAssemblerTest.php
-│       │   ├── GitHubContextFetcherTest.php
-│       │   ├── GitHubServiceTest.php
-│       │   ├── OpenAIProviderTest.php
-│       │   └── RunStreamerTest.php
-│       └── TestCase.php
-├── doc/
-│   └── adr/                    # Architecture Decision Records (14)
-│       ├── README.md
-│       ├── 0001-vite-react-prototype-before-laravel-backend.md
-│       ├── 0002-single-file-react-app-for-mvp-ui.md
-│       ├── 0003-client-side-simulated-workflow-execution.md
-│       ├── 0004-structured-report-ux-not-chat.md
-│       ├── 0005-workflow-catalog-as-declarative-metadata.md
-│       ├── 0006-amp-portal-for-preview-hosting.md
-│       ├── 0007-laravel-api-in-backend-subdirectory.md
-│       ├── 0008-queue-backed-execute-launcher-job.md
-│       ├── 0009-launcher-classes-seeded-to-database.md
-│       ├── 0010-github-rest-context-with-cache-no-clone.md
-│       ├── 0011-ai-provider-interface-openai-json-schema.md
-│       ├── 0012-runs-as-uuid-records-with-json-columns.md
-│       ├── 0013-sse-run-stream-via-database-polling.md
-│       └── 0014-api-throttling-and-public-unauthenticated-runs.md
-├── scripts/
-│   └── hooks/                  # Pre-commit hook scripts
-│       ├── composer-validate.sh
-│       ├── ensure-composer.sh
-│       ├── env.sh
-│       ├── npm-in-backend.sh
-│       └── pint.sh
-├── AGENTS.md                   # AI agent instructions
+2026-07-13-ai-flow-pr-25/
+├── Agents.md                 # Project agent instructions (commands, architecture map)
+├── README.md                 # Repo overview
 ├── LICENSE
-├── README.md
-├── justfile
-├── konsistent.json
-├── renovate.json
-└── .pre-commit-config.yaml
+├── justfile                  # Task runner (prek hooks, etc.)
+├── konsistent.json           # Structural TS conventions (components/hooks export rules)
+├── renovate.json             # Dependency update config
+├── .planning/
+│   └── codebase/             # Architecture/structure analysis docs (this folder)
+├── .github/
+│   └── workflows/            # CI (PHP 8.4 + Node 24)
+├── doc/
+│   └── adr/                  # Architecture Decision Records (0001–0014)
+├── scripts/
+│   └── hooks/                # Pre-commit helper scripts (composer, pint, npm)
+└── backend/                  # Deploy root: Laravel 13 + React/Vite SPA
+    ├── app/
+    │   ├── Console/Commands/ # Artisan commands (reap stuck runs)
+    │   ├── Contracts/        # AIProvider, Launcher, RunExecutor interfaces
+    │   ├── Data/             # GitHubReference DTO
+    │   ├── Events/           # RunProgressed
+    │   ├── Http/
+    │   │   ├── Controllers/  # API + MagicLink auth
+    │   │   ├── Requests/     # Form requests
+    │   │   └── Resources/    # JSON API resources
+    │   ├── Jobs/             # ExecuteLauncherJob
+    │   ├── Launchers/        # Workflow metadata classes
+    │   ├── Listeners/        # CacheRunProgressedVersion
+    │   ├── Mail/             # MagicLinkMail
+    │   ├── Models/           # Eloquent models
+    │   ├── Policies/         # Run, ProviderCredential
+    │   ├── Providers/        # AppServiceProvider
+    │   ├── Security/         # CredentialCipher
+    │   └── Services/         # Domain orchestration + integrations
+    ├── bootstrap/            # app.php routing/middleware; providers.php
+    ├── config/               # Laravel + services (OpenAI/GitHub/etc.)
+    ├── database/
+    │   ├── factories/
+    │   ├── migrations/
+    │   └── seeders/          # Seeds launchers from PHP classes
+    ├── docker/               # nginx, supervisor, release migrate (Dokku)
+    ├── public/               # Web root (index.php, Vite build output)
+    ├── resources/
+    │   ├── css/app.css
+    │   ├── ts/               # React 19 + TypeScript SPA
+    │   └── views/            # app.blade.php SPA shell; mail templates
+    ├── routes/               # api, web, auth, console
+    ├── storage/              # logs, cache, sessions (runtime)
+    ├── tests/
+    │   ├── Feature/          # HTTP + job feature tests
+    │   └── Unit/             # Service unit tests
+    ├── vendor/               # Composer deps (not edited)
+    ├── node_modules/         # npm deps (not edited)
+    ├── artisan
+    ├── composer.json
+    ├── package.json
+    ├── Dockerfile
+    ├── Procfile
+    ├── phpunit.xml
+    ├── vite.config.ts
+    ├── vitest.config.ts
+    ├── tsconfig.json
+    ├── README.md
+    ├── DOKKU_DEPLOY.md
+    └── CLOUD_DEPLOY.md
 ```
 
-## Key Locations
+## Directory Purposes
 
-| What | Where |
-|------|-------|
-| Application entry (HTTP) | `backend/public/index.php` |
-| Application bootstrap | `backend/bootstrap/app.php` |
-| SPA entry (TypeScript) | `backend/resources/ts/app.tsx` |
-| Blade shell | `backend/resources/views/app.blade.php` |
-| API routes | `backend/routes/api.php` |
-| Web routes | `backend/routes/web.php` |
-| AI provider interfaces | `backend/app/Contracts/AIProviderInterface.php` |
-| Workflow definitions | `backend/app/Launchers/` |
-| Domain logic | `backend/app/Services/` |
-| Queue jobs | `backend/app/Jobs/ExecuteLauncherJob.php` |
-| Database migrations | `backend/database/migrations/` |
-| Tests | `backend/tests/Feature/` and `backend/tests/Unit/` |
-| Architecture decisions | `doc/adr/` |
-| Agent instructions | `AGENTS.md` |
-| Project planning docs | `.planning/codebase/` |
+**`backend/app/`:**
+- Purpose: All application PHP code (domain + HTTP + jobs).
+- Contains: Controllers, services, models, launchers, contracts, policies.
+- Key files: `Jobs/ExecuteLauncherJob.php`, `Services/RunExecutor.php`, `Http/Controllers/RunController.php`, `Providers/AppServiceProvider.php`
 
-## File Counts
+**`backend/app/Launchers/`:**
+- Purpose: One class per AI workflow; `metadata()` returns slug, name, inputType, prompt, shared outputSchema.
+- Contains: `BaseLauncher`, `ReviewPullRequestLauncher`, `PlanIssueLauncher`, `ExplainRepositoryLauncher`, `LaravelDoctorLauncher`
+- Key files: `BaseLauncher.php` (shared JSON schema)
 
-| Type | Count |
-|------|-------|
-| PHP application files | 44 |
-| TypeScript/TSX files | 23 |
-| Test files (PHP) | 16 |
-| Migration files | 11 |
-| Configuration files | 11 |
-| ADR documents | 14 |
-| React components | 13 |
+**`backend/app/Services/`:**
+- Purpose: Business logic outside controllers: GitHub, AI, encoding, validation, streaming.
+- Contains: GitHub pipeline, AI providers, `RunExecutor`, `RunStreamer`, `JsonSchemaValidator`, `ContextEncoder`
+- Key files: `RunExecutor.php`, `GitHubService.php`, `OpenAIProvider.php`, `RunStreamer.php`
+
+**`backend/app/Http/`:**
+- Purpose: Thin HTTP boundary.
+- Contains: Controllers, Form Requests, API Resources
+- Key files: `Controllers/RunController.php`, `Requests/StoreRunRequest.php`, `Resources/RunResource.php`
+
+**`backend/routes/`:**
+- Purpose: Route registration only (thin).
+- Contains: `api.php`, `web.php`, `auth.php`, `console.php`
+- Key files: `api.php` (runs, launchers, user routes + aliases)
+
+**`backend/resources/ts/`:**
+- Purpose: Frontend SPA source (Vite entry).
+- Contains: `app.tsx`, `components/`, `hooks/`, `services/`, `lib/`, `types/`, `data/`
+- Key files: `components/App.tsx`, `services/run.ts`, `hooks/useRunSubscription.ts`, `types/api.ts`
+
+**`backend/database/`:**
+- Purpose: Schema and seed data.
+- Contains: Migrations for users, jobs/cache, launchers/runs, magic tokens, credentials, ownership
+- Key files: `seeders/DatabaseSeeder.php`, `migrations/2026_01_01_000000_create_launchers_and_runs.php`
+
+**`backend/tests/`:**
+- Purpose: PHPUnit Feature + Unit tests.
+- Contains: Run API, jobs, auth, credentials, GitHub/AI units
+- Key files: `Feature/RunApiTest.php`, `Feature/ExecuteLauncherJobTest.php`
+
+**`doc/adr/`:**
+- Purpose: Recorded architecture decisions (prototype → Laravel API patterns).
+- Contains: ADR 0001–0014 + README index
+- Key files: `0008-queue-backed-execute-launcher-job.md`, `0013-sse-run-stream-via-database-polling.md`
+
+**`scripts/hooks/`:**
+- Purpose: Pre-commit tooling used by `just prek` / prek config.
+- Contains: Shell wrappers for composer validate, pint, npm-in-backend
+
+**`.planning/codebase/`:**
+- Purpose: Generated/maintained analysis docs for agents and planning.
+- Contains: `ARCHITECTURE.md`, `STRUCTURE.md`
+
+## Key File Locations
+
+**Entry Points:**
+- `backend/public/index.php`: PHP front controller
+- `backend/bootstrap/app.php`: Laravel app configure (web/api/commands/health)
+- `backend/resources/ts/app.tsx`: React mount + ErrorBoundary
+- `backend/resources/views/app.blade.php`: SPA HTML shell + `@vite('resources/ts/app.tsx')`
+- `backend/routes/api.php`: JSON API routes
+- `backend/routes/web.php`: SPA catch-all + requires `auth.php`
+- `backend/app/Jobs/ExecuteLauncherJob.php`: Queue entry for workflow execution
+- `backend/artisan`: CLI entry
+
+**Configuration:**
+- `backend/config/services.php`: OpenAI/OpenRouter, Anthropic, Gemini, GitHub token, provider allow-list
+- `backend/config/queue.php`, `database.php`, `auth.php`, `cache.php`, `cors.php`, `logging.php`
+- `backend/.env.example` (via project docs): `OPENAI_API_KEY`, `GITHUB_TOKEN`, `VITE_DEMO_MODE`, `AI_MODEL`, etc.
+- `backend/vite.config.ts`, `backend/tsconfig.json`, `backend/package.json`, `backend/composer.json`
+- Root `konsistent.json`, `.oxlintrc.json` / `.oxfmtrc.json` (lint/format for TS)
+
+**Core Logic:**
+- `backend/app/Services/RunExecutor.php`: GitHub → AI → validate → complete/fail
+- `backend/app/Services/GitHubService.php`: Parse + cached context
+- `backend/app/Services/GitHubContextFetcher.php` / `GitHubContextAssembler.php`: REST fetch + shape
+- `backend/app/Services/OpenAIProvider.php` (+ Anthropic/Gemini): AI `generate` / verify
+- `backend/app/Services/JsonSchemaValidator.php`: Result schema enforcement
+- `backend/app/Services/RunStreamer.php`: SSE progress loop
+- `backend/app/Launchers/*.php`: Workflow prompts and input types
+- `backend/app/Models/Run.php` / `Launcher.php`: Persistence model
+
+**Testing:**
+- `backend/tests/Feature/`: HTTP/API/job integration tests (`RefreshDatabase`, fakes)
+- `backend/tests/Unit/`: Isolated service tests
+- `backend/resources/ts/components/__tests__/`: Vitest + Testing Library (e.g. `RunHistory.test.tsx`)
+- `backend/phpunit.xml`, `backend/vitest.config.ts`
 
 ## Naming Conventions
 
-- **Controllers:** PascalCase, suffixed with `Controller` (e.g., `RunController`, `ProviderCredentialController`).
-- **Models:** PascalCase, singular (e.g., `Run`, `Launcher`, `User`, `ProviderCredential`).
-- **Services:** PascalCase, descriptive (e.g., `RunExecutor`, `GitHubService`, `JsonSchemaValidator`).
-- **Jobs:** PascalCase, descriptive verb (e.g., `ExecuteLauncherJob`).
-- **Contracts:** PascalCase, suffixed with `Interface` (e.g., `AIProviderInterface`).
-- **Launchers:** PascalCase, descriptive workflow name suffixed with `Launcher` (e.g., `ReviewPullRequestLauncher`).
-- **Migrations:** `YYYY_MM_DD_HHMMSS_descriptive_snake_case.php`.
-- **React components:** PascalCase, filename matches default export (enforced by `konsistent`).
-- **React hooks:** camelCase, `use*` prefix, filename matches export (enforced by `konsistent`).
-- **CSS:** BEM-like classes (e.g., `.header-cta`, `.auth-card`, `.run-item`).
+**Files:**
+- PHP classes: PascalCase matching class name — `RunController.php`, `ExecuteLauncherJob.php`
+- Launchers: `{Purpose}Launcher.php` with kebab-case slugs in metadata (`review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`)
+- Form requests: `Store*Request` / `Update*Request`
+- API resources: `*Resource.php`
+- React components: PascalCase filename = exported component — `Report.tsx` exports `Report` (enforced by konsistent)
+- Hooks: `use*.ts` — `useRunSubscription.ts`, `useRunFromPath.ts`
+- TS services/types: camelCase modules — `run.ts`, `api.ts`
+- Migrations: `YYYY_MM_DD_HHMMSS_description.php`
+- ADRs: `NNNN-kebab-title.md`
+
+**Directories:**
+- Laravel standard PSR-4 under `App\` → `backend/app/`
+- Frontend feature folders by role: `components/`, `hooks/`, `services/`, `lib/`, `types/`, `data/`
+- Tests mirror concern: `Feature/` vs `Unit/`
+
+## Where to Add New Code
+
+**New Feature (new AI workflow / launcher):**
+- Primary code: `backend/app/Launchers/NewWorkflowLauncher.php` extending `BaseLauncher`, implementing `metadata()`
+- Seed: register class in `backend/database/seeders/DatabaseSeeder.php`
+- Tests: `backend/tests/Feature/` (API + job) and/or unit coverage for unique behavior
+- Frontend catalog chrome (icons/copy): `backend/resources/ts/data/launcherMeta.ts` + any UI in `components/`
+
+**New API endpoint:**
+- Route: `backend/routes/api.php` (keep thin)
+- Controller: `backend/app/Http/Controllers/`
+- Validation: `backend/app/Http/Requests/`
+- Response shape: `backend/app/Http/Resources/`
+- Policy if resource-owned: `backend/app/Policies/`
+- Test: `backend/tests/Feature/`
+
+**New Component/Module (UI):**
+- Implementation: `backend/resources/ts/components/PascalName.tsx` (export matching name)
+- Hooks: `backend/resources/ts/hooks/useThing.ts`
+- API client: `backend/resources/ts/services/`
+- Shared types: `backend/resources/ts/types/`
+
+**New AI provider:**
+- Implementation: `backend/app/Services/{Provider}Provider.php` implementing `AIProviderInterface`
+- Config: `backend/config/services.php`
+- Bind/select: `AppServiceProvider` and/or job resolution; keep `providers` allow-list in sync with `StoreRunRequest`
+
+**Utilities:**
+- Shared PHP helpers/services: prefer `backend/app/Services/` or `Data/` DTOs over static utils
+- Shared TS helpers: `backend/resources/ts/lib/` (`http.ts`, `navigate.ts`, `scroll.ts`)
+- Encryption: `backend/app/Security/CredentialCipher.php`
+
+**Architecture decisions:**
+- New ADR under `doc/adr/` and index row in `doc/adr/README.md`
+
+## Special Directories
+
+**`backend/vendor/`:**
+- Purpose: Composer dependencies
+- Generated: Yes (`composer install`)
+- Committed: No
+
+**`backend/node_modules/`:**
+- Purpose: npm dependencies for Vite/React tooling
+- Generated: Yes (`npm install`)
+- Committed: No
+
+**`backend/public/build/`:**
+- Purpose: Vite production assets (`manifest.json`, hashed JS/CSS)
+- Generated: Yes (`npm run build`)
+- Committed: Often present for deploy simplicity; treat as build output
+
+**`backend/storage/`:**
+- Purpose: Logs, framework cache/sessions/views, app files
+- Generated: Runtime
+- Committed: Skeleton only (not log content)
+
+**`backend/database/database.sqlite`:**
+- Purpose: Local/dev SQLite DB
+- Generated: Local setup
+- Committed: May exist for convenience; production must use Postgres/MySQL
+
+**`backend/test-results/`:**
+- Purpose: Playwright/e2e failure artifacts (screenshots, error context)
+- Generated: Yes (test runs)
+- Committed: Should not be treated as source
+
+**`doc/adr/`:**
+- Purpose: Durable decision log
+- Generated: No (hand-written)
+- Committed: Yes
+
+**`.planning/codebase/`:**
+- Purpose: Codebase maps for planning/agents
+- Generated: Written by analysis tasks
+- Committed: Per team preference
 
 ---
 
