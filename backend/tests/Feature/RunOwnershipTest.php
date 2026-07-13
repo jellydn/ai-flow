@@ -69,7 +69,7 @@ class RunOwnershipTest extends TestCase
             ->assertJsonPath('data.model', 'gpt-4o');
     }
 
-    public function test_anonymous_user_cannot_see_provider_and_model(): void
+    public function test_anonymous_user_cannot_access_private_run(): void
     {
         $user = User::factory()->create();
         $run = Run::create([
