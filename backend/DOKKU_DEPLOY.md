@@ -112,6 +112,7 @@ dokku config:set --no-restart ai-flow \
   APP_ENV=production \
   APP_DEBUG=false \
   APP_URL=https://ai-flow-staging.itman.fyi \
+  ASSET_URL=https://ai-flow-staging.itman.fyi \
   LOG_CHANNEL=stderr \
   LOG_LEVEL=warning \
   CACHE_STORE=database \
@@ -171,6 +172,7 @@ If TLS is not configured yet, verify the same endpoints over HTTP.
 | Let's Encrypt `NXDOMAIN` | No DNS A/AAAA for app hostname | Add DNS, wait for propagation, retry `dokku letsencrypt:enable ai-flow` |
 | Worker restart loop, `database.sqlite` does not exist | `DB_CONNECTION` still `sqlite`; `DATABASE_URL` not mapped to `DB_URL` | Set `DB_CONNECTION=pgsql`, `DB_URL` from `DATABASE_URL`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database` |
 | HTTP **500** / “Production PostgreSQL must use TLS” | Missing `DB_SSLMODE` in production | `dokku config:set ai-flow DB_SSLMODE=require` (required by `AppServiceProvider` for web requests) |
+| HTTPS page blank / browser blocks assets | Vite tags used `http://` (mixed content) behind Dokku TLS | Set `ASSET_URL=https://<your-host>` and deploy with `trustProxies` + `URL::forceScheme('https')` in app bootstrap |
 | Runs stay `queued` | No worker | `dokku ps:scale ai-flow web=1 worker=1` and check `dokku ps:report ai-flow` |
 | 404 on `/api/*` | Wrong web root or missing `.htaccess` / nginx config | Confirm Dockerfile document root is `public/` and redeploy |
 
