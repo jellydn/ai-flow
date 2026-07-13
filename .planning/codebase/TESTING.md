@@ -1,122 +1,179 @@
 # Testing
 
-**Analysis Date:** 2026-07-13
+**Analysis Date:** 2026-07-14
 
-## Framework & Configuration
+## Frameworks
 
-| Aspect | Detail |
-|--------|--------|
-| Framework | PHPUnit 13 |
-| Config | `backend/phpunit.xml` |
-| Base class | `Tests\TestCase` extends `Illuminate\Foundation\Testing\TestCase` |
-| Database | SQLite in-memory (`DB_CONNECTION=sqlite` for tests) |
-| Traits used | `RefreshDatabase` in feature tests |
+| Area | Framework | Config | Runner |
+|------|-----------|--------|--------|
+| Backend (PHP) | PHPUnit ^13 | `backend/phpunit.xml` | `php artisan test` |
+| Frontend (TS) | Vitest + @testing-library/react | `backend/resources/ts/test/setup.ts` | `npx vitest run` |
+| E2E | Playwright ^1.61 | Playwright projects: `demo`, `real-backend` | `npm run test:e2e:demo` |
+| Mocking (PHP) | Mockery ^1.6 | — | Integrated with PHPUnit |
+| Style (PHP) | Laravel Pint ^1.24 | — | `./vendor/bin/pint --test` |
+| Style (TS) | oxlint + oxfmt | `.oxlintrc.json`, `.oxfmtrc.json` | `npm run lint` |
 
-## Test Structure
+## Backend Tests (`backend/tests/`)
+
+### Structure
 
 ```
-backend/tests/
-├── TestCase.php                              # Base test case
-├── Feature/                                   # 8 integration tests
-│   ├── ExecuteLauncherJobTest.php            # Job execution with mocked GitHub/AI
-│   ├── MagicLinkAuthTest.php                 # Magic link request + verification
-│   ├── ProviderCredentialApiTest.php         # Credential CRUD + verify + defaults
-│   ├── ReapStuckRunsTest.php                 # Stuck run cleanup command
-│   ├── RunApiTest.php                        # Run create, show, stream endpoints
-│   ├── RunHistoryTest.php                    # Authenticated run history CRUD
-│   └── RunOwnershipTest.php                  # Run ownership authorization
-└── Unit/                                      # 8 unit tests
-    ├── CacheRunProgressedVersionTest.php     # SSE version caching
-    ├── ContextEncoderTest.php                # Context size bounding
-    ├── CredentialCipherTest.php              # Provider credential encryption
-    ├── GitHubContextAssemblerTest.php        # Context assembly from raw data
-    ├── GitHubContextFetcherTest.php          # GitHub REST API calls
-    ├── GitHubServiceTest.php                 # URL parsing + context fetching
-    ├── OpenAIProviderTest.php                # AI provider interface
-    └── RunStreamerTest.php                   # SSE streaming behavior
+tests/
+├── TestCase.php                          # Base: boots Laravel app
+├── Unit/                                 # Pure unit tests (some extend Tests\TestCase for config())
+│   ├── AiProviderRegistryTest.php        # 10 tests: get/has/ids/list for 4 providers
+│   ├── CacheRunProgressedVersionTest.php # Event listener caching
+│   ├── ContextEncoderTest.php            # Byte budget encoding
+│   ├── CredentialCipherTest.php          # Encrypt/decrypt/mask
+│   ├── GitHubContextAssemblerTest.php    # Raw data → context array
+│   ├── GitHubContextFetcherTest.php      # HTTP mocking + error mapping
+│   ├── GitHubServiceTest.php             # URL parsing + cache
+│   ├── OpenAIProviderTest.php            # Generate + verify + errors
+│   ├── OpenRouterProviderTest.php        # 13 tests: generate, verify, configurable base URL/referer
+│   └── RunStreamerTest.php               # SSE generator polling
+├── Feature/                              # Integration tests with RefreshDatabase
+│   ├── AccountDeletionTest.php           # 8 tests: cascade delete, confirmation, logout
+│   ├── ExecuteLauncherJobTest.php        # Job dispatch, provider resolution, encrypted payload
+│   ├── MagicLinkAuthTest.php             # Request/verify/logout, token expiry, rate limit
+│   ├── ProviderCredentialApiTest.php     # CRUD + verify + make-default
+│   ├── ReapStuckRunsTest.php             # Scheduled command reaping stuck runs
+│   ├── RunApiTest.php                    # POST /api/runs, GET /api/runs/{id}, SSE stream
+│   ├── RunHistoryTest.php                # Authenticated user run list/retry/delete
+│   ├── RunOwnershipTest.php              # User can only see their runs
+│   └── SavedCredentialLaunchTest.php     # Launch with saved credential, IDOR protection
 ```
 
-**Total: 16 test files, 105 tests, 317 assertions (passing).**
+### Test Count
 
-## Testing Patterns
+- **Unit:** 10 test files, ~50+ test methods
+- **Feature:** 9 test files, ~60+ test methods
+- **Total:** ~142 tests, 429 assertions (as of 2026-07-14)
 
-### Feature Tests
+### Patterns
 
-- **`RefreshDatabase` trait** ensures clean state per test.
-- **Database seeding:** Tests rely on `DatabaseSeeder` for launcher records.
-- **HTTP assertions:** `$this->post('/api/runs', ...)`, `$this->get('/api/user/runs')`, status code checks.
-- **JSON structure assertions:** `assertJsonStructure()`, `assertJsonFragment()`.
-- **Rate limiting:** Tests verify 429 responses after exceeding throttle limits.
+**Base class:**
+- `Tests\TestCase` — boots full Laravel app, provides `config()`, `Http::fake()`, etc.
+- Pure unit tests that don't need Laravel extend `PHPUnit\Framework\TestCase` — but tests touching `config()` must extend `Tests\TestCase`
 
-### Job Testing
+**Database:**
+- `use RefreshDatabase;` in feature tests — migrates fresh schema each test
+- `$this->seed()` in `setUp()` when launchers are needed
+- SQLite `:memory:` (phpunit.xml) — fast, isolated
 
-- `Queue::fake()` to prevent actual job execution.
-- Assert job dispatch: `Queue::assertPushed(ExecuteLauncherJob::class)`.
-- Separate test for job execution with mocked dependencies: `ExecuteLauncherJobTest` uses `Queue::fake()` to prevent dispatch but manually instantiates the job with mocked services.
+**Mocking:**
+- `Mockery::mock(RunExecutorInterface::class)` — mock the executor in job tests
+- `Http::fake([...])` — fake HTTP responses for GitHub/OpenAI/OpenRouter/Anthropic/Gemini
+- `Queue::fake()` — assert job dispatch without executing
+- `Mail::fake()` — assert magic-link email queued
+- `vi.mocked($function).mockResolvedValue()` / `mockRejectedValue()` — Vitest mock control
 
-### Unit Tests
+**Factories:**
+- `UserFactory` — creates `User` with faker email/name
+- `ProviderCredential::forceCreate([...])` — bypasses mass-assignment guard for `user_id` in tests
 
-- **Mocking:** External services (GitHub HTTP, OpenAI HTTP) mocked via Laravel's `Http::fake()`.
-- **Value object testing:** `GitHubReference` creation from various URL formats.
-- **Context bounds testing:** `ContextEncoder` tested with known input sizes.
-- **SSE streaming:** `RunStreamer` tested with mock `Run` model states.
+**Assertions:**
+- `assertDatabaseHas('runs', [...])` / `assertDatabaseMissing('users', [...])`
+- `$response->assertOk()`, `assertStatus(202)`, `assertJsonPath('message', '...')`
+- `Queue::assertPushed(ExecuteLauncherJob::class, fn($job) => ...)`
+- `Http::assertSent(fn($request) => $request->hasHeader('HTTP-Referer', '...'))`
 
-### Auth Testing
+**Testing auth:**
+- `$this->actingAs($user)` — authenticate as a user
+- `$this->deleteJson('/api/user/account', ['confirm' => true])` — test account deletion
 
-- `MagicLinkAuthTest`: Tests token generation, email sending (Mail::fake()), token verification.
-- `RunOwnershipTest`: Tests that users can only access their own runs.
-- `ProviderCredentialApiTest`: Tests credential CRUD with authentication.
+## Frontend Tests (`backend/resources/ts/`)
 
-## Mocking Strategy
+### Structure
 
-| What | How |
-|------|-----|
-| GitHub API | `Http::fake()` with canned JSON responses |
-| OpenAI API | `Http::fake()` with controlled chat completion responses |
-| Queue | `Queue::fake()` to prevent real job execution |
-| Mail | `Mail::fake()` to prevent real email sending |
-| Cache | `Cache::fake()` or real cache in unit tests |
-| Events | `Event::fake()` when testing event dispatching |
+```
+components/__tests__/
+├── AppViews.test.tsx                    # Auth states, view rendering
+├── DashboardAccount.test.tsx            # 18 tests: account tab, deletion flow, logout
+├── HomeSubComponents.test.tsx           # UrlInput, LauncherSelector, LaunchArea basics
+├── LaunchAreaCredentials.test.tsx       # 15 tests: saved-credential picker, auto-provider
+├── ProviderSettingsComponents.test.tsx  # CredentialForm, CredentialList, PrivacyNote
+└── RunHistory.test.tsx                  # Run list, status filter, retry/delete
+```
 
-## Running Tests
+### Test Count
+
+- **6 test files**, ~93 tests total (as of 2026-07-14)
+
+### Patterns
+
+**Imports:**
+```tsx
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+```
+
+**Component rendering:**
+- `render(<Component {...defaultProps} />)` — render with props
+- `screen.getByRole("button", { name: "Launch workflow" })` — query by role + name
+- `screen.getByPlaceholderText(/github.com/)` — query by placeholder
+- `screen.getByLabelText("AI provider")` — query by aria-label
+- `await screen.findByText("error message")` — async wait for text
+
+**User interaction:**
+- `await userEvent.setup().click(button)` — click
+- `await userEvent.setup().type(input, "text")` — type
+- `await userEvent.setup().selectOptions(select, "value")` — select dropdown
+
+**Mocking:**
+- `vi.fn()` — mock callbacks
+- `vi.mock("../../services/auth.ts", async (importActual) => { ... })` — mock module
+- `vi.mocked(deleteAccount).mockResolvedValue(undefined)` — control mock behavior
+- `vi.spyOn(console, "error").mockImplementation(() => {})` — suppress expected errors
+- `new Promise(() => {})` — never-resolving promise for pending state testing
+
+**Conventions:**
+- `afterEach(() => { vi.clearAllMocks(); })` — reset between tests
+- `vi.mocked(fn).mockReset()` in `afterEach` for modules that need full reset
+- Tests use `try/finally` for spy cleanup to ensure restoration on failure
+- No snapshot tests — all assertions are explicit
+
+## E2E Tests (`backend/tests/E2E/`)
+
+### Structure
+
+```
+tests/E2E/
+└── flows/
+    ├── demo-full-flow.spec.ts    # Demo mode: sign-in UI, URL paste → report, validation
+    └── real-api-flow.real.spec.ts # Real backend: full flow with actual API (gated)
+```
+
+### Patterns
+
+- **Demo mode:** `VITE_DEMO_MODE=true` build + `php artisan serve` started by `scripts/e2e/serve-demo.sh`
+- Playwright projects: `demo` (runs on CI) and `real-backend` (requires API key, not in CI)
+- Tests: navigate → paste URL → click launch → wait for running view → wait for report → verify findings text
+- **Bug fix:** `App.tsx` excludes `"report"` from view reset condition to allow demo reports to render (fix `680e36a`)
+
+## CI Test Pipeline
+
+**Backend job:** `composer validate` → `composer install` → `migrate` → `php artisan test` → `pint --test`
+**Frontend job:** `npm ci` → `typecheck` → `lint` → `konsistent` → `build` → `test` (no-op placeholder)
+**E2E job:** `composer install` + `npm ci` + Playwright Chromium → `npm run test:e2e:demo`
+
+## Running Tests Locally
 
 ```bash
 cd backend
-php artisan test                          # Run all tests
-php artisan test --filter=RunApiTest      # Run specific test class
-php artisan test --filter=test_store      # Run specific test method
+
+# Backend
+php artisan test                              # full suite
+php artisan test --filter=OpenRouterProviderTest  # specific test
+
+# Frontend
+npx vitest run                               # all vitest tests
+npx vitest run resources/ts/components/__tests__/LaunchAreaCredentials.test.tsx  # specific
+
+# E2E (requires server running)
+npm run test:e2e:demo                        # demo mode E2E
+
+# Style
+./vendor/bin/pint --test                     # PHP style check
+npm run lint                                 # TS lint + format check
 ```
-
-**CI (`.github/workflows/ci.yml`):** `php artisan migrate --force` → `php artisan test`.
-
-## Frontend Testing
-
-- **Vitest + React Testing Library** — `npm run test` runs `vitest run` (was previously a no-op).
-- **Test config:** `backend/vitest.config.ts` uses jsdom environment, React plugin, and `globals: true` for RTL auto-cleanup.
-- **Test setup:** `backend/resources/ts/test/setup.ts` loads `@testing-library/jest-dom/vitest` matchers.
-- **Existing tests:** RunHistory component tests (`backend/resources/ts/components/__tests__/RunHistory.test.tsx`) covering loading state, empty state, error state, retry/delete actions, button disabling, and navigation. Additional component tests cover UrlInput (10), LauncherSelector (5), LaunchArea (7), AppViews (12), CredentialForm (7), CredentialList (6), and PrivacyNote (1) — 60 total Vitest tests.
-- **Watch mode:** `npm run test:watch` for interactive development.
-- TypeScript `tsc --noEmit` acts as compile-time verification.
-- `npm run doctor` runs `react-doctor` for codebase analysis.
-- `npm run konsistent` enforces structural conventions.
-
-## E2E Testing
-
-- **Playwright** — `npm run test:e2e:demo` runs against the Vite dev server with `VITE_DEMO_MODE=true` (no backend, queue, or API keys needed).
-- **Two projects:** `demo` (Vite on port 5173, full visual flow) and `real-backend` (Laravel on port 8000, API contracts + page rendering).
-- **Config:** `backend/playwright.config.ts` with Chromium, GitHub Actions reporter, trace on first retry.
-- **Demo tests (5):** sign-in UI, full workflow launch→report, invalid URL validation, clear input, switch launchers.
-- **Real-backend tests (5):** home page load, GET /api/launchers, GET /api/health, POST /api/runs 422/202, navigate to report page.
-- **CI:** Dedicated `e2e` job in `.github/workflows/ci.yml` (depends on backend+frontend passing).
-- **Watch mode:** `npm run test:e2e -- --ui` for interactive Playwright UI mode.
-
-## Test Quality Notes
-
-- Unit tests cover core services: GitHub parsing, context encoding, SSE streaming, provider verification.
-- Feature tests cover the primary API surface: run create/show/stream, auth flows, provider credential management, run history.
-- Job execution is tested both as dispatch assertion (integration) and with mocked dependencies (unit).
-- Rate limiting and authorization (ownership) are tested at the feature level.
-
----
-
-*Testing analysis: 2026-07-13*
