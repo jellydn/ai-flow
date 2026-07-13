@@ -87,8 +87,8 @@ dokku config:set --no-restart ai-flow \
   DB_HOST='your-pooled-host.neon.tech' \
   DB_PORT=5432 \
   DB_DATABASE='ai_flow' \
-  DB_USERNAME='replace-me' \
-  DB_PASSWORD='replace-me' \
+  DB_USERNAME='<db-user>' \
+  DB_PASSWORD='<db-password>' \
   DB_SSLMODE=require \
   DB_DIRECT_HOST='your-direct-host.neon.tech'
 ```
@@ -98,17 +98,22 @@ For Neon, use the **pooled** hostname for web and worker traffic. Use **`DB_DIRE
 To use a single URL instead of discrete fields:
 
 ```bash
-dokku config:set ai-flow DB_URL='postgres://user:pass@host:5432/dbname?sslmode=require'
+dokku config:set ai-flow DB_URL='postgresql://<user>:<password>@<host>:5432/<database>?sslmode=require'
 dokku config:unset ai-flow DB_HOST DB_PORT DB_DATABASE DB_USERNAME DB_PASSWORD
 ```
 
 ## Environment
 
-Set a stable application key and production defaults:
+Generate **`APP_KEY` once** on initial setup (do not rerun on every deploy — queued jobs and cookies depend on it):
+
+```bash
+dokku config:set --no-restart ai-flow APP_KEY="base64:$(openssl rand -base64 32)"
+```
+
+Set production defaults (safe to rerun):
 
 ```bash
 dokku config:set --no-restart ai-flow \
-  APP_KEY="base64:$(openssl rand -base64 32)" \
   APP_ENV=production \
   APP_DEBUG=false \
   APP_URL=https://ai-flow-staging.itman.fyi \
