@@ -36,7 +36,7 @@ backend/tests/
     └── RunStreamerTest.php                   # SSE streaming behavior
 ```
 
-**Total: 16 test files, 96 tests, 291 assertions (passing).**
+**Total: 16 test files, 105 tests, 317 assertions (passing).**
 
 ## Testing Patterns
 
@@ -94,11 +94,21 @@ php artisan test --filter=test_store      # Run specific test method
 - **Vitest + React Testing Library** — `npm run test` runs `vitest run` (was previously a no-op).
 - **Test config:** `backend/vitest.config.ts` uses jsdom environment, React plugin, and `globals: true` for RTL auto-cleanup.
 - **Test setup:** `backend/resources/ts/test/setup.ts` loads `@testing-library/jest-dom/vitest` matchers.
-- **Existing tests:** RunHistory component tests (`backend/resources/ts/components/__tests__/RunHistory.test.tsx`) covering loading state, empty state, error state, retry/delete actions, button disabling, and navigation.
+- **Existing tests:** RunHistory component tests (`backend/resources/ts/components/__tests__/RunHistory.test.tsx`) covering loading state, empty state, error state, retry/delete actions, button disabling, and navigation. Additional component tests cover UrlInput (10), LauncherSelector (5), LaunchArea (7), AppViews (12), CredentialForm (7), CredentialList (6), and PrivacyNote (1) — 60 total Vitest tests.
 - **Watch mode:** `npm run test:watch` for interactive development.
 - TypeScript `tsc --noEmit` acts as compile-time verification.
 - `npm run doctor` runs `react-doctor` for codebase analysis.
 - `npm run konsistent` enforces structural conventions.
+
+## E2E Testing
+
+- **Playwright** — `npm run test:e2e:demo` runs against the Vite dev server with `VITE_DEMO_MODE=true` (no backend, queue, or API keys needed).
+- **Two projects:** `demo` (Vite on port 5173, full visual flow) and `real-backend` (Laravel on port 8000, API contracts + page rendering).
+- **Config:** `backend/playwright.config.ts` with Chromium, GitHub Actions reporter, trace on first retry.
+- **Demo tests (5):** sign-in UI, full workflow launch→report, invalid URL validation, clear input, switch launchers.
+- **Real-backend tests (5):** home page load, GET /api/launchers, GET /api/health, POST /api/runs 422/202, navigate to report page.
+- **CI:** Dedicated `e2e` job in `.github/workflows/ci.yml` (depends on backend+frontend passing).
+- **Watch mode:** `npm run test:e2e -- --ui` for interactive Playwright UI mode.
 
 ## Test Quality Notes
 
@@ -106,7 +116,6 @@ php artisan test --filter=test_store      # Run specific test method
 - Feature tests cover the primary API surface: run create/show/stream, auth flows, provider credential management, run history.
 - Job execution is tested both as dispatch assertion (integration) and with mocked dependencies (unit).
 - Rate limiting and authorization (ownership) are tested at the feature level.
-- Missing: no frontend component tests, no E2E tests.
 
 ---
 

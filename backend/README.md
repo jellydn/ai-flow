@@ -30,7 +30,9 @@ php artisan queue:work --tries=2 --timeout=120
 npm run dev
 ```
 
-Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
+Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. `RESEND_API_KEY` is required for magic-link sign-in emails. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
+
+Optional error monitoring: set `SENTRY_LARAVEL_DSN` and `VITE_SENTRY_DSN` to enable Sentry error tracking on both backend and frontend (no-op when unset).
 
 Frontend checks:
 
@@ -83,7 +85,7 @@ The server key remains the default. A caller can optionally supply an OpenAI-com
 }
 ```
 
-The launch form’s optional API key field sends the same `provider` object. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
+The launch form's optional AI provider selector and API key field send the same `provider` object. Supported `provider.id` values are `openai` (default) and `openrouter`. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
@@ -144,6 +146,8 @@ The app can also be deployed to the Dokku VPS at `docklight-staging.itman.fyi` (
 ## Tests
 
 `php artisan test` covers endpoint validation/queueing/rate limiting, URL parsing, and job execution with mocked GitHub and AI providers.
+
+Frontend: `npm run test` runs Vitest + React Testing Library component tests. E2E: `npm run test:e2e:demo` runs Playwright against the demo-mode Vite dev server (no backend required).
 
 ## Architecture
 
