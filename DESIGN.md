@@ -6,31 +6,32 @@ colors:
   primary: "#181714"
   secondary: "#6f6c64"
   tertiary: "#f26334"
+  tertiary-action: "#bd4a24"
   neutral: "#f7f5f0"
   surface: "#ffffff"
   line: "#dfdcd3"
   on-primary: "#ffffff"
   on-tertiary: "#ffffff"
-  tertiary-hover: "#e85628"
+  tertiary-action-hover: "#a84320"
   error: "#b93838"
   error-surface: "#fef4f4"
-  success: "#278161"
+  success: "#1f7355"
   success-surface: "#e7f5ee"
   section-dark: "#1d1c19"
   section-dark-muted: "#8e8a81"
-  tone-orange-text: "#e85928"
+  tone-orange-text: "#b84824"
   tone-orange-bg: "#fff0ea"
-  tone-blue-text: "#397fc2"
+  tone-blue-text: "#2f6db0"
   tone-blue-bg: "#eaf4ff"
   tone-purple-text: "#7a58bd"
   tone-purple-bg: "#f1ebff"
-  tone-green-text: "#248461"
+  tone-green-text: "#1f7355"
   tone-green-bg: "#e7f6ef"
-  severity-high-text: "#c74436"
+  severity-high-text: "#b8382c"
   severity-high-bg: "#ffe8e4"
-  severity-medium-text: "#bd682e"
+  severity-medium-text: "#a35624"
   severity-medium-bg: "#fff0df"
-  severity-low-text: "#4674a9"
+  severity-low-text: "#3a6299"
   severity-low-bg: "#eaf1fa"
 typography:
   headline-display:
@@ -95,15 +96,18 @@ spacing:
   max-width: 1180px
   topbar-height: 74px
 components:
+  page-shell:
+    backgroundColor: "{colors.neutral}"
+    textColor: "{colors.primary}"
   button-primary:
-    backgroundColor: "{colors.tertiary}"
+    backgroundColor: "{colors.tertiary-action}"
     textColor: "{colors.on-tertiary}"
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     height: 53px
     padding: 0 16px
   button-primary-hover:
-    backgroundColor: "{colors.tertiary-hover}"
+    backgroundColor: "{colors.tertiary-action-hover}"
     textColor: "{colors.on-tertiary}"
     rounded: "{rounded.md}"
   button-inverse:
@@ -127,12 +131,54 @@ components:
     textColor: "{colors.primary}"
     rounded: "{rounded.lg}"
     padding: 22px
+  divider:
+    backgroundColor: "{colors.line}"
+    textColor: "{colors.primary}"
+  eyebrow:
+    backgroundColor: "{colors.neutral}"
+    textColor: "{colors.tertiary-action}"
+  eyebrow-hover:
+    backgroundColor: "{colors.neutral}"
+    textColor: "{colors.tertiary-action-hover}"
   input-url:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.primary}"
     rounded: "{rounded.md}"
     height: 52px
     padding: 0 15px
+  input-error:
+    backgroundColor: "{colors.error-surface}"
+    textColor: "{colors.error}"
+    rounded: "{rounded.md}"
+    padding: 7px 0 0
+  badge-success:
+    backgroundColor: "{colors.success-surface}"
+    textColor: "{colors.success}"
+    typography: "{typography.label-mono}"
+    rounded: "{rounded.sm}"
+    padding: 4px 7px
+  section-dark-band:
+    backgroundColor: "{colors.section-dark}"
+    textColor: "{colors.on-primary}"
+  section-dark-copy:
+    backgroundColor: "{colors.section-dark}"
+    textColor: "{colors.section-dark-muted}"
+  workflow-icon-orange:
+    backgroundColor: "{colors.tone-orange-bg}"
+    textColor: "{colors.tone-orange-text}"
+    rounded: "{rounded.md}"
+  workflow-icon-blue:
+    backgroundColor: "{colors.tone-blue-bg}"
+    textColor: "{colors.tone-blue-text}"
+    rounded: "{rounded.md}"
+  workflow-icon-purple:
+    backgroundColor: "{colors.tone-purple-bg}"
+    textColor: "{colors.tone-purple-text}"
+    rounded: "{rounded.md}"
+  workflow-icon-green:
+    backgroundColor: "{colors.tone-green-bg}"
+    textColor: "{colors.tone-green-text}"
+    rounded: "{rounded.md}"
   badge-severity-high:
     backgroundColor: "{colors.severity-high-bg}"
     textColor: "{colors.severity-high-text}"
@@ -169,7 +215,8 @@ The palette is built on warm neutrals and a single interaction accent.
 
 - **Primary (#181714):** Deep ink for headlines, logo marks, inverse buttons, and primary text. Evokes permanence and readability.
 - **Secondary (#6F6C64):** Warm slate for body copy, captions, and secondary labels.
-- **Tertiary (#F26334):** Flow orange — the sole driver for primary actions, focus rings, eyebrows, and emphasis. Hover darkens to #E85628.
+- **Tertiary (#F26334):** Bright flow orange for focus rings and `<em>` emphasis.
+- **Tertiary action (#BD4A24):** Darker orange for filled buttons — meets WCAG AA with white label text. Hover #A84320.
 - **Neutral (#F7F5F0):** Warm limestone page background. Softer and more organic than pure white.
 - **Surface (#FFFFFF):** Cards, inputs, tables, and report panels sit on white for containment.
 - **Line (#DFDCD3):** Borders, dividers, and card outlines.
@@ -178,12 +225,12 @@ The palette is built on warm neutrals and a single interaction accent.
 
 | Tone   | Text    | Background |
 |--------|---------|------------|
-| Orange | #E85928 | #FFF0EA    |
-| Blue   | #397FC2 | #EAF4FF    |
+| Orange | #B84824 | #FFF0EA    |
+| Blue   | #2F6DB0 | #EAF4FF    |
 | Purple | #7A58BD | #F1EBFF    |
-| Green  | #248461 | #E7F6EF    |
+| Green  | #1F7355 | #E7F6EF    |
 
-**Severity badges** (report findings): high (#C74436 on #FFE8E4), medium (#BD682E on #FFF0DF), low (#4674A9 on #EAF1FA).
+**Severity badges** (report findings): high (#B8382C on #FFE8E4), medium (#A35624 on #FFF0DF), low (#3A6299 on #EAF1FA).
 
 **Dark accent sections** (`.how-section`, `.cta-band`): background #1D1C19, muted text #8E8A81. These are intentional contrast bands, not a dark-mode theme.
 
