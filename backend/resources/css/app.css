@@ -5,10 +5,58 @@
   color: #181714;
   background: #f7f5f0;
   font-synthesis: none;
+
+  /* Design tokens */
+  --primary: #181714;
+  --secondary: #6f6c64;
+  --tertiary: #f26334;
+  --tertiary-action: #bd4a24;
+  --tertiary-action-hover: #a84320;
+  --neutral: #f7f5f0;
+  --surface: #ffffff;
+  --line: #dfdcd3;
+  --error: #b93838;
+  --error-surface: #fef4f4;
+  --success: #1f7355;
+  --success-surface: #e7f5ee;
+  --section-dark: #1d1c19;
+  --section-dark-muted: #8e8a81;
+  --tone-orange-text: #b84824;
+  --tone-orange-bg: #fff0ea;
+  --tone-blue-text: #2f6db0;
+  --tone-blue-bg: #eaf4ff;
+  --tone-purple-text: #7a58bd;
+  --tone-purple-bg: #f1ebff;
+  --tone-green-text: #1f7355;
+  --tone-green-bg: #e7f6ef;
+  --severity-high-text: #b8382c;
+  --severity-high-bg: #ffe8e4;
+  --severity-medium-text: #a35624;
+  --severity-medium-bg: #fff0df;
+  --severity-low-text: #3a6299;
+  --severity-low-bg: #eaf1fa;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 15px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 15px;
+  --space-lg: 20px;
+  --space-xl: 32px;
+  --space-section: 100px;
+  --max-width: 1180px;
+  --topbar-height: 74px;
+  --shadow-card: 0 18px 50px rgba(40, 35, 25, 0.09);
+  --shadow-card-inset: 0 2px 0 rgba(255, 255, 255, 0.8);
+  --shadow-button: 0 5px 16px rgba(242, 99, 52, 0.23);
+  --shadow-hover: 0 16px 30px rgba(30, 28, 24, 0.08);
+  --shadow-focus: 0 0 0 3px rgba(242, 99, 52, 0.1);
+
+  /* Legacy aliases */
   --orange: #f26334;
   --ink: #181714;
   --muted: #6f6c64;
-  --line: #dfdcd3;
 }
 * {
   box-sizing: border-box;
@@ -65,13 +113,13 @@ button:disabled {
 }
 .topbar {
   height: 74px;
-  padding: 0 max(28px, calc((100vw - 1180px) /2));
-  display: flex;
+  padding: 0 max(28px, calc((100vw - 1180px) / 2));
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
+  gap: 20px;
   border-bottom: 1px solid rgba(37, 35, 31, 0.1);
-  background: rgba(247, 245, 240, 0.9);
-  backdrop-filter: blur(15px);
+  background: #f7f5f0;
   position: relative;
   z-index: 20;
 }
@@ -79,6 +127,7 @@ button:disabled {
   border: 0;
   background: none;
   padding: 0;
+  justify-self: start;
 }
 .logo-wrap {
   display: flex;
@@ -102,9 +151,19 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 32px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  justify-self: center;
+}
+.header-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-self: end;
+  min-width: 0;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .nav button,
 .nav a {
@@ -416,19 +475,19 @@ em {
   margin-top: 18px;
   border: 0;
   border-radius: 8px;
-  background: var(--orange);
+  background: var(--tertiary-action);
   color: #fff;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 5px 16px rgba(242, 99, 52, 0.23);
+  box-shadow: var(--shadow-button);
   transition: 0.2s;
 }
 .launch-button:hover {
   transform: translateY(-1px);
-  background: #e85628;
+  background: var(--tertiary-action-hover);
 }
 .trust-row {
   display: flex;
@@ -1334,8 +1393,8 @@ footer > span {
   width: 100%;
   height: 50px;
   border: 0;
-  border-radius: 8px;
-  background: var(--orange);
+  border-radius: var(--radius-md);
+  background: var(--tertiary-action);
   color: #fff;
   font-weight: 800;
   font-size: 13px;
@@ -1343,12 +1402,12 @@ footer > span {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 5px 16px rgba(242, 99, 52, 0.23);
+  box-shadow: var(--shadow-button);
   transition: 0.2s;
 }
 .auth-card button[type="submit"]:hover {
   transform: translateY(-1px);
-  background: #e85628;
+  background: var(--tertiary-action-hover);
 }
 .auth-error {
   color: #b93838;
@@ -1508,8 +1567,8 @@ footer > span {
 .credential-form button[type="submit"] {
   height: 46px;
   border: 0;
-  border-radius: 8px;
-  background: var(--orange);
+  border-radius: var(--radius-md);
+  background: var(--tertiary-action);
   color: #fff;
   font-weight: 800;
   font-size: 12px;
@@ -1518,7 +1577,7 @@ footer > span {
 }
 .credential-form button[type="submit"]:hover {
   transform: translateY(-1px);
-  background: #e85628;
+  background: var(--tertiary-action-hover);
 }
 
 /* credential list */
@@ -1735,6 +1794,15 @@ footer > span {
 @media (max-width: 800px) {
   .topbar {
     padding: 0 18px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .nav {
+    justify-self: auto;
+  }
+  .header-end {
+    justify-self: auto;
   }
   .header-cta {
     display: none;

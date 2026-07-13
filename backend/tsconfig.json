@@ -18,5 +18,5 @@
     "types": ["vite/client", "node"],
     "allowImportingTsExtensions": true
   },
-  "include": ["resources/ts", "vite.config.ts", "vitest.config.ts"]
+  "include": ["resources/ts", "vite.config.ts", "vitest.config.ts", "tests/E2E", "playwright.config.ts"]
 }

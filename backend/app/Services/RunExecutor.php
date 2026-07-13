@@ -49,6 +49,7 @@ class RunExecutor implements RunExecutorInterface
             $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
             $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);
             Log::error('Launcher run failed', ['run_id' => $run->id, 'exception' => get_class($e)]);
+            \Sentry\captureException($e);
             RunProgressed::dispatch($run->fresh());
         }
     }

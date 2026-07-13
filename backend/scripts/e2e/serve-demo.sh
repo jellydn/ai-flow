@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$(dirname "$0")/../.."
+PORT="${PORT:-8000}"
+
+if [[ ! -f .env ]]; then
+    cp .env.example .env
+    php artisan key:generate
+fi
+
+touch database/database.sqlite
+php artisan migrate --force --seed
+
+VITE_DEMO_MODE=true npm run build
+exec php artisan serve --port="${PORT}" --no-reload

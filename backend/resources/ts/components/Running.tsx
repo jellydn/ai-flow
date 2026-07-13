@@ -10,55 +10,66 @@ interface RunningProps {
 
 export function Running({ title, repo, steps, currentStep }: RunningProps) {
     const total = Math.max(steps.length, 5);
-    const progress = Math.min((currentStep / total) * 100, 100);
+    const progress = Math.min(((currentStep + 1) / total) * 100, 100);
 
     return (
         <main className="running-page">
-            <div className="running-header">
-                <h1>{title}</h1>
-                <p className="repo-name">{repo}</p>
-                <div className="progress-bar">
-                    <div className="progress-fill" style={{ width: `${progress}%` }} />
+            <div className="run-heading">
+                <div className="running-pulse">
+                    <Loader2 size={22} className="spin" />
+                </div>
+                <div>
+                    <h1>{title}</h1>
+                    <p className="repo-name">{repo}</p>
                 </div>
             </div>
 
-            <div className="running-steps">
+            <div className="progress-card">
+                <div className="progress-head">
+                    <span>Working on your workflow…</span>
+                    <strong>{Math.round(progress)}%</strong>
+                </div>
+                <div className="progress-track">
+                    <span style={{ width: `${progress}%` }} />
+                </div>
+
                 {steps.map((step, index) => {
                     const complete = index < currentStep;
                     const current = index === currentStep;
-                    const pending = index > currentStep;
-                    let subtitle: string;
+
+                    let statusIcon: React.ReactNode;
                     if (complete) {
-                        subtitle = step.detail || "Done";
+                        statusIcon = <Check size={15} />;
                     } else if (current) {
-                        subtitle = step.detail || "In progress…";
+                        statusIcon = <Loader2 size={15} className="spin" />;
                     } else {
-                        subtitle = "Waiting…";
+                        statusIcon = <span />;
                     }
 
-                    let icon: React.ReactNode;
-                    if (complete) {
-                        icon = <Check size={18} />;
-                    } else if (current) {
-                        icon = <Loader2 size={18} className="spin" />;
-                    } else {
-                        icon = <span />;
-                    }
+                    const rowClass = [
+                        "timeline-row",
+                        complete ? "complete" : "",
+                        current ? "current" : "",
+                    ]
+                        .filter(Boolean)
+                        .join(" ");
 
                     return (
-                        <div
-                            key={`${step.title}::${step.detail ?? ""}`}
-                            className={`step ${complete ? "done" : ""} ${current ? "current" : ""} ${pending ? "pending" : ""}`}
-                        >
-                            <div className="step-icon">{icon}</div>
-                            <div className="step-body">
-                                <div className="step-title">{step.title}</div>
-                                <div className="step-subtitle">{subtitle}</div>
+                        <div key={`${step.title}::${step.detail ?? ""}`} className={rowClass}>
+                            <div className="status-icon">{statusIcon}</div>
+                            <div>
+                                <strong>{step.title}</strong>
+                                {step.detail && <p>{step.detail}</p>}
                             </div>
+                            {complete && <span className="done-label">Done</span>}
                         </div>
                     );
                 })}
             </div>
+
+            <p className="running-note">
+                <Loader2 size={14} className="spin" /> This typically takes under a minute
+            </p>
         </main>
     );
 }

@@ -36,6 +36,8 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             return;
         }
 
+        $this->configureProvider($this->provider);
+
         try {
             $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
         } catch (Throwable $e) {
@@ -45,6 +47,33 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         $executor->execute($run, $ai);
+    }
+
+    private function configureProvider(?string $providerId): void
+    {
+        if ($providerId === 'openrouter') {
+            config([
+                'services.openai.base_url' => config('services.openai.openrouter_base_url'),
+                'services.openai.model' => config('services.openai.openrouter_model'),
+            ]);
+            if ($this->apiKey === null) {
+                config([
+                    'services.openai.key' => config('services.openai.openrouter_key') ?: config('services.openai.key'),
+                ]);
+            }
+
+            return;
+        }
+
+        if ($providerId === 'openai') {
+            config([
+                'services.openai.base_url' => config('services.openai.openai_base_url'),
+                'services.openai.model' => env('AI_MODEL') ?: env('OPENAI_MODEL', 'gpt-4o-mini'),
+            ]);
+            if ($this->apiKey === null && env('OPENAI_API_KEY')) {
+                config(['services.openai.key' => env('OPENAI_API_KEY')]);
+            }
+        }
     }
 
     private function failRun(Run $run, string $message, ?Throwable $e = null): void

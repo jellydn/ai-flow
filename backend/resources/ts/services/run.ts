@@ -157,9 +157,12 @@ export async function fetchRun(id: string): Promise<Run> {
     return decodeRun(payload);
 }
 
+export type RunProviderId = "openai" | "openrouter";
+
 export async function createRun(
     launcher: string,
     sourceUrl: string,
+    providerId: RunProviderId,
     apiKey: string,
 ): Promise<CreateRunResponse> {
     const trimmedKey = apiKey.trim();
@@ -167,7 +170,7 @@ export async function createRun(
         launcher,
         source_url: sourceUrl,
         provider: {
-            id: "openai",
+            id: providerId,
             ...(trimmedKey !== "" ? { api_key: trimmedKey } : {}),
         },
     });

@@ -1,27 +1,23 @@
 import {
     ArrowRight,
-    Check,
     CheckCircle2,
     CircleDot,
     Clock3,
     GitFork,
     KeyRound,
     Share2,
-    ShieldCheck,
     Sparkles,
-    X,
     Zap,
 } from "lucide-react";
 import type { Launcher } from "../types/api.ts";
-import {
-    launcherMetaBySlug,
-    quickLabel,
-    recentRuns,
-    workflowTitleToSlug,
-} from "../data/launcherMeta.ts";
+import type { RunProviderId } from "../services/run.ts";
+import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
 import { FlowMark } from "./Logo.tsx";
+import { LauncherSelector } from "./LauncherSelector.tsx";
+import { LaunchArea } from "./LaunchArea.tsx";
+import { UrlInput } from "./UrlInput.tsx";
 
 const features = [
     {
@@ -46,7 +42,7 @@ const features = [
     },
 ];
 
-interface HomeProps {
+export interface HomeProps {
     selected: string;
     setSelected: (slug: string) => void;
     url: string;
@@ -57,6 +53,8 @@ interface HomeProps {
     isLaunching: boolean;
     apiKey: string;
     setApiKey: (key: string) => void;
+    selectedProvider: RunProviderId;
+    setSelectedProvider: (provider: RunProviderId) => void;
     launchers: Launcher[];
 }
 
@@ -71,10 +69,10 @@ export function Home({
     isLaunching,
     apiKey,
     setApiKey,
+    selectedProvider,
+    setSelectedProvider,
     launchers,
 }: HomeProps) {
-    const quickLaunchers = launchers.slice(0, 4);
-
     return (
         <main>
             <section className="hero">
@@ -97,106 +95,32 @@ export function Home({
                     <div className="step-label">
                         <span>1</span> Paste a GitHub URL
                     </div>
-                    <div className={`url-box ${error ? "has-error" : ""}`}>
-                        <GitFork size={22} />
-                        <input
-                            value={url}
-                            onChange={(event) => {
-                                setUrl(event.target.value);
-                                setError("");
-                            }}
-                            onKeyDown={(event) => event.key === "Enter" && !isLaunching && launch()}
-                            placeholder="https://github.com/owner/repository/pull/42"
-                            aria-label="GitHub URL"
-                        />
-                        {url && (
-                            <button
-                                type="button"
-                                className="clear-input"
-                                onClick={() => setUrl("")}
-                                aria-label="Clear URL"
-                            >
-                                <X size={16} />
-                            </button>
-                        )}
-                    </div>
-                    {error && <p className="input-error">{error}</p>}
+                    <UrlInput
+                        url={url}
+                        setUrl={setUrl}
+                        error={error}
+                        setError={setError}
+                        launch={launch}
+                        isLaunching={isLaunching}
+                    />
 
                     <div className="step-label workflow-label">
                         <span>2</span> Choose a launcher
                     </div>
-                    <div className="quick-workflows">
-                        {quickLaunchers.map((launcher) => {
-                            const meta = launcherMetaBySlug[launcher.slug];
-                            return (
-                                <button
-                                    type="button"
-                                    key={launcher.slug}
-                                    className={selected === launcher.slug ? "active" : ""}
-                                    onClick={() => setSelected(launcher.slug)}
-                                >
-                                    {meta && (
-                                        <LauncherIcon icon={meta.icon} tone={meta.tone} size={15} />
-                                    )}
-                                    <span>
-                                        {meta
-                                            ? quickLabel(launcher.slug, meta.title)
-                                            : launcher.name}
-                                    </span>
-                                    {selected === launcher.slug && <Check size={13} />}
-                                </button>
-                            );
-                        })}
-                    </div>
+                    <LauncherSelector
+                        launchers={launchers}
+                        selected={selected}
+                        setSelected={setSelected}
+                    />
 
-                    <div className="provider-section">
-                        <div className="provider-heading">
-                            <strong>AI Provider</strong>
-                            <span>Optional</span>
-                        </div>
-                        <div className="provider-fields">
-                            <label>
-                                <span>Provider</span>
-                                <select value="openai" disabled aria-label="AI provider">
-                                    <option value="openai">OpenAI</option>
-                                </select>
-                            </label>
-                            <label>
-                                <span>API Key</span>
-                                <input
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(event) => setApiKey(event.target.value)}
-                                    placeholder="Leave blank to use server key"
-                                    autoComplete="off"
-                                    spellCheck="false"
-                                />
-                            </label>
-                        </div>
-                        <p>
-                            Use your own API key to execute this workflow. It is used only for this
-                            execution.
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        className="launch-button"
-                        onClick={launch}
-                        disabled={isLaunching}
-                    >
-                        <Zap size={19} fill="currentColor" />{" "}
-                        {isLaunching ? "Starting…" : "Launch workflow"} <ArrowRight size={19} />
-                    </button>
-                    <div className="trust-row">
-                        <span>
-                            <ShieldCheck size={15} /> Public repositories only
-                        </span>
-                        <i />
-                        <span>
-                            <Clock3 size={15} /> Results in under a minute
-                        </span>
-                    </div>
+                    <LaunchArea
+                        provider={selectedProvider}
+                        setProvider={setSelectedProvider}
+                        apiKey={apiKey}
+                        setApiKey={setApiKey}
+                        launch={launch}
+                        isLaunching={isLaunching}
+                    />
                 </div>
 
                 <div className="hero-proof">
