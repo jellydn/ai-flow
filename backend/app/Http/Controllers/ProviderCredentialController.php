@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Contracts\AIProviderInterface;
 use App\Http\Requests\StoreProviderCredentialRequest;
 use App\Http\Requests\UpdateProviderCredentialRequest;
 use App\Http\Resources\ProviderCredentialResource;
 use App\Models\ProviderCredential;
 use App\Security\CredentialCipher;
+use App\Support\AiProviderRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
@@ -15,6 +15,7 @@ class ProviderCredentialController extends Controller
 {
     public function __construct(
         private CredentialCipher $cipher,
+        private AiProviderRegistry $registry,
     ) {}
 
     /**
@@ -107,7 +108,7 @@ class ProviderCredentialController extends Controller
 
         $apiKey = $credential->decryptApiKey($this->cipher);
 
-        $provider = app()->make(AIProviderInterface::class, ['apiKey' => $apiKey]);
+        $provider = $this->registry->get($credential->provider, $apiKey);
 
         $result = $provider->verifyCredential($apiKey);
 

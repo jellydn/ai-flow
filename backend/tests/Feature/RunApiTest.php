@@ -89,7 +89,7 @@ class RunApiTest extends TestCase
         $this->postJson('/api/executions', [
             'flow_id' => 'laravel-doctor',
             'input' => ['url' => 'https://github.com/laravel/laravel'],
-            'provider' => ['id' => 'anthropic', 'api_key' => 'secret'],
+            'provider' => ['id' => 'groq', 'api_key' => 'secret'],
         ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
     }
 

@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
+use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -30,16 +30,18 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
 
-        if ($this->provider !== null && ! in_array($this->provider, config('services.openai.providers'), true)) {
-            $this->failRun($run, 'Unsupported AI provider.');
-
-            return;
-        }
-
-        $this->configureProvider($this->provider);
+        $providerId = $this->provider ?? 'openai';
 
         try {
-            $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
+            $registry = app(AiProviderRegistry::class);
+
+            if (! $registry->has($providerId)) {
+                $this->failRun($run, 'Unsupported AI provider.');
+
+                return;
+            }
+
+            $ai = $registry->get($providerId, $this->resolveApiKey($providerId));
         } catch (Throwable $e) {
             $this->failRun($run, 'Run failed unexpectedly.', $e);
 
@@ -49,31 +51,24 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         $executor->execute($run, $ai);
     }
 
-    private function configureProvider(?string $providerId): void
+    /**
+     * Resolve the API key for the given provider.
+     *
+     * If a one-time key was provided to the job, use it.
+     * Otherwise fall back to the server-configured key for the provider.
+     */
+    private function resolveApiKey(string $providerId): ?string
     {
-        if ($providerId === 'openrouter') {
-            config([
-                'services.openai.base_url' => config('services.openai.openrouter_base_url'),
-                'services.openai.model' => config('services.openai.openrouter_model'),
-            ]);
-            if ($this->apiKey === null) {
-                config([
-                    'services.openai.key' => config('services.openai.openrouter_key') ?: config('services.openai.key'),
-                ]);
-            }
-
-            return;
+        if ($this->apiKey !== null) {
+            return $this->apiKey;
         }
 
-        if ($providerId === 'openai') {
-            config([
-                'services.openai.base_url' => config('services.openai.openai_base_url'),
-                'services.openai.model' => env('AI_MODEL') ?: env('OPENAI_MODEL', 'gpt-4o-mini'),
-            ]);
-            if ($this->apiKey === null && env('OPENAI_API_KEY')) {
-                config(['services.openai.key' => env('OPENAI_API_KEY')]);
-            }
-        }
+        return match ($providerId) {
+            'openrouter' => config('services.openai.openrouter_key') ?: config('services.openai.key'),
+            'anthropic' => config('services.anthropic.key'),
+            'gemini' => config('services.gemini.key'),
+            default => config('services.openai.key'),
+        };
     }
 
     private function failRun(Run $run, string $message, ?Throwable $e = null): void
