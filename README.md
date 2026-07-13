@@ -1,4 +1,4 @@
-# AI Launcher
+# AI Flow
 
 [![GitHub stars](https://img.shields.io/github/stars/jellydn/ai-flow)](https://github.com/jellydn/ai-flow/stargazers)
 [![GitHub license](https://img.shields.io/github/license/jellydn/ai-flow)](https://github.com/jellydn/ai-flow/blob/main/LICENSE)
@@ -8,7 +8,7 @@
 
 ## Vision
 
-AI Launcher lets developers launch predefined AI workflows from a GitHub URL instead of writing prompts. Users paste a repository, issue, or pull request URL, select a workflow, and receive a structured, shareable result.
+AI Flow lets developers launch predefined AI workflows from a GitHub URL instead of writing prompts. Users paste a repository, issue, or pull request URL, select a workflow, and receive a structured, shareable result.
 
 ## Problem
 
@@ -74,7 +74,7 @@ Marketing copy in the UI may list extra workflow ideas; the API runs the four la
 
 ## User flow
 
-1. Visit AI Launcher
+1. Visit AI Flow
 2. Paste a GitHub URL
 3. Select a workflow
 4. Click **Launch**
@@ -122,7 +122,7 @@ Review Pull Request
 
 ## This repository
 
-AI Launcher is a single Laravel application that serves both the React UI and the queue-backed API. The UI is built from `backend/resources/ts` and served by a Blade shell plus an SPA fallback so `/runs/:id` resolves correctly. Laravel Cloud deploys `backend/` as the application root.
+AI Flow is a single Laravel application that serves both the React UI and the queue-backed API. The UI is built from `backend/resources/ts` and served by a Blade shell plus an SPA fallback so `/runs/:id` resolves correctly. Laravel Cloud deploys `backend/` as the application root.
 
 Architecture decisions (from prototype git history): [`doc/adr/`](doc/adr/README.md).
 
@@ -205,7 +205,7 @@ php artisan test
 
 ## Elevator pitch
 
-**AI Launcher turns GitHub URLs into structured AI workflows. Paste a repository, issue, or pull request, choose a workflow, and get a polished report in under a minute—powered by Laravel Cloud.**
+**AI Flow turns GitHub URLs into structured AI workflows. Paste a repository, issue, or pull request, choose a workflow, and get a polished report in under a minute—powered by Laravel Cloud.**
 
 ---
 

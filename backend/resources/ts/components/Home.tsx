@@ -5,6 +5,8 @@ import {
     CircleDot,
     Clock3,
     GitFork,
+    KeyRound,
+    Share2,
     ShieldCheck,
     Sparkles,
     X,
@@ -19,6 +21,30 @@ import {
 } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
+import { FlowMark } from "./Logo.tsx";
+
+const features = [
+    {
+        icon: Zap,
+        title: "Workflows, not prompts",
+        body: "Pick a battle-tested launcher and run it. No prompt engineering, no context juggling.",
+    },
+    {
+        icon: CheckCircle2,
+        title: "Structured, validated output",
+        body: "Every run returns a schema-validated report—clear findings and concrete next actions.",
+    },
+    {
+        icon: Share2,
+        title: "Shareable result URLs",
+        body: "Each run gets a public /runs/:id link, ready to drop into a PR, issue, or Slack thread.",
+    },
+    {
+        icon: KeyRound,
+        title: "Bring your own key",
+        body: "Use the server key or paste your own—it is used only for that single execution.",
+    },
+];
 
 interface HomeProps {
     selected: string;
@@ -53,18 +79,18 @@ export function Home({
         <main>
             <section className="hero">
                 <div className="eyebrow">
-                    <Sparkles size={14} /> AI launchers, ready to run
+                    <Sparkles size={14} /> AI Flow — workflows, ready to run
                 </div>
                 <h1>
-                    Launch developer
+                    Put your GitHub URLs
                     <br />
-                    <em>workflows, not prompts.</em>
+                    <em>in flow.</em>
                 </h1>
                 <p className="hero-copy">
-                    Review pull requests, plan issues, explain repositories, and inspect Laravel
-                    apps—
+                    AI Flow reviews pull requests, plans issues, explains repositories, and inspects
+                    Laravel apps—
                     <br className="desktop-only" />
-                    without configuring an agent.
+                    without configuring an agent or writing a single prompt.
                 </p>
 
                 <div className="launcher-card" id="launcher">
@@ -233,6 +259,24 @@ export function Home({
                 </div>
             </section>
 
+            <section className="features-section" id="features">
+                <div className="section-kicker">Why AI Flow</div>
+                <h2>
+                    Less prompting. <em>More shipping.</em>
+                </h2>
+                <div className="features-grid">
+                    {features.map((feature) => (
+                        <div className="feature-card" key={feature.title}>
+                            <div className="feature-icon">
+                                <feature.icon size={20} />
+                            </div>
+                            <h3>{feature.title}</h3>
+                            <p>{feature.body}</p>
+                        </div>
+                    ))}
+                </div>
+            </section>
+
             <section className="recent-section">
                 <div className="recent-heading">
                     <div>
@@ -314,6 +358,26 @@ export function Home({
                         <CheckCircle2 />
                     </div>
                 </div>
+            </section>
+
+            <section className="cta-band">
+                <div className="cta-mark">
+                    <FlowMark size={30} />
+                </div>
+                <h2>
+                    Ready to put your repo <em>in flow?</em>
+                </h2>
+                <p>
+                    Paste a GitHub URL, pick a launcher, and get a shareable report in under a
+                    minute.
+                </p>
+                <button
+                    type="button"
+                    className="launch-button cta-button"
+                    onClick={() => scrollToSelector("#launcher")}
+                >
+                    <Zap size={19} fill="currentColor" /> Launch a workflow <ArrowRight size={19} />
+                </button>
             </section>
         </main>
     );

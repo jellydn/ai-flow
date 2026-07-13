@@ -1,10 +1,10 @@
 # AGENTS.md
 
-Instructions for AI-assisted work on **ai-flow** (AI Launcher). Align with [Laravel agent-skills](https://github.com/laravel/agent-skills) where noted below.
+Instructions for AI-assisted work on **ai-flow** (AI Flow). Align with [Laravel agent-skills](https://github.com/laravel/agent-skills) where noted below.
 
 ## Project overview
 
-**AI Launcher** turns public GitHub URLs into structured AI workflow reports (review PR, plan issue, explain repo, Laravel doctor).
+**AI Flow** turns public GitHub URLs into structured AI workflow reports (review PR, plan issue, explain repo, Laravel doctor).
 
 | Area            | Path                                                                         | Stack                                                  |
 | --------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------ |
