@@ -23,7 +23,7 @@ jobs:
       #   dokku ssh-keys:add admin < ~/.ssh/id_ed25519.pub
       # See backend/DOKKU_DEPLOY.md for full setup.
       - name: Setup SSH
-        uses: webfactory/ssh-agent@v0.9.0
+        uses: webfactory/ssh-agent@v0.10.0
         with:
           ssh-private-key: ${{ secrets.DOKKU_SSH_PRIVATE_KEY }}
 
