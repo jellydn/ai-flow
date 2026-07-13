@@ -3,7 +3,13 @@ import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcher
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
 import { fetchUser, logout as apiLogout, type User } from "../services/auth.ts";
-import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from "../services/run.ts";
+import {
+    createRun,
+    getLaunchers,
+    isValidGithubUrl,
+    parseGithubRepo,
+    type RunProviderId,
+} from "../services/run.ts";
 import type { Launcher, Run } from "../types/api.ts";
 import {
     initialAppUiState,
@@ -53,6 +59,7 @@ export function App() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState("");
+    const [selectedProvider, setSelectedProvider] = useState<RunProviderId>("openai");
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
 
     const [user, setUser] = useState<User | null>(null);
@@ -184,6 +191,7 @@ export function App() {
         goto("/", navigate);
         dispatch({ type: "reset-ui" });
         setApiKey("");
+        setSelectedProvider("openai");
         window.scrollTo({ top: 0, behavior: "smooth" });
     }, [navigate]);
 
@@ -209,7 +217,7 @@ export function App() {
 
         setIsLaunching(true);
         try {
-            const body = await createRun(selected, trimmed, apiKey);
+            const body = await createRun(selected, trimmed, selectedProvider, apiKey);
             goto(`/runs/${body.id}`, navigate);
             dispatch({
                 type: "set-view",
@@ -231,7 +239,7 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, apiKey, navigate]);
+    }, [url, selected, selectedProvider, apiKey, navigate]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =
@@ -254,6 +262,8 @@ export function App() {
         isLaunching,
         apiKey,
         setApiKey,
+        selectedProvider,
+        setSelectedProvider,
         launchers,
     };
 

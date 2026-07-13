@@ -10,6 +10,7 @@ import {
     Zap,
 } from "lucide-react";
 import type { Launcher } from "../types/api.ts";
+import type { RunProviderId } from "../services/run.ts";
 import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
@@ -52,6 +53,8 @@ export interface HomeProps {
     isLaunching: boolean;
     apiKey: string;
     setApiKey: (key: string) => void;
+    selectedProvider: RunProviderId;
+    setSelectedProvider: (provider: RunProviderId) => void;
     launchers: Launcher[];
 }
 
@@ -66,6 +69,8 @@ export function Home({
     isLaunching,
     apiKey,
     setApiKey,
+    selectedProvider,
+    setSelectedProvider,
     launchers,
 }: HomeProps) {
     return (
@@ -109,6 +114,8 @@ export function Home({
                     />
 
                     <LaunchArea
+                        provider={selectedProvider}
+                        setProvider={setSelectedProvider}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
                         launch={launch}

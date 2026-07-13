@@ -1,13 +1,28 @@
 import { ArrowRight, Clock3, ShieldCheck, Zap } from "lucide-react";
+import type { RunProviderId } from "../services/run.ts";
+
+const runProviders: { id: RunProviderId; name: string }[] = [
+    { id: "openai", name: "OpenAI" },
+    { id: "openrouter", name: "OpenRouter" },
+];
 
 interface LaunchAreaProps {
+    provider: RunProviderId;
+    setProvider: (provider: RunProviderId) => void;
     apiKey: string;
     setApiKey: (key: string) => void;
     launch: () => void;
     isLaunching: boolean;
 }
 
-export function LaunchArea({ apiKey, setApiKey, launch, isLaunching }: LaunchAreaProps) {
+export function LaunchArea({
+    provider,
+    setProvider,
+    apiKey,
+    setApiKey,
+    launch,
+    isLaunching,
+}: LaunchAreaProps) {
     return (
         <>
             <div className="provider-section">
@@ -18,8 +33,16 @@ export function LaunchArea({ apiKey, setApiKey, launch, isLaunching }: LaunchAre
                 <div className="provider-fields">
                     <label>
                         <span>Provider</span>
-                        <select value="openai" disabled aria-label="AI provider">
-                            <option value="openai">OpenAI</option>
+                        <select
+                            value={provider}
+                            onChange={(event) => setProvider(event.target.value as RunProviderId)}
+                            aria-label="AI provider"
+                        >
+                            {runProviders.map((item) => (
+                                <option key={item.id} value={item.id}>
+                                    {item.name}
+                                </option>
+                            ))}
                         </select>
                     </label>
                     <label>

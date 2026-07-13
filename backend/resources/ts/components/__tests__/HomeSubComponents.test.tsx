@@ -296,25 +296,34 @@ describe("LauncherSelector", () => {
 // ---------------------------------------------------------------------------
 // LaunchArea
 // ---------------------------------------------------------------------------
+const launchAreaDefaults = {
+    provider: "openai" as const,
+    setProvider: vi.fn(),
+    apiKey: "",
+    setApiKey: vi.fn(),
+    launch: vi.fn(),
+    isLaunching: false,
+};
+
 describe("LaunchArea", () => {
     afterEach(() => {
         vi.clearAllMocks();
     });
 
     it("renders launch button with 'Launch workflow' text", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        render(<LaunchArea {...launchAreaDefaults} />);
         expect(screen.getByRole("button", { name: /Launch workflow/ })).toBeInTheDocument();
     });
 
     it("shows 'Starting…' and disables button when isLaunching", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={true} />);
+        render(<LaunchArea {...launchAreaDefaults} isLaunching={true} />);
         const btn = screen.getByRole("button", { name: "Starting…" });
         expect(btn).toBeDisabled();
     });
 
     it("calls launch on button click", async () => {
         const launch = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={launch} isLaunching={false} />);
+        render(<LaunchArea {...launchAreaDefaults} launch={launch} />);
 
         await userEvent.setup().click(screen.getByRole("button", { name: /Launch workflow/ }));
         expect(launch).toHaveBeenCalled();
@@ -322,28 +331,44 @@ describe("LaunchArea", () => {
 
     it("disabled button does not fire launch on click", async () => {
         const launch = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={launch} isLaunching={true} />);
+        render(<LaunchArea {...launchAreaDefaults} launch={launch} isLaunching={true} />);
 
         await userEvent.setup().click(screen.getByRole("button", { name: "Starting…" }));
         expect(launch).not.toHaveBeenCalled();
     });
 
     it("renders API key input with placeholder", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        render(<LaunchArea {...launchAreaDefaults} />);
         expect(screen.getByPlaceholderText(/Leave blank/)).toBeInTheDocument();
     });
 
     it("calls setApiKey on input change", async () => {
         const setApiKey = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={setApiKey} launch={vi.fn()} isLaunching={false} />);
+        render(<LaunchArea {...launchAreaDefaults} setApiKey={setApiKey} />);
 
         await userEvent.setup().type(screen.getByPlaceholderText(/Leave blank/), "sk-123");
         expect(setApiKey).toHaveBeenCalled();
     });
 
     it("renders trust row with repo and timing info", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        render(<LaunchArea {...launchAreaDefaults} />);
         expect(screen.getByText(/Public repositories only/)).toBeInTheDocument();
         expect(screen.getByText(/Results in under a minute/)).toBeInTheDocument();
+    });
+
+    it("renders OpenAI and OpenRouter provider options", () => {
+        render(<LaunchArea {...launchAreaDefaults} />);
+        const select = screen.getByLabelText("AI provider");
+        expect(select).not.toBeDisabled();
+        expect(screen.getByRole("option", { name: "OpenAI" })).toBeInTheDocument();
+        expect(screen.getByRole("option", { name: "OpenRouter" })).toBeInTheDocument();
+    });
+
+    it("calls setProvider when provider changes", async () => {
+        const setProvider = vi.fn();
+        render(<LaunchArea {...launchAreaDefaults} setProvider={setProvider} />);
+
+        await userEvent.setup().selectOptions(screen.getByLabelText("AI provider"), "openrouter");
+        expect(setProvider).toHaveBeenCalledWith("openrouter");
     });
 });

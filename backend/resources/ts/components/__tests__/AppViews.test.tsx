@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { AppViews } from "../AppViews.tsx";
+import type { RunProviderId } from "../../services/run.ts";
 
 // Mock heavy dependencies so we can test view routing in isolation.
 vi.mock("../Dashboard.tsx", () => ({
@@ -83,6 +84,8 @@ const baseHomeProps = {
     isLaunching: false,
     apiKey: "",
     setApiKey: vi.fn(),
+    selectedProvider: "openai" as RunProviderId,
+    setSelectedProvider: vi.fn<(provider: RunProviderId) => void>(),
     launchers: [],
 };
 
