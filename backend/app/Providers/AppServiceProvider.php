@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
+use App\Services\OpenAIProvider;
 use App\Services\RunExecutor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -20,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->bind(RunExecutorInterface::class, RunExecutor::class);
+        $this->app->bind(AIProviderInterface::class, OpenAIProvider::class);
     }
 
     /**

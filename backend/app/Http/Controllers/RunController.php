@@ -8,7 +8,6 @@ use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
 use App\Services\RunStreamer;
-use App\Support\AiProviders;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -29,7 +28,7 @@ class RunController extends Controller
             'status' => 'queued',
             'progress' => [],
         ]);
-        $providerId = $request->validated('provider.id') ?? AiProviders::OPENAI;
+        $providerId = $request->validated('provider.id');
 
         ExecuteLauncherJob::dispatch(
             $run->id,
