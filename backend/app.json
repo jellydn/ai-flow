@@ -1,0 +1,13 @@
+{
+  "healthchecks": {
+    "web": [
+      {
+        "path": "/up",
+        "port": 80,
+        "scheme": "http",
+        "timeout": 5,
+        "wait_after_deploy": 5
+      }
+    ]
+  }
+}

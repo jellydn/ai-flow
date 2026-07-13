@@ -1,216 +1,183 @@
 # Architecture
 
-**Analysis Date:** 2026-07-12
+**Analysis Date:** 2026-07-13
 
 ## Pattern Overview
 
-**Overall:** Two-application monorepo with a React single-page client and a layered, queue-backed Laravel API.
+**Overall:** Laravel API backend with a queued job worker, exposing a thin HTTP layer to a React/TypeScript single-page app bundled by Vite. The defining pattern is **dispatch-and-poll**: the HTTP request only creates a `Run` row and dispatches a queue job (returning `202 Accepted`); all slow work (GitHub fetch + AI generation) happens asynchronously on the queue, and the client learns about progress through server-sent events that poll the same database row.
 
 **Key Characteristics:**
-
-- The root Vite SPA and deployable Laravel application in `backend/` are independently built and hosted; the frontend reaches the API through `VITE_API_BASE_URL`.
-- HTTP requests create durable work records and return `202`; GitHub and AI network I/O runs asynchronously in a queue worker.
-- Launchers are declarative workflows: PHP classes provide seed metadata, while active database rows supply prompts, input types, and output schemas at runtime.
-- Runs are UUID-addressed state machines (`queued`, `running`, `completed`, `failed`) exposed through REST and database-polled server-sent events.
-- Output is a strict structured report rather than a chat transcript. The same launcher schema constrains the provider and validates its decoded response.
+- Dispatcher pattern: controllers return `202` and enqueue work; no synchronous GitHub/OpenAI calls in the request cycle (`backend/app/Http/Controllers/RunController.php`).
+- Service-oriented backend: orchestration lives in `backend/app/Services/`, not controllers.
+- Strategy/Factory for AI providers: `AIProviderInterface` with a factory in `backend/app/Support/AiProviders.php`.
+- Declarative launchers: each workflow is a small class returning static `metadata()` seeded into the `launchers` table (`backend/app/Launchers/`, `backend/database/seeders/DatabaseSeeder.php`).
+- Database-as-state: a `Run` row is the single source of truth for status/progress/result; both the job and the SSE stream read/write that same row.
+- SSE streaming via DB polling: `RunStreamer` yields `StreamedEvent`s every second for up to ~55s (`backend/app/Services/RunStreamer.php`).
+- Monorepo deploy: only `backend/` is the application root on Laravel Cloud; the React UI is bundled inside it.
 
 ## Layers
 
-**Frontend Presentation:**
+**HTTP / Routing layer:**
+- Purpose: receive requests, validate input, return JSON or SSE; never performs I/O-heavy work.
+- Location: `backend/app/Http/`, `backend/routes/api.php`, `backend/routes/web.php`
+- Contains: `RunController`, `StoreRunRequest` (form request validation), `RunResource` (JSON shape)
+- Depends on: `App\Jobs\ExecuteLauncherJob`, `App\Services\RunStreamer`, `App\Models\Launcher`, `App\Models\Run`
+- Used by: external API clients and the bundled SPA
 
-- Purpose: Render launcher selection, execution progress, structured reports, failures, and shareable run URLs.
-- Location: `src/main.jsx`, `src/components/`, `src/styles.css`
-- Contains: Functional React views, local UI state, an error boundary, and plain CSS.
-- Depends on: Frontend workflow metadata in `src/data/workflows.js` and transport helpers in `src/lib/api.js`.
-- Used by: Browser entry point mounted from `src/main.jsx` into `index.html`.
+**Service layer:**
+- Purpose: all domain logic — orchestration, GitHub context building, AI generation, schema validation, SSE streaming.
+- Location: `backend/app/Services/`
+- Contains:
+  - `RunExecutor.php` — orchestrates a single run end-to-end
+  - `GitHubService.php` — URL parse + cached context fetch (composition of fetcher + assembler)
+  - `GitHubContextFetcher.php` — raw GitHub REST calls
+  - `GitHubContextAssembler.php` — shapes raw data into a context array
+  - `ContextEncoder.php` — serializes/bounds context to a byte budget
+  - `JsonSchemaValidator.php` — validates AI JSON output against a schema
+  - `OpenAIProvider.php` — concrete `AIProviderInterface` talking to OpenAI-compatible API
+  - `RunStreamer.php` — SSE generator polling the `runs` table
+- Depends on: `App\Contracts\*`, `App\Models\*`, `App\Data\GitHubReference`, `App\Events\RunProgressed`, Laravel `Http`/`Cache`/`Log` facades
+- Used by: `RunController` (stream) and `ExecuteLauncherJob` (executor)
 
-**Frontend Data and Transport:**
+**Job / Queue layer:**
+- Purpose: run a single run off the queue, resilient to failure.
+- Location: `backend/app/Jobs/ExecuteLauncherJob.php`
+- Contains: a `ShouldQueue` + `ShouldBeEncrypted` job (`$tries = 2`, `$timeout = 120`)
+- Depends on: `App\Contracts\RunExecutorInterface`, `App\Support\AiProviders`, `App\Events\RunProgressed`
+- Used by: `RunController::store` (dispatch)
 
-- Purpose: Map UI workflow IDs to API slugs, validate/display GitHub URLs, create/fetch runs, and subscribe to progress.
-- Location: `src/data/workflows.js`, `src/lib/api.js`, `src/lib/scroll.js`
-- Contains: Declarative catalog and demo fixtures, Fetch API wrappers, EventSource handling, and small browser helpers.
-- Depends on: Browser APIs and Vite environment variables.
-- Used by: `App` and report/running views in `src/main.jsx`.
+**Launcher layer (workflow definitions):**
+- Purpose: declare each workflow's slug, name, prompt template, accepted input type, and shared output schema.
+- Location: `backend/app/Launchers/`
+- Contains: `BaseLauncher.php` (abstract, shared `outputSchema()` + `make()`) and four concrete launchers: `ReviewPullRequestLauncher.php`, `PlanIssueLauncher.php`, `ExplainRepositoryLauncher.php`, `LaravelDoctorLauncher.php`
+- Depends on: `App\Contracts\LauncherInterface`
+- Used by: `backend/database/seeders/DatabaseSeeder.php` (seeds `launchers` rows)
 
-**HTTP/API:**
+**Contracts / Abstractions layer:**
+- Purpose: define swappable boundaries (AI provider, launcher shape, executor).
+- Location: `backend/app/Contracts/`
+- Contains: `AIProviderInterface.php`, `LauncherInterface.php`, `RunExecutorInterface.php`
+- Used by: services, jobs, and `backend/app/Providers/AppServiceProvider.php` (binding)
 
-- Purpose: Define public endpoints, validate run creation, serialize state, and stream snapshots.
-- Location: `backend/routes/api.php`, `backend/app/Http/Controllers/`, `backend/app/Http/Requests/`, `backend/app/Http/Resources/`
-- Contains: Thin routes, `RunController`, `StoreRunRequest`, and `RunResource`.
-- Depends on: Eloquent models and `ExecuteLauncherJob`; the SSE action polls persisted run state.
-- Used by: The root SPA and curl/API consumers.
+**Data / Model layer:**
+- Purpose: persistence and value objects.
+- Location: `backend/app/Models/`, `backend/app/Data/`
+- Contains: `Run.php` (UUID key, `status`/`progress`/`input`/`source_context`/`result`/`error` casts), `Launcher.php`, `User.php`, and the readonly DTO `GitHubReference.php`
+- Used by: every layer above
 
-**Application/Orchestration:**
-
-- Purpose: Coordinate asynchronous execution and lifecycle transitions without placing slow work in the web process.
-- Location: `backend/app/Jobs/ExecuteLauncherJob.php`, `backend/app/Services/RunExecutor.php`, `backend/app/Events/RunProgressed.php`
-- Contains: Queue boundary, execution pipeline, progress persistence, context bounding, completion/failure handling, and domain progress events.
-- Depends on: `RunExecutorInterface`, `GitHubService`, `AIProviderInterface`, `JsonSchemaValidator`, and Eloquent models.
-- Used by: Queue workers after `RunController::store` dispatches a job.
-
-**Domain/Workflow Catalog:**
-
-- Purpose: Define supported workflows and the common report contract.
-- Location: `backend/app/Launchers/`, `backend/app/Contracts/LauncherInterface.php`, `backend/database/seeders/DatabaseSeeder.php`
-- Contains: `BaseLauncher` shared JSON schema and one metadata class per workflow.
-- Depends on: No infrastructure at definition time; the seeder persists metadata into `launchers`.
-- Used by: Database seeding and runtime `Launcher` records.
-
-**Integration Services:**
-
-- Purpose: Convert GitHub URLs into bounded context, invoke an OpenAI-compatible provider, and validate structured output.
-- Location: `backend/app/Services/GitHubService.php`, `backend/app/Services/OpenAIProvider.php`, `backend/app/Services/JsonSchemaValidator.php`
-- Contains: GitHub REST access with caching and truncation, chat-completions JSON-schema requests, and recursive result validation.
-- Depends on: Laravel HTTP/cache/config facilities and external GitHub/OpenAI-compatible APIs.
-- Used by: `RunExecutor` through concrete services and `AIProviderInterface`.
-
-**Persistence:**
-
-- Purpose: Store launcher configuration and run lifecycle/result data.
-- Location: `backend/app/Models/Launcher.php`, `backend/app/Models/Run.php`, `backend/database/migrations/`
-- Contains: Eloquent relationships, UUID run IDs, JSON casts, statuses, timestamps, context, results, and errors.
-- Depends on: The configured Laravel database.
-- Used by: Routes, controllers, queue execution, SSE polling, and seeders.
-
-**Composition and Infrastructure:**
-
-- Purpose: Assemble interfaces, routing, rate limits, environment safeguards, and framework runtime.
-- Location: `backend/bootstrap/app.php`, `backend/app/Providers/AppServiceProvider.php`, `backend/config/`
-- Contains: API route registration, container bindings, named rate limiters, and production database/logging checks.
-- Depends on: Laravel service container and environment configuration.
-- Used by: Both HTTP and queue processes.
+**Frontend / SPA layer:**
+- Purpose: present the launcher picker, run progress, and final report; subscribe to run updates.
+- Location: `backend/resources/ts/`
+- Contains: `app.tsx` (entry), `components/` (App, Home, Running, Report, etc.), `services/run.ts` (HTTP + decoders), `hooks/useRunSubscription.ts` (SSE + polling fallback), `hooks/useRunFromPath.ts` (deep-link), `types/api.ts` (contracts), `lib/http.ts`
+- Depends on: same-origin `/api/*` endpoints
+- Used by: the browser via `backend/resources/views/app.blade.php`
 
 ## Data Flow
 
-**Create and Execute a Live Run:**
+**Create-and-run (primary flow):**
+1. `POST /api/runs` hits `routes/api.php` → `RunController::store` (`backend/app/Http/Controllers/RunController.php:22`).
+2. `StoreRunRequest` validates `launcher` (exists in `launchers`), `source_url` (https github.com regex), and optional `provider.id`/`provider.api_key` (`backend/app/Http/Requests/StoreRunRequest.php`).
+3. Controller looks up the active `Launcher`, creates a `Run` with `status='queued'` and empty `progress`, then resolves `provider.id` (default `openai` via `App\Support\AiProviders`) (`RunController.php:24-31`).
+4. `ExecuteLauncherJob::dispatch($run->id, $providerId, $apiKey)` is called; controller returns `202` JSON `{id, status, message}` (`RunController.php:34-40`).
+5. Queue worker runs `ExecuteLauncherJob::handle` → builds the provider through `AiProviders::createProvider` (throws → `failRun`) → calls `RunExecutorInterface::execute` (`backend/app/Jobs/ExecuteLauncherJob.php:30-47`).
+6. `RunExecutor::execute` (`backend/app/Services/RunExecutor.php:21`):
+   - `GitHubService::parse($url)` → `GitHubReference` (`backend/app/Services/GitHubService.php:16`); rejects mismatched `input_type`.
+   - `GitHubService::context($url)` → cached (10 min) fetch+assemble from `GitHubContextFetcher` + `GitHubContextAssembler` (`GitHubService.php:44`).
+   - `ContextEncoder::encode($context)` bounds the payload (`backend/app/Services/ContextEncoder.php:9`).
+   - `AIProviderInterface::generate($prompt, $outputSchema)` → `OpenAIProvider` calls `/chat/completions` with `json_schema` response format (`backend/app/Services/OpenAIProvider.php:13`).
+   - `JsonSchemaValidator::validate($result, $outputSchema)` enforces shape/types (`backend/app/Services/JsonSchemaValidator.php:9`).
+   - Updates `Run` to `status='completed'` with `result`, clears `source_context` (`RunExecutor.php:41`).
+   - Each step emits `RunProgressed` event and appends a progress message (`RunExecutor.php:56`).
+7. On any `Throwable`, the run is marked `failed` with a user-safe `error`, server-logged, and `RunProgressed` is dispatched (`RunExecutor.php:48-53`).
 
-1. `App.launch()` in `src/main.jsx` checks the selected workflow and performs lightweight client URL validation through `src/lib/api.js`.
-2. `createRun()` sends `POST /api/runs` with a launcher slug and `source_url`.
-3. `StoreRunRequest` validates an active-looking GitHub URL and an existing launcher slug; `RunController::store` additionally selects an active `Launcher` row.
-4. The controller creates a related UUID `Run` with `queued` status, dispatches `ExecuteLauncherJob`, and returns HTTP `202`.
-5. A queue worker resolves `RunExecutorInterface` to `RunExecutor`, loads the run/launcher, marks it `running`, and appends progress messages.
-6. `GitHubService::parse` identifies repository, issue, or pull-request input; `RunExecutor` rejects a type that does not match the launcher.
-7. `GitHubService::context` loads cached or fresh bounded GitHub REST data; the run temporarily stores `source_context`.
-8. `RunExecutor` combines the persisted prompt template and size-bounded JSON context, then calls `AIProviderInterface::generate` with the persisted output schema.
-9. `OpenAIProvider` requests strict JSON-schema output; `JsonSchemaValidator` verifies types, required fields, enums, nested arrays/objects, and additional-property policy.
-10. Success stores `result`, clears source context, timestamps completion, and sets `completed`; failure stores a safe error, clears context, and sets `failed`. Both paths dispatch `RunProgressed`.
+**Streaming / progress delivery (SSE):**
+1. `GET /api/runs/{run}/stream` → `RunController::stream` → `response()->eventStream(...)` (`RunController.php:48`).
+2. `RunStreamer::stream` polls the `Run` row every second for up to `55s`, yielding a `StreamedEvent` `progress` on change and a terminal `completed`/`failed` event, then breaks (`backend/app/Services/RunStreamer.php:20`).
+3. SSE headers disable buffering (`X-Accel-Buffering: no`, `Cache-Control: no-cache`) for proxy compatibility (`RunController.php:52`).
 
-**Progress and Terminal Delivery:**
-
-1. After creation, the SPA pushes `/runs/{uuid}`, enters its running view, and opens `GET /api/runs/{uuid}/stream` via `EventSource`.
-2. `RunController::stream` refreshes the model approximately once per second for up to 55 seconds and serializes it through `RunResource`.
-3. Changed snapshots emit `progress`; terminal state emits `completed` or `failed` and closes the stream.
-4. The SPA updates the timeline and switches to report/failure view. On disconnect, it falls back to `fetchRun()` polling every 1.5 seconds.
-5. Opening a share URL directly triggers `fetchRun()` in `src/main.jsx`; frontend hosting must provide SPA fallback for `/runs/{uuid}`.
-
-**Demo Execution:**
-
-1. With `VITE_DEMO_MODE=true`, `App.launch()` skips the API and advances through `demoExecutionSteps` using timers.
-2. The report renders static `demoFindings` from `src/data/workflows.js`; this path does not persist or analyze a repository.
+**Frontend consumption:**
+1. `services/run.ts` posts to `/api/runs` (`createRun`) and parses the run on `/api/runs/{id}` (`fetchRun` + `decodeRun` with strict runtime validation) (`backend/resources/ts/services/run.ts:160`).
+2. `hooks/useRunSubscription.ts` opens an `EventSource` to `/api/runs/{id}/stream`, handling `progress`/`completed`/`failed` events; on `EventSource` absence or stream error it falls back to polling `fetchRun` every 1500ms (`backend/resources/ts/hooks/useRunSubscription.ts:99`).
+3. `components/App.tsx` drives view state (`home` → `live-running` → `report`/`failed`) via a `useReducer` (`backend/resources/ts/components/App.tsx:47`).
 
 **State Management:**
-
-- Browser state is local React hook state in `src/main.jsx`; no router or global state library is used.
-- Durable backend state is the `runs` row, making REST, SSE, queue workers, and share URLs converge on one source of truth.
-- `RunProgressed` is dispatched but is not the SSE transport; current SSE delivery polls the database.
+- Backend state is the `runs` database row (`status`, `progress`, `result`, `error`); the SSE stream and job both mutate/read it.
+- Frontend state is a `useReducer` `AppUiState` (`backend/resources/ts/components/appUiState.ts`) plus the live `Run` from `useRunSubscription`. Deep links (`/runs/{id}`) are resolved by `hooks/useRunFromPath.ts`.
 
 ## Key Abstractions
 
-**AI Provider Contract:**
-
-- Purpose: Decouple orchestration from the configured structured-output vendor.
+**AIProviderInterface:**
+- Purpose: hide the concrete AI backend; callers depend on `generate(string $prompt, array $schema): array`.
 - Examples: `backend/app/Contracts/AIProviderInterface.php`, `backend/app/Services/OpenAIProvider.php`
-- Pattern: Strategy/adapter selected by a Laravel container binding in `backend/app/Providers/AppServiceProvider.php`.
+- Pattern: Strategy + Factory. `App\Support\AiProviders::createProvider()` maps `openai` → `OpenAIProvider` via the container (`backend/app/Support/AiProviders.php:19`). The base URL/model/timeout come from `config/services.php` (`openai` key), so OpenRouter or any OpenAI-compatible endpoint is supported via `AI_BASE_URL`.
 
-**Run Executor Contract:**
+**LauncherInterface / BaseLauncher:**
+- Purpose: declare a workflow's metadata in one place; the DB `launchers` row is the runtime instance.
+- Examples: `backend/app/Contracts/LauncherInterface.php`, `backend/app/Launchers/BaseLauncher.php`, the four concrete launchers
+- Pattern: Template Method — `BaseLauncher` supplies shared `outputSchema()` (summary/risk/findings/verification_steps) and a `make()` helper; each subclass supplies slug/name/prompt/input_type. Seeded by `DatabaseSeeder`.
 
-- Purpose: Keep the queue job focused on queue mechanics and make execution orchestration replaceable/testable.
+**RunExecutorInterface:**
+- Purpose: encapsulate the full run pipeline so the job stays thin and the executor is testable/mockable.
 - Examples: `backend/app/Contracts/RunExecutorInterface.php`, `backend/app/Services/RunExecutor.php`
-- Pattern: Application service behind dependency inversion.
+- Pattern: bounded context service injected into the job.
 
-**Launcher Metadata:**
-
-- Purpose: Package slug, display metadata, accepted input type, prompt, and result schema per workflow.
-- Examples: `backend/app/Launchers/BaseLauncher.php`, `backend/app/Launchers/ReviewPullRequestLauncher.php`
-- Pattern: Template base class plus one declarative class per workflow, materialized into database rows by `backend/database/seeders/DatabaseSeeder.php`.
-
-**Run Resource:**
-
-- Purpose: Provide one stable public snapshot shape for status reads and SSE events.
-- Examples: `backend/app/Http/Resources/RunResource.php`
-- Pattern: Laravel API Resource DTO/serializer.
-
-**GitHub Reference:**
-
-- Purpose: Represent parsed owner, repository, resource type, and optional issue/PR number.
-- Examples: `backend/app/Data/GitHubReference.php`, `backend/app/Services/GitHubService.php`
-- Pattern: Immutable-style data transfer object produced at the integration boundary.
-
-**Run and Launcher Models:**
-
-- Purpose: Represent durable execution state and workflow configuration with a one-to-many relationship.
-- Examples: `backend/app/Models/Run.php`, `backend/app/Models/Launcher.php`
-- Pattern: Eloquent active records; JSON casts retain schema flexibility.
+**GitHubReference (Data DTO):**
+- Purpose: typed, readonly parsed URL (owner/repo/type/number).
+- Examples: `backend/app/Data/GitHubReference.php`
+- Pattern: immutable value object passed between `GitHubService`, fetcher, and assembler.
 
 ## Entry Points
 
-**Browser Application:**
+**Web SPA:**
+- Location: `backend/routes/web.php` (`Route::view('/{path?}', 'app')`) → `backend/resources/views/app.blade.php` → Vite entry `backend/resources/ts/app.tsx`
+- Triggers: direct browser navigation; SPA routing is client-side with deep links to `/runs/{id}`.
+- Responsibilities: render the React app; Vite serves `resources/ts/app.tsx` (`backend/vite.config.ts:8`).
 
-- Location: `index.html`, `src/main.jsx`
-- Triggers: Vite serves the SPA or a deployed frontend receives a browser request.
-- Responsibilities: Mount React, restore shared runs from the URL, submit launches, subscribe to progress, and render finite home/running/report/failed views.
+**JSON API:**
+- Location: `backend/routes/api.php`
+- Triggers: `POST /api/runs` (+ alias `/api/executions`), `GET /api/runs/{run}` (alias `/api/executions/{run}`), `GET /api/runs/{run}/stream` (alias `/api/executions/{run}/stream`), `GET /api/launchers` (+ alias `/api/flows`), `GET /api/health`.
+- Responsibilities: validate and enqueue runs, expose launcher catalog, stream progress, report health.
 
-**Laravel HTTP Kernel and API Routes:**
+**Queue worker:**
+- Location: `backend/app/Jobs/ExecuteLauncherJob.php` consumed by `php artisan queue:work` (config in `backend/config/queue.php`; `QUEUE_CONNECTION` must not be `sync` in production).
+- Triggers: `ExecuteLauncherJob::dispatch` from `RunController::store`.
+- Responsibilities: build the provider, run `RunExecutor`, persist results/failures. Job implements `ShouldBeEncrypted` (`backend/app/Jobs/ExecuteLauncherJob.php:16`).
 
-- Location: `backend/public/index.php`, `backend/bootstrap/app.php`, `backend/routes/api.php`
-- Triggers: HTTP requests to `/api/*` (plus framework health `/up`).
-- Responsibilities: Bootstrap Laravel, apply route middleware, list active launchers, create/show runs, and expose SSE. `/api/flows` and `/api/executions` are compatibility aliases.
+**Artisan console:**
+- Location: `backend/routes/console.php` (only `inspire` stub); real commands include `migrate`, `db:seed`, `queue:work`, `test`.
+- Responsibilities: operational tasks; seeding launchers via `DatabaseSeeder`.
 
-**Queue Worker:**
-
-- Location: `backend/app/Jobs/ExecuteLauncherJob.php`
-- Triggers: `php artisan queue:work` consumes a job dispatched by the create endpoint.
-- Responsibilities: Reload the durable run and delegate execution to `RunExecutorInterface`; enforces two tries and a 120-second timeout.
-
-**Database Seeder:**
-
-- Location: `backend/database/seeders/DatabaseSeeder.php`
-- Triggers: `php artisan migrate --seed` or `php artisan db:seed`.
-- Responsibilities: Upsert the four launcher class definitions into the runtime catalog.
+**Container / DI:**
+- Location: `backend/app/Providers/AppServiceProvider.php:21` binds `RunExecutorInterface` → `RunExecutor`; also registers rate limiters and production DB/TLS guards.
 
 ## Error Handling
 
-**Strategy:** Reject malformed requests at the HTTP boundary, convert execution/integration failures into terminal run state, and keep the asynchronous failure visible through the same REST/SSE resource.
+**Strategy:** Failures are captured into the `runs` row (`status='failed'`, `error` set), never thrown to the client as raw exceptions. The client reads `error` only when status is `failed` (`backend/app/Http/Resources/RunResource.php:19`).
 
 **Patterns:**
-
-- `StoreRunRequest` provides framework validation for launcher existence and HTTPS GitHub URL shape; inactive launchers fail the controller's active-row lookup.
-- `GitHubService::parse` throws `InvalidArgumentException` for malformed or unsupported paths, while Laravel HTTP responses use `throw()` for external API failures.
-- `OpenAIProvider` throws `RuntimeException` for missing configuration, non-success responses, and invalid JSON; `JsonSchemaValidator` throws path-specific `RuntimeException` messages.
-- `RunExecutor` catches all `Throwable`: domain/runtime messages become `runs.error`; unexpected exceptions become `Run failed unexpectedly.` Details are logged as class plus run ID, not returned to the client.
-- The SPA surfaces create/load failures in UI state, renders terminal backend failures, ignores malformed SSE payloads, and switches from SSE to polling after disconnect.
-- `ErrorBoundary` in `src/components/ErrorBoundary.jsx` catches uncaught React rendering errors and offers a reload.
+- Job-level guard: `ExecuteLauncherJob::handle` wraps provider creation in try/catch → `failRun()` (`backend/app/Jobs/ExecuteLauncherJob.php:36-44`).
+- Executor-level guard: `RunExecutor::execute` wraps the whole pipeline; `RuntimeException` keeps its message, other `Throwable` becomes a generic message; both log via `Log::error` (`backend/app/Services/RunExecutor.php:48-53`).
+- Provider errors: `OpenAIProvider` maps 401/403 to "Invalid API key" and other non-2xx to a generic failure; missing key → `RuntimeException` (`backend/app/Services/OpenAIProvider.php:46-55`).
+- GitHub errors: `GitHubContextFetcher::mapRequestException` translates 404/403/401 into friendly messages (`backend/app/Services/GitHubContextFetcher.php:63`).
+- Validation errors: `StoreRunRequest` returns 422 with field errors; `JsonSchemaValidator` throws `RuntimeException` on bad AI output (`backend/app/Services/JsonSchemaValidator.php:23`).
+- Frontend: `lib/http.ts` builds messages from `message`/`error` keys; `services/run.ts` decoders throw on malformed payloads, caught and surfaced in `useRunSubscription` / `App`.
 
 ## Cross-Cutting Concerns
 
-**Logging:** Execution failures use Laravel `Log::error` in `backend/app/Services/RunExecutor.php`. `AppServiceProvider` warns if production logging is configured at debug level.
+**Logging:** Laravel `Log` facade in executor and job; `AppServiceProvider` warns when `LOG_LEVEL=debug` in production (`backend/app/Providers/AppServiceProvider.php:57`).
 
-**Validation:** Validation occurs at several boundaries: frontend convenience checks, Laravel form-request rules, strict GitHub parsing/input-type matching, provider-side JSON schema, and post-response `JsonSchemaValidator` checks.
+**Validation:** two layers — HTTP `StoreRunRequest` (input) and `JsonSchemaValidator` (AI output vs `launchers.output_schema`). Frontend uses runtime assertion decoders in `services/run.ts`.
 
-**Authentication:** MVP API endpoints are intentionally public and unauthenticated. Only public GitHub URLs are supported; optional `GITHUB_TOKEN` authenticates server-to-GitHub requests but not users.
+**Authentication / Authorization:** no API auth; the API is IP-throttled. Per-request AI key may be supplied via `provider.api_key`, otherwise falls back to server `config('services.openai.key')`. `StoreRunRequest::authorize()` returns `true` (`backend/app/Http/Requests/StoreRunRequest.php:19`).
 
-**Rate Limiting:** Named limiters in `backend/app/Providers/AppServiceProvider.php` cap run creation at five per IP/hour and SSE connections at thirty per IP/minute.
+**Rate limiting:** `AppServiceProvider` defines `runs` (5/hour/IP) and `runs-stream` (30/min/IP) limiters applied in `routes/api.php` (`backend/app/Providers/AppServiceProvider.php:29-30`).
 
-**Caching:** `GitHubService` caches context by URL SHA for ten minutes through Laravel Cache. Production should use a durable/shared cache.
+**Caching:** `GitHubService::context` caches assembled context for 10 minutes keyed by `sha1(url)` (`backend/app/Services/GitHubService.php:47`).
 
-**Security and Privacy:** Only HTTPS `github.com` hosts are accepted. Context is bounded before prompting and `source_context` is cleared on either completion or failure. Provider keys remain server-side. Production boot rejects SQLite for HTTP workloads.
+**Production hardening:** `AppServiceProvider` throws if production uses `sqlite` or `pgsql` without TLS (`sslmode` require/verify-ca/verify-full) (`backend/app/Providers/AppServiceProvider.php:34-55`).
 
-**Configuration:** Frontend API/public origins and demo behavior use `VITE_*` values. Backend integrations, database, queue, cache, CORS, and provider selection use Laravel config/environment files under `backend/config/` and `backend/.env.example`.
-
-**Deployment:** Laravel Cloud deploys `backend/` as its application root with a non-sync queue worker. The root Vite build is hosted separately with cross-origin configuration and SPA fallback; SSE proxies must disable buffering.
-
-**Architecture Decisions:** Historical and current rationale is indexed in `doc/adr/README.md`; frontend decisions are ADRs 0001–0006 and backend decisions are ADRs 0007–0014.
+**Streaming compatibility:** SSE responses send `X-Accel-Buffering: no` so upstream proxies (Laravel Cloud) don't buffer (`backend/app/Http/Controllers/RunController.php:52`).
 
 ---
 
-_Architecture analysis: 2026-07-12_
+*Architecture analysis: 2026-07-13*

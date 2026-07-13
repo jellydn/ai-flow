@@ -8,6 +8,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -26,6 +27,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (
+            app()->environment('production')
+            && str_starts_with((string) config('app.url'), 'https://')
+        ) {
+            URL::forceScheme('https');
+        }
+
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
@@ -42,15 +50,37 @@ class AppServiceProvider extends ServiceProvider
             );
         }
 
+        // Production PostgreSQL should use TLS for external hosts (e.g., Neon).
+        // Internal Docker network hostnames (e.g., dokku-postgres-ai-flow) are
+        // exempt since container-to-container traffic does not need TLS.
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
             && config('database.default') === 'pgsql'
-            && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
+        ) {
+            $pgHost = (string) config('database.connections.pgsql.host');
+            if (
+                str_contains($pgHost, '.')
+                && ! in_array(strtolower((string) config('database.connections.pgsql.sslmode')), ['require', 'verify-ca', 'verify-full'], true)
+            ) {
+                throw new RuntimeException(
+                    'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
+                );
+            }
+        }
+
+        // The sync queue driver executes jobs inside the HTTP request, which
+        // would run slow GitHub + OpenAI calls synchronously and block the
+        // response. Production must use a real queue (database, redis, etc.).
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && config('queue.default') === 'sync'
         ) {
             throw new RuntimeException(
-                'Production PostgreSQL must use TLS. Set DB_SSLMODE=require (or verify-ca / verify-full) for Neon.'
+                'QUEUE_CONNECTION must not be "sync" in production. Set QUEUE_CONNECTION=database (or redis) so AI and GitHub work run asynchronously.'
             );
         }
 

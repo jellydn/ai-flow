@@ -116,6 +116,10 @@ Laravel Cloud deploys the whole `backend/` directory; the React UI is built duri
 
 For CLI deployment, install the official Cloud CLI with `composer global require laravel/cloud-cli`, authenticate with `cloud auth -n`, and inspect current command options with `cloud <command> -h` rather than relying on fixed signatures. Use `cloud ship -n` for initial setup or `cloud deploy ... -n` for an existing application, then always verify the deployment with `cloud deploy:monitor -n`. Creating or deleting shared Cloud resources should be confirmed separately.
 
+## Dokku
+
+The app can also be deployed to the Dokku VPS at `docklight-staging.itman.fyi` (staging URL `https://ai-flow-staging.itman.fyi`). See **[DOKKU_DEPLOY.md](DOKKU_DEPLOY.md)** for DNS/TLS, Dokku Postgres (`DATABASE_URL` → `DB_URL`), environment variables, Git remote, queue-worker scaling, and verification.
+
 ## Tests
 
 `php artisan test` covers endpoint validation/queueing/rate limiting, URL parsing, and job execution with mocked GitHub and AI providers.

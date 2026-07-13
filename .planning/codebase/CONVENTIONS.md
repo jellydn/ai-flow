@@ -1,137 +1,119 @@
 # Coding Conventions
 
-**Analysis Date:** 2026-07-12
+**Analysis Date:** 2026-07-13
+
+This is a Laravel 13 + React/TypeScript monorepo. All application code lives under `backend/`; the frontend is bundled inside `backend/` and served by Laravel via Vite. Detailed guidance also lives in `AGENTS.md`.
 
 ## Naming Patterns
 
-- PHP follows Laravel/PSR-4 naming: PascalCase classes in matching files and namespaces, such as `App\Http\Controllers\RunController` in `backend/app/Http/Controllers/RunController.php` and `App\Services\GitHubService` in `backend/app/Services/GitHubService.php`.
-- Contracts use an `Interface` suffix (`AIProviderInterface`, `LauncherInterface`, `RunExecutorInterface`) and implementations drop the suffix (`OpenAIProvider`, `RunExecutor`). Bindings are centralized in `backend/app/Providers/AppServiceProvider.php`.
-- HTTP boundary types describe their action and resource: `StoreRunRequest`, `RunResource`, and controller methods `store`, `show`, and `stream` in `backend/app/Http/Controllers/RunController.php`.
-- Queue jobs use an imperative subject plus `Job`, for example `ExecuteLauncherJob` in `backend/app/Jobs/ExecuteLauncherJob.php`.
-- Workflow classes use a descriptive PascalCase name plus `Launcher`, while public IDs are kebab-case slugs such as `ReviewPullRequestLauncher` / `review-pr` in `backend/app/Launchers/ReviewPullRequestLauncher.php`.
-- PHP methods and variables are camelCase (`outputSchema`, `$sourceUrl`, `$runSnapshot`); database columns and API payload keys are snake_case (`launcher_id`, `source_url`, `completed_at`).
-- PHPUnit methods use descriptive snake_case names prefixed with `test_`, such as `test_run_is_validated_created_and_queued` in `backend/tests/Feature/RunApiTest.php`.
-- React components are PascalCase (`App`, `Home`, `WorkflowIcon`); hooks/state and helpers are camelCase (`activeWorkflow`, `setRunSnapshot`, `parseGithubRepo`). CSS uses lowercase kebab-case component-oriented classes (`launcher-card`, `workflow-icon`, `report-layout`) in `src/styles.css`.
-- Constants use uppercase snake case in both stacks: `MAX_CONTEXT_BYTES` in `backend/app/Services/RunExecutor.php` and `RUN_POLL_INTERVAL_MS` in `src/main.jsx`.
+**Files:**
+- PHP files use `PascalCase` class names matching the file name, one class per file, under PSR-4 namespaces mapped in `backend/composer.json` (`App\` -> `backend/app/`).
+- Launchers: one class per workflow under `backend/app/Launchers/` (e.g. `backend/app/Launchers/ReviewPullRequestLauncher.php`).
+- Contracts/interfaces live under `backend/app/Contracts/` and are suffixed `Interface` (e.g. `backend/app/Contracts/AIProviderInterface.php`).
+- Services under `backend/app/Services/`, HTTP layer under `backend/app/Http/{Controllers,Requests,Resources}`, jobs under `backend/app/Jobs/`, models under `backend/app/Models/`, events under `backend/app/Events/`, data objects under `backend/app/Data/`, support classes under `backend/app/Support/`.
+- Frontend TypeScript lives under `backend/resources/ts/` split into `components/`, `hooks/`, `data/`, `lib/`, `services/`, `types/`. Entry is `backend/resources/ts/app.tsx`; Blade shell is `backend/resources/views/app.blade.php`.
+
+**Functions / Methods:**
+- PHP methods use `camelCase` (e.g. `outputSchema()`, `prepareForValidation()`).
+- Launchers expose a `public static function metadata(): array` (see `backend/app/Launchers/BaseLauncher.php`, `backend/app/Launchers/ExplainRepositoryLauncher.php`).
+- Console/logging-related closure callbacks are also `camelCase` (rate limiter closures in `backend/app/Providers/AppServiceProvider.php`).
+
+**Variables:**
+- `camelCase` for PHP variables and properties; `snake_case` is used for DB column names and JSON array keys returned by services (e.g. `source_url`, `full_name`, `changed_files`).
+- Constants use `UPPER_CASE` (e.g. `backend/app/Support/AiProviders.php` defines `public const OPENAI = 'openai';`).
+
+**Types:**
+- PHP type declarations are explicit everywhere: property types (`public int $tries`), parameter types, and return types (`array`, `string`, `void`, etc.). See `backend/app/Jobs/ExecuteLauncherJob.php` and `backend/app/Http/Requests/StoreRunRequest.php`.
+- PHPDoc type hints are used where generics are needed, e.g. `/** @return list<string> */` in `backend/app/Support/AiProviders.php`.
+- Frontend uses TypeScript strict mode (see `backend/tsconfig.json`, `"strict": true`); avoid broad `any`, prefer `unknown` with explicit narrowing.
 
 ## Code Style
 
-### Backend
+**Formatting (PHP):**
+- **Laravel Pint** (`backend/composer.json` `require-dev`, `laravel/pint` `^1.24`) enforces PSR-12 plus Laravel's opinionated preset. There is **no `pint.json`** in the repo, so Pint runs with its default Laravel preset.
+- CI checks style with `./vendor/bin/pint --test` (fails on violations); run `./vendor/bin/pint` locally to auto-fix. See `AGENTS.md`.
+- Pre-commit hook runs Pint on all `backend/**/*.php` files via `scripts/hooks/pint.sh` (configured in `.pre-commit-config.yaml`).
 
-- PHP targets 8.4+ and Laravel 13. Formatting is Laravel Pint's default Laravel preset; there is no custom `backend/pint.json`. Run `backend/vendor/bin/pint` after PHP edits.
-- Files use `<?php`, a blank line, namespace, grouped `use` imports, then one primary class/interface. Indentation is four spaces.
-- Methods have explicit return types where practical. Constructor property promotion, named arguments, readonly data objects, arrow functions, spread syntax, and `match` are used where they improve clarity.
-- Laravel helpers and facades are preferred over hand-built framework plumbing (`response()->json`, `now()`, `config()`, `Http`, `Cache`, `Log`).
-- Conditions use strict checks and strict collection membership (`===`, `!==`, `in_array(..., true)`). Negated calls follow Pint spacing (`! $key`).
-- Small metadata and validation structures may remain compact arrays; multi-step structures use trailing commas and one item per line.
+**Linting / Formatting (TypeScript):**
+- **oxlint** for linting and **oxfmt** for formatting (Rust-based). Config at repo root: `.oxlintrc.json` (plugins `typescript`, `unicorn`, `oxc`; `categories.correctness: "error"`) and `.oxfmtrc.json` (ignores `node_modules/`, `public/`, `vendor/`).
+- npm scripts in `backend/package.json`: `lint` (`oxlint -c ../.oxlintrc.json resources/ts && oxfmt -c ../.oxfmtrc.json --check resources/ts`), `lint:ox`, `format` (`oxfmt -c ../.oxfmtrc.json --write`), `format:check`. There is **no ESLint/Prettier** config in the repo.
+- Run `npm run format` to fix formatting, not `prettier --write`.
+- Pre-commit hooks `oxlint`, `oxfmt`, and `frontend-typecheck` run on `backend/resources/ts/**/*.{ts,tsx}` (`.pre-commit-config.yaml`).
 
-```php
-// `backend/app/Services/RunExecutor.php`
-public function __construct(
-    private GitHubService $github,
-    private AIProviderInterface $ai,
-    private JsonSchemaValidator $validator,
-) {}
-
-public function execute(Run $run): void
-{
-    $run->loadMissing('launcher');
-
-    try {
-        $this->progress($run, 'Fetching repository', true);
-        // ...
-    } catch (Throwable $e) {
-        // ...
-    }
-}
-```
-
-### Frontend
-
-- The root UI is plain JavaScript/JSX with React functional components and hooks. Do not introduce TypeScript unless the project deliberately adopts it.
-- JavaScript uses two-space indentation, single quotes, no semicolons, trailing commas in multiline literals/imports, and parentheses around arrow-function parameters.
-- JSX uses double-quoted attributes, self-closing components where applicable, and optional chaining/nullish coalescing for absent API state.
-- CSS remains plain CSS in `src/styles.css`, with shared custom properties in `:root`, component-oriented classes, and responsive rules under `@media`. Existing CSS is dense and often keeps short rule sets on one line; match the surrounding section rather than reformatting globally.
-
-```jsx
-// `src/main.jsx`
-function WorkflowIcon({ workflow, size = 20 }) {
-  const Icon = workflow.icon;
-  return (
-    <div className={`workflow-icon ${workflow.tone}`}>
-      <Icon size={size} strokeWidth={2} />
-    </div>
-  );
-}
-```
+**Frontend structural convention (konsistent):**
+- `konsistent` (`backend/package.json` script `konsistent`; config `konsistent.json` at repo root) enforces structural TS rules:
+  - `components/*.tsx` must export a PascalCase component matching the filename (`backend/resources/ts/components/{componentName}.tsx`); `ErrorBoundary.tsx` is exempt and must instead export a class `ErrorBoundary`.
+  - `hooks/*.ts` must export `use*` functions named after the file (`backend/resources/ts/hooks/{hookName}.ts`).
 
 ## Import Organization
 
-- PHP imports immediately follow the namespace. Application classes come first, then framework/vendor classes, then PHP/SPL exception types. Each `use` occupies one line; aliases are not currently needed.
-- JSX imports external packages first (`react`, `react-dom`, `lucide-react`), then local modules grouped by responsibility, then side-effect CSS last. Multiline named imports are alphabetized in the larger import groups in `src/main.jsx`.
-- Local frontend imports include explicit `.jsx`/`.js` extensions (`./components/ErrorBoundary.jsx`, `./lib/api.js`) because the package is ESM.
+**PHP (PSR-4, Pint default grouping):**
+- Class imports grouped by Pint; framework/base classes first, then app classes. Example ordering in `backend/app/Jobs/ExecuteLauncherJob.php` (`App\...`, then `Illuminate\...`, then global `InvalidArgumentException`, `Throwable`).
+- Global functions/classes (`InvalidArgumentException`, `Throwable`, `RuntimeException`) are referenced unqualified.
 
-```jsx
-// `src/main.jsx`
-import React, { useEffect, useMemo, useState } from "react";
-import { createRoot } from "react-dom/client";
-import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
-import { createRun, fetchRun, streamRun } from "./lib/api.js";
-import "./styles.css";
-```
+**TypeScript:**
+- Module resolution is `Bundler` with `allowImportingTsExtensions: true` (`backend/tsconfig.json`); same-origin `/api/*` requests to the Laravel backend.
+- No path aliases configured beyond Vite defaults; relative imports used within `backend/resources/ts/`.
 
 ## Error Handling
 
-- Validate HTTP input in form requests, not controllers. `backend/app/Http/Requests/StoreRunRequest.php` authorizes and validates launcher existence, URL shape, maximum length, HTTPS, and the GitHub host.
-- Throw `InvalidArgumentException` for invalid caller/domain input (`GitHubService::parse`) and `RuntimeException` for provider, schema, or execution failures (`OpenAIProvider`, `JsonSchemaValidator`, `RunExecutor`). Messages intended for `runs.error` are safe and do not expose response bodies, credentials, or stack traces.
-- Slow GitHub/OpenAI work stays out of the request cycle. `RunController::store` persists a queued run, dispatches `ExecuteLauncherJob`, and returns HTTP 202.
-- `RunExecutor::execute` is the failure boundary: it catches `Throwable`, preserves a domain `RuntimeException` message, substitutes `Run failed unexpectedly.` for unknown errors, clears temporary `source_context`, marks the run failed, and dispatches progress.
-- Laravel HTTP clients use `throw()` for failed GitHub calls. Expected README 404s are handled explicitly. OpenAI-compatible failures are converted to a bounded status-only message.
-- Frontend API helpers in `src/lib/api.js` normalize non-2xx responses into `Error` objects, preferring server messages/validation errors and falling back to status-based text. `src/main.jsx` catches async failures and presents user-facing state; `src/components/ErrorBoundary.jsx` catches render failures.
-- Empty catches are limited to explicitly recoverable cases and carry rationale, such as malformed SSE events or transient polling failures.
+**Patterns:**
+- Domain failures are thrown as `RuntimeException` (user-facing safe messages) or `InvalidArgumentException` (e.g. unsupported provider); the safe message is persisted into `runs.error`. The actual exception class is logged server-side but the message is not exposed unless it is an allow-listed `RuntimeException`. See `backend/app/Services/RunExecutor.php` lines 48-53: only `RuntimeException` messages are shown to the user; other `Throwable`s become `'Run failed unexpectedly.'`.
+- The job layer `backend/app/Jobs/ExecuteLauncherJob.php` (`failRun()`) catches `InvalidArgumentException` and generic `Throwable` separately, recording `runs.error`, clearing `source_context`, setting `completed_at`, logging via `Log::error`, and dispatching `RunProgressed`.
+- `backend/app/Services/OpenAIProvider.php` throws `RuntimeException` with safe messages (`'Invalid API key.'`, `'The AI provider API key is not configured.'`, `'AI provider request failed (HTTP ...)'`, `'AI provider returned invalid JSON.'`).
+- `backend/app/Support/AiProviders.php` uses a `match` expression and throws `InvalidArgumentException('Unsupported AI provider.')` in the `default` branch (no nested ternaries).
+- `backend/app/Services/GitHubContextFetcher.php` maps GitHub 404/403 responses to `RuntimeException` with safe, specific messages (e.g. `'Repository a/missing was not found or is private.'`).
 
-```php
-// `backend/app/Services/RunExecutor.php`
-} catch (Throwable $e) {
-    $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
-    $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);
-    Log::error('Launcher run failed', ['run_id' => $run->id, 'exception' => get_class($e)]);
-    RunProgressed::dispatch($run->fresh());
-}
-```
+**No nested ternaries:** The codebase prefers `match` expressions (e.g. `backend/app/Support/AiProviders.php`), early returns, or explicit `if/else`. No nested ternary chains.
+
+**Secrets / sensitive data:** BYOK API keys are encrypted in the queue (`ShouldBeEncrypted` on `ExecuteLauncherJob`) and never logged. Tests assert keys are absent from the queue payload and from logs (`backend/tests/Feature/ExecuteLauncherJobTest.php` `test_byok_failure_does_not_log_api_key`, `test_job_payload_encrypts_byok_secret`).
 
 ## Logging
 
-- Use Laravel's `Log` facade rather than direct output. Production execution failures are logged in `backend/app/Services/RunExecutor.php` with a stable message and structured context (`run_id`, exception class).
-- Keep sensitive exception text and source context out of logs by default. User-visible failure details are separately bounded before storage.
-- Configuration risks can emit warnings at startup; `backend/app/Providers/AppServiceProvider.php` warns if production uses `LOG_LEVEL=debug`.
-- The frontend has no logging abstraction and intentionally does not use `console.*`; failures are represented in UI state or retried.
+**Framework:** Laravel `Illuminate\Support\Facades\Log`.
+
+**Patterns:**
+- Errors are logged with `Log::error($message, ['run_id' => ..., 'exception' => get_class($e)])` — `exception` is the class name only, never the message, to avoid leaking secrets (`backend/app/Services/RunExecutor.php`, `backend/app/Jobs/ExecuteLauncherJob.php`).
+- `Log::spy()` is used in tests to assert a key is never present in the message or context (`backend/tests/Feature/ExecuteLauncherJobTest.php`).
+- Production hardening in `backend/app/Providers/AppServiceProvider.php`: warns when `LOG_LEVEL=debug` in production and throws if SQLite is used as the production DB or PostgreSQL lacks TLS.
 
 ## Comments
 
-- Comments explain rationale or non-obvious operational constraints, not the mechanics of nearby code. Examples include the Cloud build/worker guard in `backend/app/Providers/AppServiceProvider.php` and transient polling behavior in `src/main.jsx`.
-- PHPDoc is used when it adds type information that native signatures cannot express, such as the array shape returned by `GitHubReference::toArray()` in `backend/app/Data/GitHubReference.php`.
-- Boilerplate Laravel docblocks/comments still exist in generated files (`backend/database/factories/UserFactory.php`, `backend/tests/TestCase.php`), but new domain code generally avoids placeholder comments.
-- Public frontend helpers may have concise contract comments, as with `streamRun` in `src/lib/api.js` documenting that it returns cleanup.
+**When to Comment:**
+- Docblocks are used sparingly, primarily for framework lifecycle methods (`register()`, `boot()` in `backend/app/Providers/AppServiceProvider.php`) and to explain non-obvious production guards.
+- Inline comments explain *why* (BYOK encryption note, SQLite/TLS production safety checks). Tests include explanatory comments for non-obvious assertions (e.g. `backend/tests/Unit/RunStreamerTest.php` explaining the 2-event expectation).
+
+**JSDoc/TSDoc:**
+- Not systematically used in the frontend; rely on TypeScript strict type inference. Shared contracts (`Run`, `Launcher`) are typed; SSE uses a polling fallback.
 
 ## Function Design
 
-- Keep controllers thin: validation belongs to form requests, representation to resources, and I/O-heavy workflows to jobs/services.
-- Use dependency injection against contracts for swappable boundaries. `ExecuteLauncherJob::handle` depends on `RunExecutorInterface`; `RunExecutor` depends on `AIProviderInterface`.
-- Prefer early validation/returns and focused private helpers. `RunExecutor` separates `encodeContext` and `progress`; `JsonSchemaValidator` separates object validation.
-- Preserve explicit side effects: state transitions update the `Run`, dispatch `RunProgressed`, and clear temporary GitHub context on both completion and failure.
-- React components are functions with props and local hooks. Pure parsing/network helpers live in `src/lib/`; static workflow content lives in `src/data/`; the class-based `ErrorBoundary` is the React-required exception.
-- Avoid nested ternaries for complex decisions. Existing short rendering/state choices use ternaries, but backend branching uses `if`/`elseif`, `match`, and early returns.
+**Size:** Methods are small and single-purpose (e.g. `BaseLauncher::make()` builds metadata; `RunExecutor::progress()` updates progress and dispatches events).
+
+**Parameters:** Constructor injection preferred for services (`backend/app/Services/RunExecutor.php` injects `GitHubService`, `ContextEncoder`, `JsonSchemaValidator`). Public methods take explicit typed args, e.g. `AIProviderInterface::generate(string $prompt, array $schema)`.
+
+**Return Values:** Explicit return types throughout. Launcher `metadata()` returns `array`; services return typed arrays or `void`. Controllers return `JsonResponse` / `JsonResource` / `StreamedResponse`.
 
 ## Module Design
 
-- Backend modules follow Laravel boundaries: `backend/app/Http/Requests/` validates, `Http/Resources/` serializes, `Jobs/` queues work, `Services/` integrates/coordinates, `Contracts/` defines substitution points, `Launchers/` supplies workflow metadata, and `Models/` persists state.
-- New launchers should extend `BaseLauncher`, provide `metadata()`, reuse the shared output schema, and be registered by `backend/database/seeders/DatabaseSeeder.php`.
-- Container bindings live in `backend/app/Providers/AppServiceProvider.php`; do not instantiate provider implementations in controllers/jobs.
-- API resources control external shape and hide internal columns. `RunResource` exposes launcher slug and conditionally exposes `error`; launcher list responses omit `class_name` as asserted by `backend/tests/Feature/RunApiTest.php`.
-- Frontend module boundaries are lightweight: orchestration and page components remain in `src/main.jsx`, reusable UI in `src/components/`, constants/content in `src/data/`, and browser/API utilities in `src/lib/`.
-- The frontend and Laravel backend are separate build roots. Root commands build Vite; backend commands and tests run from `backend/`.
+**Exports (PHP):**
+- One public class/interface per file. Launchers expose a static `metadata()` factory; shared logic is in `BaseLauncher` (`backend/app/Launchers/BaseLauncher.php`) via `protected static function make()` and `outputSchema()`.
+- Contracts are bound to concrete implementations in the container: `backend/app/Providers/AppServiceProvider.php` `register()` does `$this->app->bind(RunExecutorInterface::class, RunExecutor::class);`. `AIProviderInterface` is resolved via `app()->make(OpenAIProvider::class, ['apiKey' => ...])` in `backend/app/Support/AiProviders.php`.
+
+**Exports (TypeScript):** Functional components and `use*` hooks; see konsistent conventions above.
+
+**Barrel Files:** None observed; modules imported directly.
+
+## Architectural / Layering Conventions
+
+- **Thin routes:** `backend/routes/api.php` keeps logic in controllers/services/jobs/launchers. Closure routes only for trivial read endpoints; mutating routes point at `RunController`.
+- **Form Requests** for HTTP validation: `backend/app/Http/Requests/StoreRunRequest.php` (`rules()`, `prepareForValidation()` to normalize `flow_id`/`input.url` aliases).
+- **API Resources** for JSON shaping: `backend/app/Http/Resources/RunResource.php` uses `$this->when(...)` to conditionally include `error`.
+- **Jobs for slow/IO work:** `backend/app/Jobs/ExecuteLauncherJob.php` implements `ShouldQueue` + `ShouldBeEncrypted`, `$tries = 2`, `$timeout = 120`; the controller returns **202** and dispatches. No synchronous OpenAI/GitHub calls in the HTTP cycle (`AGENTS.md`).
+- **Launchers:** one class per workflow, registered in `backend/database/seeders/DatabaseSeeder.php` via `updateOrCreate` using each launcher's `metadata()`. Shared `outputSchema` is defined once in `BaseLauncher::outputSchema()`.
+- **Rate limiting:** defined in `backend/app/Providers/AppServiceProvider.php` via `RateLimiter::for('runs', ...)` (5/hour/IP) and `'runs-stream'` (30/min/IP); applied as `throttle:runs` middleware in `backend/routes/api.php`.
+- **API aliases:** `/api/flows` and `/api/executions` mirror `/api/launchers` and `/api/runs` (same contracts), declared in `backend/routes/api.php`.
 
 ---
 
-_Convention analysis: 2026-07-12_
+*Convention analysis: 2026-07-13*

@@ -1,0 +1,6 @@
+# GitGuardian configuration
+# https://docs.gitguardian.com/ggshield-docs/reference/configuration
+
+# Ignore false positives from documentation files containing placeholder/examples
+paths-ignore:
+  - backend/DOKKU_DEPLOY.md
