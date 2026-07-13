@@ -3,6 +3,7 @@
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
+use App\Http\Controllers\RunHistoryController;
 use App\Http\Resources\UserResource;
 use App\Models\Launcher;
 use Illuminate\Support\Facades\Route;
@@ -16,6 +17,10 @@ Route::get('/runs/{run}', [RunController::class, 'show']);
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
 Route::middleware('auth')->prefix('user')->group(function () {
     Route::get('/', fn () => new UserResource(request()->user()));
+    Route::get('/runs', [RunHistoryController::class, 'index']);
+    Route::get('/runs/{run}', [RunHistoryController::class, 'show']);
+    Route::post('/runs/{run}/retry', [RunHistoryController::class, 'retry']);
+    Route::delete('/runs/{run}', [RunHistoryController::class, 'destroy']);
     Route::get('/provider-credentials', [ProviderCredentialController::class, 'index']);
     Route::post('/provider-credentials', [ProviderCredentialController::class, 'store']);
     Route::patch('/provider-credentials/{credential}', [ProviderCredentialController::class, 'update']);
