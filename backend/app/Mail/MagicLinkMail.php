@@ -14,6 +14,7 @@ class MagicLinkMail extends Mailable
 
     public function __construct(
         private string $token,
+        private int $expiryMinutes,
         private ?string $redirectTo = null,
     ) {}
 
@@ -36,7 +37,7 @@ class MagicLinkMail extends Mailable
             markdown: 'mail.magic-link',
             with: [
                 'url' => $url,
-                'expiresIn' => '15 minutes',
+                'expiresIn' => $this->expiryMinutes.' minutes',
             ],
         );
     }

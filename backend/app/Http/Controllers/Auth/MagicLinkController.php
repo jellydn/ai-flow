@@ -11,10 +11,15 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
-use Illuminate\Validation\ValidationException;
 
 class MagicLinkController extends Controller
 {
+    private const TOKEN_HASH_ALGO = 'sha256';
+
+    private const TOKEN_BYTE_LENGTH = 32;
+
+    private const TOKEN_EXPIRY_MINUTES = 15;
+
     /**
      * Request a magic sign-in link for the given email address.
      */
@@ -30,18 +35,21 @@ class MagicLinkController extends Controller
             'name' => null,
         ]);
 
-        $rawToken = bin2hex(random_bytes(32));
-        $hashedToken = hash('sha256', $rawToken);
+        $rawToken = bin2hex(random_bytes(self::TOKEN_BYTE_LENGTH));
 
         DB::table('magic_login_tokens')->insert([
             'email' => $email,
-            'token' => $hashedToken,
-            'expires_at' => now()->addMinutes(15),
+            'token' => $this->hashToken($rawToken),
+            'expires_at' => now()->addMinutes(self::TOKEN_EXPIRY_MINUTES),
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        Mail::to($email)->queue(new MagicLinkMail($rawToken, $request->has('redirect_to') ? $request->string('redirect_to')->value() : null));
+        Mail::to($email)->queue(new MagicLinkMail(
+            $rawToken,
+            self::TOKEN_EXPIRY_MINUTES,
+            $request->has('redirect_to') ? $request->string('redirect_to')->value() : null
+        ));
 
         return response()->json([
             'message' => 'If the email address is valid, a sign-in link has been sent.',
@@ -53,28 +61,20 @@ class MagicLinkController extends Controller
      */
     public function verify(Request $request, string $token): RedirectResponse
     {
-        $hashedToken = hash('sha256', $token);
-
         $record = DB::table('magic_login_tokens')
-            ->where('token', $hashedToken)
+            ->where('token', $this->hashToken($token))
             ->first();
 
         if (! $record) {
-            throw ValidationException::withMessages([
-                'token' => ['This sign-in link is invalid or has expired.'],
-            ]);
+            return redirect()->away($this->errorRedirect('invalid'));
         }
 
         if ($record->used_at !== null) {
-            throw ValidationException::withMessages([
-                'token' => ['This sign-in link has already been used.'],
-            ]);
+            return redirect()->away($this->errorRedirect('used'));
         }
 
         if (now()->greaterThan($record->expires_at)) {
-            throw ValidationException::withMessages([
-                'token' => ['This sign-in link has expired.'],
-            ]);
+            return redirect()->away($this->errorRedirect('expired'));
         }
 
         DB::table('magic_login_tokens')
@@ -103,5 +103,21 @@ class MagicLinkController extends Controller
         $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Signed out successfully.']);
+    }
+
+    /**
+     * Hash a raw token for database storage and lookup.
+     */
+    private function hashToken(string $rawToken): string
+    {
+        return hash(self::TOKEN_HASH_ALGO, $rawToken);
+    }
+
+    /**
+     * Build a redirect URL with an error query parameter the SPA can read.
+     */
+    private function errorRedirect(string $error): string
+    {
+        return (config('app.frontend_url') ?: '/').'?auth_error='.urlencode($error);
     }
 }

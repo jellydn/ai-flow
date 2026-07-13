@@ -81,7 +81,8 @@ class MagicLinkAuthTest extends TestCase
         ]);
 
         $this->get('/auth/magic-link/'.$rawToken)
-            ->assertInvalid('token');
+            ->assertRedirect()
+            ->assertRedirectContains('auth_error=expired');
     }
 
     public function test_reused_token_is_rejected(): void
@@ -101,13 +102,15 @@ class MagicLinkAuthTest extends TestCase
         User::factory()->create(['email' => 'test@example.com']);
 
         $this->get('/auth/magic-link/'.$rawToken)
-            ->assertInvalid('token');
+            ->assertRedirect()
+            ->assertRedirectContains('auth_error=used');
     }
 
     public function test_invalid_token_is_rejected(): void
     {
         $this->get('/auth/magic-link/does-not-exist')
-            ->assertInvalid('token');
+            ->assertRedirect()
+            ->assertRedirectContains('auth_error=invalid');
     }
 
     public function test_logout_clears_session(): void
