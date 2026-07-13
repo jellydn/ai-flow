@@ -72,8 +72,8 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         await expect(page.getByTestId("finding-severity").first()).toBeVisible();
         await expect(page.getByTestId("finding-title").first()).toBeVisible();
 
-        // 9. Verify the share URL is present on the report page.
-        await expect(page.getByText(/Share/)).toBeVisible();
+        // 9. Verify the share/copy button is present on the report page.
+        await expect(page.getByRole("button", { name: /Copy link/ })).toBeVisible();
     });
 
     test("shows validation error for invalid GitHub URL", async ({ page }) => {
