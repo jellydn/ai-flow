@@ -56,6 +56,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL
+    |--------------------------------------------------------------------------
+    |
+    | Where magic-link verification redirects after sign-in. Defaults to APP_URL
+    | for the same-origin React SPA served by Laravel.
+    |
+    */
+
+    'frontend_url' => env('FRONTEND_URL', env('APP_URL', 'http://localhost')),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
