@@ -67,10 +67,15 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         });
 
         // 8. Verify the report shows structured findings with severity levels.
-        //    Use structural selectors only — no coupling to specific demo
-        //    finding text or count, so changing demo data won't break this test.
-        await expect(page.getByTestId("finding-severity").first()).toBeVisible();
-        await expect(page.getByTestId("finding-title").first()).toBeVisible();
+        //    Assert non-empty text content (not just visibility) so empty
+        //    elements don't pass. No coupling to specific demo finding text.
+        const severity = page.getByTestId("finding-severity").first();
+        await expect(severity).toBeVisible();
+        await expect(severity).not.toBeEmpty();
+
+        const title = page.getByTestId("finding-title").first();
+        await expect(title).toBeVisible();
+        await expect(title).not.toBeEmpty();
 
         // 9. Verify the share/copy button is present on the report page.
         await expect(page.getByRole("button", { name: /Copy link/ })).toBeVisible();

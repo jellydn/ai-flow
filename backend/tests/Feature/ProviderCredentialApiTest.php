@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\ProviderCredential;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use App\Security\CredentialCipher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
@@ -170,14 +171,18 @@ class ProviderCredentialApiTest extends TestCase
 
         $credential = $this->createCredential();
 
-        // The limiter allows 10 requests per minute per user.
-        for ($i = 0; $i < 10; $i++) {
+        // The limiter allows CREDENTIAL_VERIFY_PER_MINUTE requests per minute per user.
+        $limit = AppServiceProvider::CREDENTIAL_VERIFY_PER_MINUTE;
+        for ($i = 0; $i < $limit; $i++) {
             $this->actingAs($this->user)
                 ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
                 ->assertStatus(200);
         }
 
-        // The 11th request should be rate limited.
+        // The provider should have been contacted exactly $limit times.
+        Http::assertSentCount($limit);
+
+        // The next request should be rate limited (not sent to the provider).
         $this->actingAs($this->user)
             ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
             ->assertStatus(429);

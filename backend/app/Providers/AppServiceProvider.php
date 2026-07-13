@@ -19,6 +19,13 @@ use RuntimeException;
 class AppServiceProvider extends ServiceProvider
 {
     /**
+     * Max credential-verification requests per minute per authenticated user.
+     *
+     * Shared with tests so the limiter and its test stay in sync.
+     */
+    public const CREDENTIAL_VERIFY_PER_MINUTE = 10;
+
+    /**
      * Register any application services.
      */
     public function register(): void
@@ -44,7 +51,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('magic-link', fn (Request $request) => Limit::perMinute(3)->by($request->ip().'|'.$request->input('email', '')));
-        RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute(10)->by($request->user()->id));
+        RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute(self::CREDENTIAL_VERIFY_PER_MINUTE)->by($request->user()->id));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
         // Production uses Neon PostgreSQL; file-backed sqlite is local/CI only.

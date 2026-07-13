@@ -22,8 +22,10 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
         setLoggingOut(true);
         try {
             await logout();
-        } catch {
-            // Swallow error — onLogout is called in finally regardless.
+        } catch (error) {
+            // Log the failure but still sign out locally — onLogout runs
+            // in finally regardless, so the user is not stuck.
+            console.error("Logout request failed:", error);
         } finally {
             onLogout();
         }
