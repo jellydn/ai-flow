@@ -39,7 +39,7 @@ class OpenAIProvider implements AIProviderInterface
                 'HTTP-Referer' => config('services.openai.referer'),
                 'X-OpenRouter-Title' => config('app.name'),
             ]))
-            ->timeout((int) config('services.openai.timeout', 60))
+            ->timeout((int) config('services.openai.timeout', 30))
             ->retry(2, 500, throw: false)
             ->post($baseUrl.'/chat/completions', $payload);
 
