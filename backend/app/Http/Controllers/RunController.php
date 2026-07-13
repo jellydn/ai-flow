@@ -23,6 +23,7 @@ class RunController extends Controller
         $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
         $input = ['source_url' => $request->validated('source_url')];
         $run = $launcher->runs()->create([
+            'user_id' => $request->user()?->id,
             'source_url' => $input['source_url'],
             'input' => $input,
             'status' => 'queued',
@@ -41,11 +42,15 @@ class RunController extends Controller
 
     public function show(Run $run): JsonResource
     {
+        $this->authorize('view', $run);
+
         return new RunResource($run->load('launcher'));
     }
 
     public function stream(Run $run): StreamedResponse
     {
+        $this->authorize('view', $run);
+
         return response()->eventStream(function () use ($run) {
             yield from $this->streamer->stream($run);
         }, ['X-Accel-Buffering' => 'no', 'Cache-Control' => 'no-cache']);
