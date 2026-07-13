@@ -34,7 +34,7 @@ class RunStreamer
             // Cache unavailable (e.g. array driver in tests) — fall back to
             // unconditional DB refresh so existing behaviour is preserved.
             if ($version === null) {
-                $encoded = $this->refreshAndEncode($run);
+                $encoded = $this->fetchSnapshot($run);
 
                 if ($encoded !== $lastEncoded) {
                     yield new StreamedEvent(event: 'progress', data: $encoded);
@@ -59,7 +59,7 @@ class RunStreamer
             }
 
             $lastVersion = $version;
-            $encoded = $this->refreshAndEncode($run);
+            $encoded = $this->fetchSnapshot($run);
 
             if ($encoded !== $lastEncoded) {
                 yield new StreamedEvent(event: 'progress', data: $encoded);
@@ -79,7 +79,7 @@ class RunStreamer
     /**
      * Refresh the run from the database and return its resolved JSON snapshot.
      */
-    private function refreshAndEncode(Run $run): string
+    private function fetchSnapshot(Run $run): string
     {
         $run->refresh();
 
