@@ -1,45 +1,25 @@
 import { ArrowRight, Clock3, ShieldCheck, Zap } from "lucide-react";
-import { aiLauncherTools } from "../data/aiLauncherConfig.ts";
 
 interface LaunchAreaProps {
-    selectedTool: string;
-    setSelectedTool: (tool: string) => void;
     apiKey: string;
     setApiKey: (key: string) => void;
     launch: () => void;
     isLaunching: boolean;
 }
 
-export function LaunchArea({
-    selectedTool,
-    setSelectedTool,
-    apiKey,
-    setApiKey,
-    launch,
-    isLaunching,
-}: LaunchAreaProps) {
-    const activeTool = aiLauncherTools.find((tool) => tool.name === selectedTool) ?? aiLauncherTools[0];
-
+export function LaunchArea({ apiKey, setApiKey, launch, isLaunching }: LaunchAreaProps) {
     return (
         <>
             <div className="provider-section">
                 <div className="provider-heading">
-                    <strong>AI tool</strong>
+                    <strong>AI Provider</strong>
                     <span>Optional</span>
                 </div>
                 <div className="provider-fields">
                     <label>
-                        <span>Tool</span>
-                        <select
-                            value={selectedTool}
-                            onChange={(event) => setSelectedTool(event.target.value)}
-                            aria-label="AI tool"
-                        >
-                            {aiLauncherTools.map((tool) => (
-                                <option key={tool.name} value={tool.name}>
-                                    {tool.name}
-                                </option>
-                            ))}
+                        <span>Provider</span>
+                        <select value="openai" disabled aria-label="AI provider">
+                            <option value="openai">OpenAI</option>
                         </select>
                     </label>
                     <label>
@@ -54,7 +34,10 @@ export function LaunchArea({
                         />
                     </label>
                 </div>
-                <p>{activeTool?.description ?? "Use your own API key for this run."}</p>
+                <p>
+                    Use your own API key to execute this workflow. It is used only for this
+                    execution.
+                </p>
             </div>
 
             <button type="button" className="launch-button" onClick={launch} disabled={isLaunching}>

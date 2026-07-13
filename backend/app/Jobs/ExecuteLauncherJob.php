@@ -6,9 +6,6 @@ use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
-use App\Services\AnthropicProvider;
-use App\Services\GeminiProvider;
-use App\Services\OpenAIProvider;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -40,7 +37,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         try {
-            $ai = app()->make($this->resolveProviderClass(), ['apiKey' => $this->apiKey]);
+            $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
         } catch (Throwable $e) {
             $this->failRun($run, 'Run failed unexpectedly.', $e);
 
@@ -48,18 +45,6 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         $executor->execute($run, $ai);
-    }
-
-    /**
-     * @return class-string<AIProviderInterface>
-     */
-    private function resolveProviderClass(): string
-    {
-        return match ($this->provider) {
-            'anthropic' => AnthropicProvider::class,
-            'gemini' => GeminiProvider::class,
-            default => OpenAIProvider::class,
-        };
     }
 
     private function failRun(Run $run, string $message, ?Throwable $e = null): void

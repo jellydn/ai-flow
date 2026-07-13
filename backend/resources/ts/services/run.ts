@@ -161,14 +161,13 @@ export async function createRun(
     launcher: string,
     sourceUrl: string,
     apiKey: string,
-    providerId = "openai",
 ): Promise<CreateRunResponse> {
     const trimmedKey = apiKey.trim();
     const body = await post("/api/runs", {
         launcher,
         source_url: sourceUrl,
         provider: {
-            id: providerId,
+            id: "openai",
             ...(trimmedKey !== "" ? { api_key: trimmedKey } : {}),
         },
     });
