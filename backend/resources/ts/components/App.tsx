@@ -11,6 +11,7 @@ import {
     type ViewState,
     uiStateFromRun,
 } from "./appUiState.ts";
+import { goto } from "../lib/navigate.ts";
 import { Dashboard } from "./Dashboard.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
@@ -183,8 +184,7 @@ export function App() {
     }, [subscriptionRun, liveRunId, pathRunId, pathReady, view.type]);
 
     const reset = useCallback(() => {
-        window.history.pushState({}, "", "/");
-        navigate("/");
+        goto("/", navigate);
         dispatch({ type: "reset-ui" });
         setApiKey("");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -213,8 +213,7 @@ export function App() {
         setIsLaunching(true);
         try {
             const body = await createRun(selected, trimmed, apiKey);
-            window.history.pushState({}, "", `/runs/${body.id}`);
-            navigate(`/runs/${body.id}`);
+            goto(`/runs/${body.id}`, navigate);
             dispatch({
                 type: "set-view",
                 view: { type: "live-running", runId: body.id, run: null },

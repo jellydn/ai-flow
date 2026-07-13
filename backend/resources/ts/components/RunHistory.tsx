@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { deleteRun, fetchUserRuns, retryRun } from "../services/auth.ts";
 import type { Run } from "../types/api.ts";
 import { decodeRun } from "../services/run.ts";
+import { goto } from "../lib/navigate.ts";
 
 interface RunHistoryProps {
     navigate: (pathname: string) => void;
@@ -34,30 +35,42 @@ export function RunHistory({ navigate }: RunHistoryProps) {
         load();
     }, [load]);
 
-    const handleRetry = async (id: string) => {
-        setActioningId(id);
-        try {
-            await retryRun(id);
-            load();
-        } catch {
-            setError("Could not retry run.");
-        } finally {
-            setActioningId(null);
-        }
-    };
+    /**
+     * Wrap an async action with loading/idle state management and error handling.
+     * Extracts the duplicated try/catch/finally pattern shared by retry and delete.
+     */
+    const withAction = useCallback(
+        async (id: string, fn: () => Promise<void>, errorMsg: string) => {
+            setActioningId(id);
+            try {
+                await fn();
+            } catch {
+                setError(errorMsg);
+            } finally {
+                setActioningId(null);
+            }
+        },
+        [],
+    );
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Delete this run?")) return;
-        setActioningId(id);
-        try {
-            await deleteRun(id);
-            setRuns((prev) => prev.filter((r) => r.id !== id));
-        } catch {
-            setError("Could not delete run.");
-        } finally {
-            setActioningId(null);
-        }
-    };
+    const handleRetry = useCallback(
+        (id: string) => {
+            withAction(id, () => retryRun(id).then(() => load()), "Could not retry run.");
+        },
+        [load, withAction],
+    );
+
+    const handleDelete = useCallback(
+        (id: string) => {
+            if (!confirm("Delete this run?")) return;
+            withAction(
+                id,
+                () => deleteRun(id).then(() => setRuns((prev) => prev.filter((r) => r.id !== id))),
+                "Could not delete run.",
+            );
+        },
+        [withAction],
+    );
 
     return (
         <div className="run-history">
@@ -92,10 +105,7 @@ export function RunHistory({ navigate }: RunHistoryProps) {
                             <div className="run-actions">
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        window.history.pushState({}, "", `/runs/${run.id}`);
-                                        navigate(`/runs/${run.id}`);
-                                    }}
+                                    onClick={() => goto(`/runs/${run.id}`, navigate)}
                                     disabled={actioningId !== null}
                                 >
                                     Open
