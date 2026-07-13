@@ -2,14 +2,20 @@ import { useCallback, useEffect, useState } from "react";
 import { deleteRun, fetchUserRuns, retryRun } from "../services/auth.ts";
 import type { Run } from "../types/api.ts";
 import { decodeRun } from "../services/run.ts";
+import { goto } from "../lib/navigate.ts";
+
+interface RunHistoryProps {
+    navigate: (pathname: string) => void;
+}
 
 const STATUS_OPTIONS = ["", "completed", "failed", "queued", "running"] as const;
 
-export function RunHistory() {
+export function RunHistory({ navigate }: RunHistoryProps) {
     const [runs, setRuns] = useState<Run[]>([]);
     const [loading, setLoading] = useState(true);
     const [status, setStatus] = useState("");
     const [error, setError] = useState("");
+    const [actioningId, setActioningId] = useState<string | null>(null);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -29,24 +35,42 @@ export function RunHistory() {
         load();
     }, [load]);
 
-    const handleRetry = async (id: string) => {
-        try {
-            await retryRun(id);
-            load();
-        } catch {
-            setError("Could not retry run.");
-        }
-    };
+    /**
+     * Wrap an async action with loading/idle state management and error handling.
+     * Extracts the duplicated try/catch/finally pattern shared by retry and delete.
+     */
+    const withAction = useCallback(
+        async (id: string, fn: () => Promise<void>, errorMsg: string) => {
+            setActioningId(id);
+            try {
+                await fn();
+            } catch {
+                setError(errorMsg);
+            } finally {
+                setActioningId(null);
+            }
+        },
+        [],
+    );
 
-    const handleDelete = async (id: string) => {
-        if (!confirm("Delete this run?")) return;
-        try {
-            await deleteRun(id);
-            setRuns((prev) => prev.filter((r) => r.id !== id));
-        } catch {
-            setError("Could not delete run.");
-        }
-    };
+    const handleRetry = useCallback(
+        (id: string) => {
+            withAction(id, () => retryRun(id).then(() => load()), "Could not retry run.");
+        },
+        [load, withAction],
+    );
+
+    const handleDelete = useCallback(
+        (id: string) => {
+            if (!confirm("Delete this run?")) return;
+            withAction(
+                id,
+                () => deleteRun(id).then(() => setRuns((prev) => prev.filter((r) => r.id !== id))),
+                "Could not delete run.",
+            );
+        },
+        [withAction],
+    );
 
     return (
         <div className="run-history">
@@ -81,21 +105,27 @@ export function RunHistory() {
                             <div className="run-actions">
                                 <button
                                     type="button"
-                                    onClick={() => window.open(`/runs/${run.id}`, "_blank")}
+                                    onClick={() => goto(`/runs/${run.id}`, navigate)}
+                                    disabled={actioningId !== null}
                                 >
                                     Open
                                 </button>
                                 {(run.status === "completed" || run.status === "failed") && (
-                                    <button type="button" onClick={() => handleRetry(run.id)}>
-                                        Retry
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRetry(run.id)}
+                                        disabled={actioningId !== null}
+                                    >
+                                        {actioningId === run.id ? "Retrying…" : "Retry"}
                                     </button>
                                 )}
                                 <button
                                     type="button"
                                     className="danger"
                                     onClick={() => handleDelete(run.id)}
+                                    disabled={actioningId !== null}
                                 >
-                                    Delete
+                                    {actioningId === run.id ? "Deleting…" : "Delete"}
                                 </button>
                             </div>
                         </li>

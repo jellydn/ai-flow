@@ -1,157 +1,112 @@
-# Testing Patterns
+# Testing
 
 **Analysis Date:** 2026-07-13
 
-Backend (Laravel/PHP) is covered by PHPUnit; the frontend currently has **no tests** (`npm run test` is a no-op placeholder that echoes `No frontend tests configured` and exits 0 — see `backend/package.json`).
+## Framework & Configuration
 
-## Test Framework
-
-**Runner:**
-- PHPUnit `^13.0` (`backend/composer.json` `require-dev`).
-- Config: `backend/phpunit.xml`. Bootstrap `vendor/autoload.php`, colors on.
-- Two test suites: `Unit` -> `tests/Unit`, `Feature` -> `tests/Feature` (`backend/phpunit.xml` `<testsuites>`).
-- Source coverage includes `app/` (`<source><include><directory>app</directory></include></source>`).
-
-**Assertion Library:** PHPUnit built-in assertions plus Laravel testing helpers (`assertOk`, `assertStatus`, `assertJsonPath`, `assertJsonCount`, `assertJsonMissingPath`, `assertJsonValidationErrors`, `assertDatabaseHas`, `assertHeader`, `streamedContent`, `Queue::assertPushed`).
-
-**Run Commands:**
-```bash
-composer run test              # php artisan config:clear + php artisan test (all tests)
-php artisan test               # all tests
-php artisan test --filter=SomeTest        # focused test / class
-php artisan test tests/Feature/RunApiTest.php     # single file
-./vendor/bin/pint --test       # style check (CI)
-npm run typecheck              # tsc --noEmit (frontend, not unit tests)
-npm run lint                   # oxlint + oxfmt --check (frontend)
-```
-Frontend:
-```bash
-npm run test                   # no-op placeholder (echoes "No frontend tests configured")
-```
-
-## Test File Organization
-
-**Location:** Separate `tests/` directory (PSR-4 `Tests\` -> `tests/`, `backend/composer.json` `autoload-dev`), split into `tests/Unit/` and `tests/Feature/`. No co-location with source.
-
-**Naming:** `*Test.php` classes, `PascalCase` names, `extends TestCase`. Base class `backend/tests/TestCase.php` extends `Illuminate\Foundation\Testing\TestCase`. Namespaces: `Tests\Unit` and `Tests\Feature`.
-
-**Structure:**
-```
-backend/tests/
-├── TestCase.php
-├── Unit/
-│   ├── ContextEncoderTest.php
-│   ├── GitHubContextAssemblerTest.php
-│   ├── GitHubContextFetcherTest.php
-│   ├── GitHubServiceTest.php
-│   ├── OpenAIProviderTest.php
-│   └── RunStreamerTest.php
-└── Feature/
-    ├── ExecuteLauncherJobTest.php
-    └── RunApiTest.php
-```
+| Aspect | Detail |
+|--------|--------|
+| Framework | PHPUnit 13 |
+| Config | `backend/phpunit.xml` |
+| Base class | `Tests\TestCase` extends `Illuminate\Foundation\Testing\TestCase` |
+| Database | SQLite in-memory (`DB_CONNECTION=sqlite` for tests) |
+| Traits used | `RefreshDatabase` in feature tests |
 
 ## Test Structure
 
-**Suite Organization:**
-- `Unit` tests cover pure logic / single services without HTTP (encoders, assemblers, providers, streamers, URL parsing).
-- `Feature` tests cover HTTP endpoints (`RunApiTest`) and queued job behavior end-to-end in a realistic context (`ExecuteLauncherJobTest`).
+```
+backend/tests/
+├── TestCase.php                              # Base test case
+├── Feature/                                   # 8 integration tests
+│   ├── ExecuteLauncherJobTest.php            # Job execution with mocked GitHub/AI
+│   ├── MagicLinkAuthTest.php                 # Magic link request + verification
+│   ├── ProviderCredentialApiTest.php         # Credential CRUD + verify + defaults
+│   ├── ReapStuckRunsTest.php                 # Stuck run cleanup command
+│   ├── RunApiTest.php                        # Run create, show, stream endpoints
+│   ├── RunHistoryTest.php                    # Authenticated run history CRUD
+│   └── RunOwnershipTest.php                  # Run ownership authorization
+└── Unit/                                      # 8 unit tests
+    ├── CacheRunProgressedVersionTest.php     # SSE version caching
+    ├── ContextEncoderTest.php                # Context size bounding
+    ├── CredentialCipherTest.php              # Provider credential encryption
+    ├── GitHubContextAssemblerTest.php        # Context assembly from raw data
+    ├── GitHubContextFetcherTest.php          # GitHub REST API calls
+    ├── GitHubServiceTest.php                 # URL parsing + context fetching
+    ├── OpenAIProviderTest.php                # AI provider interface
+    └── RunStreamerTest.php                   # SSE streaming behavior
+```
 
-**Patterns:**
-- `Feature` and DB-backed tests use `use RefreshDatabase;` and seed in `setUp()`:
-  ```php
-  protected function setUp(): void
-  {
-      parent::setUp();
-      $this->seed();
-  }
-  ```
-  See `backend/tests/Feature/RunApiTest.php` and `backend/tests/Feature/ExecuteLauncherJobTest.php`.
-- Some `Unit` tests also use `RefreshDatabase` + `$this->seed()` when they create `Run`/`Launcher` models (`backend/tests/Unit/RunStreamerTest.php`).
-- Pure unit tests (no DB) extend `PHPUnit\Framework\TestCase` directly, e.g. `backend/tests/Unit/GitHubServiceTest.php`, `backend/tests/Unit/GitHubContextAssemblerTest.php`, `backend/tests/Unit/ContextEncoderTest.php`.
-- Test methods are `test_*` with explicit `: void` return types.
+**Total: 16 test files, 96 tests, 291 assertions (passing).**
 
-**Setup / Teardown:** `setUp()` for seeding; no explicit `tearDown` (Laravel `RefreshDatabase` handles cleanup). `phpunit.xml` sets testing env: `APP_ENV=testing`, `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`, `SESSION_DRIVER=array`.
+## Testing Patterns
 
-## Mocking
+### Feature Tests
 
-**Framework:** Mockery (`mockery/mockery` in `backend/composer.json` `require-dev`) and Laravel facades (`Illuminate\Support\Facades\Http`, `Queue`, `Log`). Mockery is auto-integrated via Laravel's `TestCase`.
+- **`RefreshDatabase` trait** ensures clean state per test.
+- **Database seeding:** Tests rely on `DatabaseSeeder` for launcher records.
+- **HTTP assertions:** `$this->post('/api/runs', ...)`, `$this->get('/api/user/runs')`, status code checks.
+- **JSON structure assertions:** `assertJsonStructure()`, `assertJsonFragment()`.
+- **Rate limiting:** Tests verify 429 responses after exceeding throttle limits.
 
-**Patterns:**
-- External HTTP is faked with `Http::fake([...])` and asserted with `Http::assertSent(fn ($request) => ...)`. See `backend/tests/Unit/OpenAIProviderTest.php` and `backend/tests/Unit/GitHubContextFetcherTest.php` (wildcard URL matchers like `'*api.github.com/repos/a/b'`).
-- GitHub/AI mocked at the boundary in job/executor tests: `Mockery::mock(GitHubService::class)` and `Mockery::mock(App\Contracts\AIProviderInterface::class)` injected into `RunExecutor` directly (constructor injection makes this easy). See `backend/tests/Feature/ExecuteLauncherJobTest.php` (`test_run_executor_uses_server_key_when_byok_omitted`, `test_job_records_structured_result`).
-- `Mockery::mock(RunExecutorInterface::class)` passed to `ExecuteLauncherJob::handle($executor)` to assert delegation (`shouldReceive('execute')->once()`, `shouldNotReceive('execute')`).
-- `Queue::fake()` used in HTTP feature tests to assert `ExecuteLauncherJob` is dispatched and the controller returns **202** (`backend/tests/Feature/RunApiTest.php`).
-- `Log::spy()` verifies secrets are never logged (`backend/tests/Feature/ExecuteLauncherJobTest.php` `test_byok_failure_does_not_log_api_key`).
-- Exception expectations use `$this->expectException(...)` + `$this->expectExceptionMessage(...)` (e.g. `backend/tests/Unit/OpenAIProviderTest.php`, `backend/tests/Unit/GitHubContextFetcherTest.php`).
+### Job Testing
 
-**What to Mock:** GitHub API and OpenAI HTTP calls (via `Http::fake`); `GitHubService` and `AIProviderInterface` when testing `RunExecutor`; `RunExecutorInterface` when testing the job.
+- `Queue::fake()` to prevent actual job execution.
+- Assert job dispatch: `Queue::assertPushed(ExecuteLauncherJob::class)`.
+- Separate test for job execution with mocked dependencies: `ExecuteLauncherJobTest` uses `Queue::fake()` to prevent dispatch but manually instantiates the job with mocked services.
 
-**What NOT to Mock:** The database and models (use `RefreshDatabase` + seed + real `Run`/`Launcher` records); queue in feature tests is faked but the job itself is often executed synchronously via `$executor->execute(...)` direct calls rather than `dispatch()`.
+### Unit Tests
 
-## Fixtures and Factories
+- **Mocking:** External services (GitHub HTTP, OpenAI HTTP) mocked via Laravel's `Http::fake()`.
+- **Value object testing:** `GitHubReference` creation from various URL formats.
+- **Context bounds testing:** `ContextEncoder` tested with known input sizes.
+- **SSE streaming:** `RunStreamer` tested with mock `Run` model states.
 
-**Test Data:**
-- No Eloquent model factories are used in the current tests; records are created inline with `Run::create([...])` and looked up via `Launcher::where('slug', ...)->value('id')` (see `backend/tests/Feature/ExecuteLauncherJobTest.php`).
-- `Database\Seeders\DatabaseSeeder` (run via `$this->seed()`) provides the four seeded launchers (`review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`).
-- Large-context edge cases are built with `str_repeat(...)` / `array_fill(...)` literals (e.g. `backend/tests/Unit/ContextEncoderTest.php`, `backend/tests/Unit/GitHubContextAssemblerTest.php`).
+### Auth Testing
 
-**Location:** Inline within each test method; no separate fixtures directory.
+- `MagicLinkAuthTest`: Tests token generation, email sending (Mail::fake()), token verification.
+- `RunOwnershipTest`: Tests that users can only access their own runs.
+- `ProviderCredentialApiTest`: Tests credential CRUD with authentication.
 
-## Coverage
+## Mocking Strategy
 
-**Requirements:** No enforced coverage threshold in `backend/phpunit.xml` (only `<source><include>app</include></source>` for potential coverage, no `<coverage>` block). CI runs `php artisan test` but does not gate on coverage.
+| What | How |
+|------|-----|
+| GitHub API | `Http::fake()` with canned JSON responses |
+| OpenAI API | `Http::fake()` with controlled chat completion responses |
+| Queue | `Queue::fake()` to prevent real job execution |
+| Mail | `Mail::fake()` to prevent real email sending |
+| Cache | `Cache::fake()` or real cache in unit tests |
+| Events | `Event::fake()` when testing event dispatching |
 
-**View Coverage:**
+## Running Tests
+
 ```bash
-php artisan test --coverage
+cd backend
+php artisan test                          # Run all tests
+php artisan test --filter=RunApiTest      # Run specific test class
+php artisan test --filter=test_store      # Run specific test method
 ```
 
-## Test Types
+**CI (`.github/workflows/ci.yml`):** `php artisan migrate --force` → `php artisan test`.
 
-**Unit Tests:**
-- Scope: individual services/data transformers/providers without the framework HTTP layer. Examples:
-  - `backend/tests/Unit/ContextEncoderTest.php` — context size-bounding tiers (small / bounded / minimal), truncation flags, encoding limits.
-  - `backend/tests/Unit/GitHubContextAssemblerTest.php` — assembling repo/PR/issue contexts, capping files (50) and comments (30), stripping unknown fields.
-  - `backend/tests/Unit/GitHubContextFetcherTest.php` — GitHub API mapping, 404/403 -> `RuntimeException`, token header via `Http::fake`.
-  - `backend/tests/Unit/OpenAIProviderTest.php` — provider request shape, BYOK key override, safe error on 401.
-  - `backend/tests/Unit/RunStreamerTest.php` — SSE event sequence (progress -> completed/failed), no re-yield of unchanged snapshots.
-  - `backend/tests/Unit/GitHubServiceTest.php` — URL parsing, host/format rejection.
+## Frontend Testing
 
-**Integration Tests:**
-- `backend/tests/Feature/RunApiTest.php` — full HTTP cycle: health, listing launchers (and `/api/flows` alias), run creation returning **202**, queue dispatch assertion, BYOP contract (no key persisted/returned), unsupported provider rejection, rate limit (5/hour -> 429), SSE stream header `X-Accel-Buffering: no`.
-- `backend/tests/Feature/ExecuteLauncherJobTest.php` — job behavior with seeded DB, encryption of BYOK secrets in the queue (`DB::table('jobs')`), executor delegation, structured result recording, malformed AI result -> `failed`, large-context bounds, error message allow-listing (`RuntimeException` vs hidden `InvalidArgumentException`).
+- **Vitest + React Testing Library** — `npm run test` runs `vitest run` (was previously a no-op).
+- **Test config:** `backend/vitest.config.ts` uses jsdom environment, React plugin, and `globals: true` for RTL auto-cleanup.
+- **Test setup:** `backend/resources/ts/test/setup.ts` loads `@testing-library/jest-dom/vitest` matchers.
+- **Existing tests:** RunHistory component tests (`backend/resources/ts/components/__tests__/RunHistory.test.tsx`) covering loading state, empty state, error state, retry/delete actions, button disabling, and navigation.
+- **Watch mode:** `npm run test:watch` for interactive development.
+- TypeScript `tsc --noEmit` acts as compile-time verification.
+- `npm run doctor` runs `react-doctor` for codebase analysis.
+- `npm run konsistent` enforces structural conventions.
 
-**E2E Tests:** Not used.
+## Test Quality Notes
 
-## Common Patterns
-
-**Async / Streaming Testing:**
-```php
-$events = iterator_to_array($streamer->stream($run, 1, 10_000));
-$this->assertInstanceOf(StreamedEvent::class, $events[0]);
-$this->assertSame('completed', $events[count($events) - 1]->event);
-```
-See `backend/tests/Unit/RunStreamerTest.php`. SSE HTTP response checked via `->assertHeader('X-Accel-Buffering', 'no')` and `->streamedContent()` in `backend/tests/Feature/RunApiTest.php`.
-
-**Error Testing:**
-```php
-$this->expectException(\RuntimeException::class);
-$this->expectExceptionMessage('Repository a/missing was not found or is private.');
-(new GitHubContextFetcher)->fetch(new GitHubReference('a', 'missing', 'repository'));
-```
-See `backend/tests/Unit/GitHubContextFetcherTest.php`. User-facing vs internal messages verified by asserting `runs.error` values (e.g. `'Run failed unexpectedly.'` for hidden `InvalidArgumentException` in `backend/tests/Feature/ExecuteLauncherJobTest.php`).
-
-**Queue / Job Testing:**
-```php
-Queue::fake();
-$this->postJson('/api/runs', [...])->assertStatus(202);
-Queue::assertPushed(ExecuteLauncherJob::class);
-```
-For direct execution, instantiate the executor with mocked collaborators:
-```php
-(new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
-```
+- Unit tests cover core services: GitHub parsing, context encoding, SSE streaming, provider verification.
+- Feature tests cover the primary API surface: run create/show/stream, auth flows, provider credential management, run history.
+- Job execution is tested both as dispatch assertion (integration) and with mocked dependencies (unit).
+- Rate limiting and authorization (ownership) are tested at the feature level.
+- Missing: no frontend component tests, no E2E tests.
 
 ---
 

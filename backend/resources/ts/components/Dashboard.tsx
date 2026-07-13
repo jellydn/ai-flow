@@ -6,11 +6,12 @@ import { RunHistory } from "./RunHistory.tsx";
 interface DashboardProps {
     user: User;
     onLogout: () => void;
+    navigate: (pathname: string) => void;
 }
 
 type Tab = "providers" | "history";
 
-export function Dashboard({ user, onLogout }: DashboardProps) {
+export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
     const [tab, setTab] = useState<Tab>("history");
     const [loggingOut, setLoggingOut] = useState(false);
 
@@ -57,7 +58,7 @@ export function Dashboard({ user, onLogout }: DashboardProps) {
                 ))}
             </div>
             <div className="dashboard-content">
-                {tab === "history" && <RunHistory />}
+                {tab === "history" && <RunHistory navigate={navigate} />}
                 {tab === "providers" && <ProviderSettings />}
             </div>
         </div>

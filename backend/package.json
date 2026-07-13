@@ -11,7 +11,8 @@
     "format": "oxfmt -c ../.oxfmtrc.json --write resources/ts",
     "format:check": "oxfmt -c ../.oxfmtrc.json --check resources/ts",
     "konsistent": "cd .. && backend/node_modules/.bin/konsistent check --config-path konsistent.json",
-    "test": "echo 'No frontend tests configured' && exit 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
@@ -20,16 +21,21 @@
     "react-dom": "19.2.7"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/node": "24.13.3",
     "@types/react": "19.2.17",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "6.0.3",
     "concurrently": "10.0.3",
+    "jsdom": "^29.1.1",
     "konsistent": "^1.0.0-beta.3",
     "laravel-vite-plugin": "3.1.0",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
     "typescript": "5.9.3",
-    "vite": "8.1.4"
+    "vite": "8.1.4",
+    "vitest": "^4.1.10"
   }
 }

@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Contracts\AIProviderInterface;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -98,7 +99,7 @@ class AnthropicProvider implements AIProviderInterface
             }
 
             return $json;
-        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+        } catch (ConnectionException $e) {
             throw new RuntimeException('Unable to reach the AI provider. Check your network.');
         }
     }

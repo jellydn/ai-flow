@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Run;
+use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -16,6 +17,24 @@ class RunHistoryController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
+        $request->validate([
+            'status' => ['nullable', 'string', 'in:'.implode(',', Run::STATUSES)],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => [
+                'nullable',
+                'date_format:Y-m-d',
+                function (string $attribute, mixed $value, Closure $fail) use ($request) {
+                    if ($request->filled(['date_from', 'date_to']) && strtotime((string) $value) < strtotime((string) $request->input('date_from'))) {
+                        $fail('The '.$attribute.' must be a date after or equal to date_from.');
+                    }
+                },
+            ],
+            'launcher' => ['nullable', 'string'],
+            'provider' => ['nullable', 'string'],
+            'search' => ['nullable', 'string', 'max:500'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $runs = Run::query()
             ->where('user_id', $request->user()->id)
             ->with('launcher')

@@ -10,6 +10,8 @@ class Run extends Model
 {
     use HasUuids;
 
+    public const STATUSES = ['queued', 'running', 'completed', 'failed'];
+
     public $incrementing = false;
 
     protected $keyType = 'string';

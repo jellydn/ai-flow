@@ -9,8 +9,13 @@ use App\Models\Launcher;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
-Route::get('/launchers', fn () => Launcher::query()->where('active', true)->get()->map(fn ($launcher) => ['id' => $launcher->slug, 'slug' => $launcher->slug, 'name' => $launcher->name, 'description' => $launcher->description, 'input_type' => $launcher->input_type]));
-Route::get('/flows', fn () => Launcher::query()->where('active', true)->get()->map(fn ($launcher) => ['id' => $launcher->slug, 'slug' => $launcher->slug, 'name' => $launcher->name, 'description' => $launcher->description, 'input_type' => $launcher->input_type]));
+// Named login route prevents the auth middleware from crashing when redirecting
+// unauthenticated requests that lack an Accept: application/json header.
+Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
+
+$launchersResponse = fn () => Launcher::query()->where('active', true)->get()->map(fn ($launcher) => ['id' => $launcher->slug, 'slug' => $launcher->slug, 'name' => $launcher->name, 'description' => $launcher->description, 'input_type' => $launcher->input_type]);
+Route::get('/launchers', $launchersResponse);
+Route::get('/flows', $launchersResponse);
 Route::get('/providers', [ProviderController::class, 'index']);
 Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs');
 Route::get('/runs/{run}', [RunController::class, 'show']);
