@@ -157,17 +157,17 @@ class GitHubContextAssemblerTest extends TestCase
         $this->assertNull($context['repository']['default_branch']);
     }
 
-    public function test_pr_files_capped_at_50(): void
+    public function test_pr_files_capped_at_100(): void
     {
         $assembler = new GitHubContextAssembler;
         $ref = new GitHubReference('a', 'b', 'pull_request', 1);
-        $files = array_fill(0, 60, ['filename' => 'f.php', 'status' => 'modified', 'patch' => 'diff']);
+        $files = array_fill(0, 120, ['filename' => 'f.php', 'status' => 'modified', 'patch' => 'diff']);
         $raw = [
             'repo' => ['name' => 'b', 'full_name' => 'a/b', 'description' => null, 'default_branch' => null],
             'languages' => [],
             'readmeContent' => null,
             'tree' => [],
-            'pr' => ['number' => 1, 'title' => 'T', 'body' => '', 'state' => 'open', 'user' => ['login' => 'u'], 'changed_files' => 60],
+            'pr' => ['number' => 1, 'title' => 'T', 'body' => '', 'state' => 'open', 'user' => ['login' => 'u'], 'changed_files' => 120],
             'prFiles' => $files,
             'prComments' => [],
             'issue' => null, 'issueComments' => [],
@@ -175,14 +175,14 @@ class GitHubContextAssemblerTest extends TestCase
 
         $context = $assembler->assemble($ref, $raw);
 
-        $this->assertCount(50, $context['changed_files']);
+        $this->assertCount(100, $context['changed_files']);
     }
 
-    public function test_comments_capped_at_30(): void
+    public function test_comments_capped_at_50(): void
     {
         $assembler = new GitHubContextAssembler;
         $ref = new GitHubReference('a', 'b', 'pull_request', 1);
-        $comments = array_fill(0, 40, ['user' => ['login' => 'u'], 'body' => 'c']);
+        $comments = array_fill(0, 60, ['user' => ['login' => 'u'], 'body' => 'c']);
         $raw = [
             'repo' => ['name' => 'b', 'full_name' => 'a/b', 'description' => null, 'default_branch' => null],
             'languages' => [],
@@ -196,6 +196,6 @@ class GitHubContextAssemblerTest extends TestCase
 
         $context = $assembler->assemble($ref, $raw);
 
-        $this->assertCount(30, $context['comments']);
+        $this->assertCount(50, $context['comments']);
     }
 }
