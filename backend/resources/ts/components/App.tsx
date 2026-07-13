@@ -70,12 +70,10 @@ export function App() {
     const activeMeta = useMemo(() => launcherMetaBySlug[selected], [selected]);
     const parsedRepo = useMemo(() => parseGithubRepo(url) ?? "", [url]);
 
-    const liveRunId =
-        view.type === "live-running"
-            ? view.runId
-            : view.type === "report" || view.type === "failed"
-              ? null
-              : (pathRunId ?? null);
+    // Keep the subscription alive across view transitions (live-running → report / failed)
+    // so the EventSource is not torn down and recreated on every state cycle.
+    // The subscription hook handles its own terminal cleanup.
+    const liveRunId = view.type === "live-running" ? view.runId : (pathRunId ?? null);
     let liveInitialRun: Run | null = null;
     if (liveRunId && pathRun?.id === liveRunId) {
         liveInitialRun = pathRun;
