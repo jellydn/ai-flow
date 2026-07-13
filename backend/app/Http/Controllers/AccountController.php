@@ -21,26 +21,32 @@ class AccountController extends Controller
      */
     public function destroy(Request $request): JsonResponse
     {
-        $validated = $request->validate([
+        $request->validate([
             'confirm' => ['required', 'boolean', 'accepted'],
         ]);
 
         $user = $request->user();
+        $userId = $user->id;
+
+        // Log out and invalidate the session BEFORE deleting the user.
+        // This prevents the SessionGuard from re-querying or updating the
+        // user record (e.g. cycleRememberToken) after the row is gone.
+        Auth::logout();
+        if ($request->hasSession()) {
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+        }
 
         // Delete the user's runs (anonymous runs with user_id = null are not affected).
-        Run::where('user_id', $user->id)->delete();
+        Run::where('user_id', $userId)->delete();
 
         // Provider credentials cascade-delete via FK constraint, but delete
         // explicitly here for clarity and in case the FK is not enforced.
-        ProviderCredential::where('user_id', $user->id)->delete();
+        ProviderCredential::where('user_id', $userId)->delete();
 
-        // Delete the user record.
+        // Delete the user record. The session was already invalidated above,
+        // so the SessionGuard will not attempt to re-query or update this row.
         $user->delete();
-
-        // Log out the user by invalidating the session.
-        Auth::logout();
-        $request->session()->invalidate();
-        $request->session()->regenerateToken();
 
         return response()->json(['message' => 'Account deleted.'], 200);
     }
