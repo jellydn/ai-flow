@@ -10,11 +10,12 @@ COPY resources ./resources
 COPY tsconfig.json vite.config.ts ./
 RUN npm run build
 
-FROM php:8.5-fpm-bookworm
+FROM php:8.4-fpm-bookworm
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libicu-dev \
+        libonig-dev \
         libpq-dev \
         libzip-dev \
         nginx \
@@ -23,6 +24,7 @@ RUN apt-get update \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         intl \
+        mbstring \
         opcache \
         pcntl \
         pdo_pgsql \
