@@ -15,7 +15,6 @@ FROM php:8.5-fpm-bookworm
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         libicu-dev \
-        libonig-dev \
         libpq-dev \
         libzip-dev \
         nginx \
@@ -24,7 +23,6 @@ RUN apt-get update \
     && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         intl \
-        mbstring \
         opcache \
         pcntl \
         pdo_pgsql \
