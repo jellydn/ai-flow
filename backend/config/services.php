@@ -41,6 +41,7 @@ return [
         'base_url' => env('AI_BASE_URL', 'https://api.openai.com/v1'),
         'model' => env('AI_MODEL') ?: env('OPENAI_MODEL', 'gpt-4o-mini'),
         'timeout' => env('OPENAI_TIMEOUT', 30),
+        'providers' => ['openai'],
         'referer' => env('AI_SITE_URL', env('APP_URL')),
     ],
 

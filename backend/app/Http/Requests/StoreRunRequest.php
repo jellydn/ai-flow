@@ -26,7 +26,7 @@ class StoreRunRequest extends FormRequest
             'launcher' => ['required', 'string', 'exists:launchers,slug'],
             'source_url' => ['required', 'url', 'max:2048', 'regex:/^https:\/\/(?:www\.)?github\.com\//i'],
             'provider' => ['sometimes', 'array'],
-            'provider.id' => ['nullable', 'string', Rule::in(['openai'])],
+            'provider.id' => ['nullable', 'string', Rule::in(config('services.openai.providers', ['openai']))],
             'provider.api_key' => ['nullable', 'string', 'max:512'],
         ];
     }

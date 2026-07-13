@@ -29,7 +29,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
 
-        if ($this->provider !== null && $this->provider !== 'openai') {
+        if ($this->provider !== null && ! in_array($this->provider, config('services.openai.providers', ['openai']), true)) {
             $this->failRun($run, 'Unsupported AI provider.');
 
             return;
