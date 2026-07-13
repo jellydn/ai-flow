@@ -13,6 +13,12 @@
     "konsistent": "cd .. && backend/node_modules/.bin/konsistent check --config-path konsistent.json",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:demo": "PLAYWRIGHT_WEB_SERVER=demo playwright test --project=demo",
+    "test:e2e:real": "PLAYWRIGHT_WEB_SERVER=real playwright test --project=real-backend",
+    "test:e2e": "npx playwright test",
+    "test:e2e:demo": "npx playwright test --project=demo",
+    "test:e2e:real": "npx playwright test --project=real-backend",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
