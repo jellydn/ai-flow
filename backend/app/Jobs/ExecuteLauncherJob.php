@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
+use App\Models\ProviderCredential;
 use App\Models\Run;
+use App\Security\CredentialCipher;
 use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -24,6 +26,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         public string $runId,
         private ?string $provider = null,
         private ?string $apiKey = null,
+        private ?string $providerCredentialId = null,
     ) {}
 
     public function handle(RunExecutorInterface $executor): void
@@ -54,13 +57,26 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
     /**
      * Resolve the API key for the given provider.
      *
-     * If a one-time key was provided to the job, use it.
-     * Otherwise fall back to the server-configured key for the provider.
+     * Priority: one-time key > saved credential (decrypted) > server config.
+     * The decrypted key lives only in memory for the duration of the job
+     * and is never persisted, logged, or serialized.
      */
     private function resolveApiKey(string $providerId): ?string
     {
         if ($this->apiKey !== null) {
             return $this->apiKey;
+        }
+
+        // If a saved credential was selected, decrypt its key now.
+        if ($this->providerCredentialId !== null) {
+            $credential = ProviderCredential::find($this->providerCredentialId);
+
+            if ($credential) {
+                $key = $credential->decryptApiKey(app(CredentialCipher::class));
+                $credential->update(['last_used_at' => now()]);
+
+                return $key;
+            }
         }
 
         return match ($providerId) {

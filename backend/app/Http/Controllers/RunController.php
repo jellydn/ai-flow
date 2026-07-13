@@ -6,6 +6,7 @@ use App\Http\Requests\StoreRunRequest;
 use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
+use App\Models\ProviderCredential;
 use App\Models\Run;
 use App\Services\RunStreamer;
 use Illuminate\Http\JsonResponse;
@@ -22,19 +23,32 @@ class RunController extends Controller
     {
         $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
         $input = ['source_url' => $request->validated('source_url')];
+
+        $providerId = $request->validated('provider.id');
+        $providerCredentialId = $request->validated('provider_credential_id');
+
+        // If a saved credential is selected, snapshot its provider onto the run.
+        $provider = $providerId;
+        if ($providerCredentialId) {
+            $credential = ProviderCredential::find($providerCredentialId);
+            $provider = $credential->provider;
+        }
+
         $run = $launcher->runs()->create([
             'user_id' => $request->user()?->id,
+            'provider_credential_id' => $providerCredentialId,
+            'provider' => $provider,
             'source_url' => $input['source_url'],
             'input' => $input,
             'status' => 'queued',
             'progress' => [],
         ]);
-        $providerId = $request->validated('provider.id');
 
         ExecuteLauncherJob::dispatch(
             $run->id,
-            $providerId,
+            $provider,
             $request->validated('provider.api_key'),
+            $providerCredentialId,
         );
 
         return response()->json(['id' => $run->id, 'status' => 'queued', 'message' => 'Workflow started'], 202);

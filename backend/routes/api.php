@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
@@ -32,6 +33,7 @@ Route::middleware('auth')->prefix('user')->group(function () {
     Route::delete('/provider-credentials/{credential}', [ProviderCredentialController::class, 'destroy']);
     Route::post('/provider-credentials/{credential}/verify', [ProviderCredentialController::class, 'verify']);
     Route::post('/provider-credentials/{credential}/make-default', [ProviderCredentialController::class, 'makeDefault']);
+    Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware('throttle:runs');
 Route::get('/executions/{run}', [RunController::class, 'show']);
