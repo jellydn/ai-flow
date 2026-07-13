@@ -38,7 +38,7 @@ class RunHistoryController extends Controller
             ->when($request->query('date_to'), fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($request->query('search'), fn ($q, $v) => $q->where('source_url', 'like', '%'.$v.'%'))
             ->orderByDesc('created_at')
-            ->paginate(min($request->integer('per_page', 20), 100));
+            ->paginate($request->integer('per_page', 20));
 
         return RunResource::collection($runs);
     }
