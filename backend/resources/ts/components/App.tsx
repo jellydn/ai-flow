@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
+import { fetchUser, logout as apiLogout, type User } from "../services/auth.ts";
 import { createRun, getLaunchers, isValidGithubUrl, parseGithubRepo } from "../services/run.ts";
 import type { Launcher, Run } from "../types/api.ts";
 import {
@@ -10,11 +11,13 @@ import {
     type ViewState,
     uiStateFromRun,
 } from "./appUiState.ts";
+import { Dashboard } from "./Dashboard.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
 import { Home } from "./Home.tsx";
 import { Report } from "./Report.tsx";
 import { Running } from "./Running.tsx";
+import { SignIn } from "./SignIn.tsx";
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 const DEMO_COMPLETE_DELAY_MS = 650;
@@ -53,6 +56,18 @@ export function App() {
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState("");
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
+
+    const [user, setUser] = useState<User | null>(null);
+    const [authChecked, setAuthChecked] = useState(false);
+    const [showSignIn, setShowSignIn] = useState(false);
+    const [checkEmail, setCheckEmail] = useState("");
+
+    useEffect(() => {
+        fetchUser()
+            .then(setUser)
+            .catch(() => setUser(null))
+            .finally(() => setAuthChecked(true));
+    }, []);
 
     const {
         runId: pathRunId,
@@ -234,7 +249,61 @@ export function App() {
 
     return (
         <div className="app-shell">
-            <Header mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} reset={reset} />
+            <Header
+                mobileOpen={mobileOpen}
+                setMobileOpen={setMobileOpen}
+                reset={reset}
+                user={user}
+                onAuthClick={() => {
+                    if (user) {
+                        setShowSignIn(false);
+                    } else {
+                        setShowSignIn(!showSignIn);
+                    }
+                }}
+            />
+
+            {checkEmail && (
+                <div className="auth-page">
+                    <div className="auth-card">
+                        <h2>Check your email</h2>
+                        <p>
+                            A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link
+                            in the email to continue.
+                        </p>
+                        <button type="button" onClick={() => setCheckEmail("")}>
+                            Back
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {!authChecked && !checkEmail && (
+                <main className="running-page">
+                    <div className="error-fallback">
+                        <p>Loading…</p>
+                    </div>
+                </main>
+            )}
+
+            {showSignIn && !user && !checkEmail && (
+                <SignIn
+                    onRequested={(email) => {
+                        setShowSignIn(false);
+                        setCheckEmail(email);
+                    }}
+                />
+            )}
+
+            {user && !deepLinkLoading && view.type === "home" && authChecked && (
+                <Dashboard
+                    user={user}
+                    onLogout={async () => {
+                        await apiLogout();
+                        setUser(null);
+                    }}
+                />
+            )}
 
             {deepLinkLoading && (
                 <main className="running-page">
@@ -245,21 +314,26 @@ export function App() {
                 </main>
             )}
 
-            {view.type === "home" && !deepLinkLoading && (
-                <Home
-                    selected={selected}
-                    setSelected={setSelected}
-                    url={url}
-                    setUrl={setUrl}
-                    error={error}
-                    setError={setError}
-                    launch={launch}
-                    isLaunching={isLaunching}
-                    apiKey={apiKey}
-                    setApiKey={setApiKey}
-                    launchers={launchers}
-                />
-            )}
+            {!user &&
+                view.type === "home" &&
+                !deepLinkLoading &&
+                !showSignIn &&
+                !checkEmail &&
+                authChecked && (
+                    <Home
+                        selected={selected}
+                        setSelected={setSelected}
+                        url={url}
+                        setUrl={setUrl}
+                        error={error}
+                        setError={setError}
+                        launch={launch}
+                        isLaunching={isLaunching}
+                        apiKey={apiKey}
+                        setApiKey={setApiKey}
+                        launchers={launchers}
+                    />
+                )}
 
             {(view.type === "demo-running" || view.type === "live-running") && (
                 <Running

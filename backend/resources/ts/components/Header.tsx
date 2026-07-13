@@ -1,14 +1,17 @@
 import { ArrowRight, GitFork, Menu, X } from "lucide-react";
 import { scrollToSelector } from "../lib/scroll.ts";
+import type { User } from "../services/auth.ts";
 import { Logo } from "./Logo.tsx";
 
 interface HeaderProps {
     mobileOpen: boolean;
     setMobileOpen: (open: boolean) => void;
     reset: () => void;
+    user: User | null;
+    onAuthClick: () => void;
 }
 
-export function Header({ mobileOpen, setMobileOpen, reset }: HeaderProps) {
+export function Header({ mobileOpen, setMobileOpen, reset, user, onAuthClick }: HeaderProps) {
     return (
         <header className="topbar">
             <button type="button" className="logo-button" onClick={reset} aria-label="AI Flow home">
@@ -39,16 +42,27 @@ export function Header({ mobileOpen, setMobileOpen, reset }: HeaderProps) {
                     <GitFork size={17} /> GitHub
                 </a>
             </nav>
-            <button
-                type="button"
-                className="header-cta"
-                onClick={() => {
-                    reset();
-                    scrollToSelector("#launcher");
-                }}
-            >
-                Launch a workflow <ArrowRight size={16} />
-            </button>
+            {user ? (
+                <button type="button" className="header-cta" onClick={onAuthClick}>
+                    {user.email}
+                </button>
+            ) : (
+                <>
+                    <button
+                        type="button"
+                        className="header-cta"
+                        onClick={() => {
+                            reset();
+                            scrollToSelector("#launcher");
+                        }}
+                    >
+                        Launch a workflow <ArrowRight size={16} />
+                    </button>
+                    <button type="button" className="header-auth-btn" onClick={onAuthClick}>
+                        Sign in
+                    </button>
+                </>
+            )}
             <button
                 type="button"
                 className="mobile-menu"

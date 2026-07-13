@@ -15,14 +15,14 @@ const isRunStatus: { [K in RunStatus]: true } = {
     failed: true,
 };
 
-function assertObject(value: unknown): Record<string, unknown> {
+export function assertObject(value: unknown): Record<string, unknown> {
     if (value === null || typeof value !== "object") {
         throw new Error("Expected an object.");
     }
     return value as Record<string, unknown>;
 }
 
-function assertString(value: unknown, field: string): string {
+export function assertString(value: unknown, field: string): string {
     if (typeof value !== "string") {
         throw new Error(`Expected ${field} to be a string.`);
     }
@@ -39,7 +39,7 @@ function assertStringOrNull(value: unknown, field: string): string | null {
     return value;
 }
 
-function assertArray(value: unknown, field: string): unknown[] {
+export function assertArray(value: unknown, field: string): unknown[] {
     if (!Array.isArray(value)) {
         throw new Error(`Expected ${field} to be an array.`);
     }

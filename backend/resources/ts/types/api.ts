@@ -8,8 +8,11 @@ export interface Run {
     progress: string[];
     result: RunResult | null;
     error: string | null;
+    provider?: string | null;
+    model?: string | null;
     started_at: string | null;
     completed_at: string | null;
+    created_at?: string;
 }
 
 export interface RunResult {
