@@ -68,34 +68,38 @@ class GeminiProvider implements AIProviderInterface
 
         $model = config('services.gemini.model', 'gemini-2.0-flash');
 
-        $response = Http::acceptJson()
-            ->timeout($timeout)
-            ->retry(2, 500, throw: false)
-            ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=".urlencode($key), [
-                'system_instruction' => [
-                    'parts' => [['text' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.']],
-                ],
-                'contents' => [
-                    ['parts' => [['text' => $prompt]]],
-                ],
-                'generationConfig' => [
-                    'responseMimeType' => 'application/json',
-                ],
-            ]);
+        try {
+            $response = Http::acceptJson()
+                ->timeout($timeout)
+                ->retry(2, 500, throw: false)
+                ->post("https://generativelanguage.googleapis.com/v1beta/models/{$model}:generateContent?key=".urlencode($key), [
+                    'system_instruction' => [
+                        'parts' => [['text' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.']],
+                    ],
+                    'contents' => [
+                        ['parts' => [['text' => $prompt]]],
+                    ],
+                    'generationConfig' => [
+                        'responseMimeType' => 'application/json',
+                    ],
+                ]);
 
-        if (in_array($response->status(), [401, 403], true)) {
-            throw new RuntimeException('Invalid API key.');
-        }
-        if (! $response->successful()) {
-            throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
-        }
+            if (in_array($response->status(), [401, 403], true)) {
+                throw new RuntimeException('Invalid API key.');
+            }
+            if (! $response->successful()) {
+                throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
+            }
 
-        $text = $response->json('candidates.0.content.parts.0.text', '');
-        $json = json_decode($text, true);
-        if (! is_array($json)) {
-            throw new RuntimeException('AI provider returned invalid JSON.');
-        }
+            $text = $response->json('candidates.0.content.parts.0.text', '');
+            $json = json_decode($text, true);
+            if (! is_array($json)) {
+                throw new RuntimeException('AI provider returned invalid JSON.');
+            }
 
-        return $json;
+            return $json;
+        } catch (\Illuminate\Http\Client\ConnectionException $e) {
+            throw new RuntimeException('Unable to reach the AI provider. Check your network.');
+        }
     }
 }
