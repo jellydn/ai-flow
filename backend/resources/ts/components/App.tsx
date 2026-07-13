@@ -12,13 +12,10 @@ import {
     uiStateFromRun,
 } from "./appUiState.ts";
 import { goto } from "../lib/navigate.ts";
-import { Dashboard } from "./Dashboard.tsx";
+import { AppViews } from "./AppViews.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
-import { Home } from "./Home.tsx";
-import { Report } from "./Report.tsx";
-import { Running } from "./Running.tsx";
-import { SignIn } from "./SignIn.tsx";
+import type { HomeProps } from "./Home.tsx";
 
 const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
 const DEMO_COMPLETE_DELAY_MS = 650;
@@ -246,6 +243,20 @@ export function App() {
     const runningTitle = activeMeta?.title ?? activeLauncher?.name ?? "Workflow";
     const runningRepo = parsedRepo || "…";
 
+    const homeProps: HomeProps = {
+        selected,
+        setSelected,
+        url,
+        setUrl,
+        error,
+        setError,
+        launch,
+        isLaunching,
+        apiKey,
+        setApiKey,
+        launchers,
+    };
+
     return (
         <div className="app-shell">
             <Header
@@ -262,114 +273,40 @@ export function App() {
                 }}
             />
 
-            {checkEmail && (
-                <div className="auth-page">
-                    <div className="auth-card">
-                        <h2>Check your email</h2>
-                        <p>
-                            A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link
-                            in the email to continue.
-                        </p>
-                        <button type="button" onClick={() => setCheckEmail("")}>
-                            Back
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {!authChecked && !checkEmail && (
-                <main className="running-page">
-                    <div className="error-fallback">
-                        <p>Loading…</p>
-                    </div>
-                </main>
-            )}
-
-            {showSignIn && !user && !checkEmail && (
-                <SignIn
-                    onRequested={(email) => {
-                        setShowSignIn(false);
-                        setCheckEmail(email);
-                    }}
-                />
-            )}
-
-            {user && !deepLinkLoading && view.type === "home" && authChecked && (
-                <Dashboard
-                    user={user}
-                    navigate={navigate}
-                    onLogout={async () => {
+            <AppViews
+                authState={{
+                    user,
+                    checked: authChecked,
+                    checkEmail,
+                    showSignIn,
+                    deepLinkLoading,
+                }}
+                authActions={{
+                    setShowSignIn,
+                    setCheckEmail,
+                    onLogout: async () => {
                         await apiLogout();
                         setUser(null);
-                    }}
-                />
-            )}
-
-            {deepLinkLoading && (
-                <main className="running-page">
-                    <div className="error-fallback">
-                        <h1>Loading report…</h1>
-                        <p>Fetching workflow status for this link.</p>
-                    </div>
-                </main>
-            )}
-
-            {!user &&
-                view.type === "home" &&
-                !deepLinkLoading &&
-                !showSignIn &&
-                !checkEmail &&
-                authChecked && (
-                    <Home
-                        selected={selected}
-                        setSelected={setSelected}
-                        url={url}
-                        setUrl={setUrl}
-                        error={error}
-                        setError={setError}
-                        launch={launch}
-                        isLaunching={isLaunching}
-                        apiKey={apiKey}
-                        setApiKey={setApiKey}
-                        launchers={launchers}
-                    />
-                )}
-
-            {(view.type === "demo-running" || view.type === "live-running") && (
-                <Running
-                    title={runningTitle}
-                    repo={runningRepo}
-                    steps={view.type === "demo-running" ? demoSteps : liveSteps}
-                    currentStep={view.type === "demo-running" ? view.step : liveCurrentStep}
-                />
-            )}
-
-            {view.type === "report" && (
-                <Report
-                    launcherName={runningTitle}
-                    repo={parsedRepo}
-                    copied={copied}
-                    setCopied={setCopied}
-                    reset={reset}
-                    runId={view.run?.id ?? null}
-                    result={view.run?.result ?? null}
-                />
-            )}
-
-            {view.type === "failed" && (
-                <main className="running-page">
-                    <div className="error-fallback">
-                        <h1>Workflow failed</h1>
-                        <p>
-                            {view.run.error ||
-                                "The run did not complete. Try again or check the API logs."}
-                        </p>
-                        <button type="button" onClick={reset}>
-                            ← New launch
-                        </button>
-                    </div>
-                </main>
-            )}
+                    },
+                }}
+                view={view}
+                homeProps={homeProps}
+                runningData={{
+                    title: runningTitle,
+                    repo: runningRepo,
+                    steps: view.type === "demo-running" ? demoSteps : liveSteps,
+                    currentStep: view.type === "demo-running" ? view.step : liveCurrentStep,
+                }}
+                reportData={{
+                    runId: view.type === "report" ? (view.run?.id ?? null) : null,
+                    result: view.type === "report" ? (view.run?.result ?? null) : null,
+                    copied,
+                    setCopied,
+                }}
+                failedRunError={view.type === "failed" ? view.run.error : undefined}
+                onReset={reset}
+                onNavigate={navigate}
+            />
 
             <Footer />
         </div>
