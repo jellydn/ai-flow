@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Http\Resources\RunResource;
+use App\Listeners\CacheRunProgressedVersion;
 use App\Models\Run;
 use Generator;
 use Illuminate\Http\StreamedEvent;
@@ -26,7 +27,7 @@ class RunStreamer
         $lastEncoded = null;
         $lastVersion = null;
         $deadline = microtime(true) + $deadlineSeconds;
-        $versionKey = "run:{$run->id}:version";
+        $versionKey = CacheRunProgressedVersion::versionKey($run->id);
 
         while (microtime(true) < $deadline && ! connection_aborted()) {
             $version = Cache::get($versionKey);
@@ -41,7 +42,7 @@ class RunStreamer
                     $lastEncoded = $encoded;
                 }
 
-                if (in_array($run->status, ['completed', 'failed'], true)) {
+                if ($this->isTerminal($run)) {
                     yield new StreamedEvent(event: $run->status, data: $encoded);
 
                     break;
@@ -66,7 +67,7 @@ class RunStreamer
                 $lastEncoded = $encoded;
             }
 
-            if (in_array($run->status, ['completed', 'failed'], true)) {
+            if ($this->isTerminal($run)) {
                 yield new StreamedEvent(event: $run->status, data: $encoded);
 
                 break;
@@ -84,5 +85,10 @@ class RunStreamer
         $run->refresh();
 
         return json_encode((new RunResource($run->loadMissing('launcher')))->resolve());
+    }
+
+    private function isTerminal(Run $run): bool
+    {
+        return in_array($run->status, ['completed', 'failed'], true);
     }
 }

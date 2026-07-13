@@ -28,7 +28,7 @@ class CacheRunProgressedVersionTest extends TestCase
         $listener = new CacheRunProgressedVersion;
         $listener->handle(new RunProgressed($run));
 
-        $this->assertNotNull(Cache::get("run:{$run->id}:version"));
+        $this->assertNotNull(Cache::get(CacheRunProgressedVersion::versionKey($run->id)));
     }
 
     public function test_version_advances_on_subsequent_progress_events(): void
@@ -44,13 +44,13 @@ class CacheRunProgressedVersionTest extends TestCase
 
         $listener = new CacheRunProgressedVersion;
         $listener->handle(new RunProgressed($run));
-        $firstVersion = Cache::get("run:{$run->id}:version");
+        $firstVersion = Cache::get(CacheRunProgressedVersion::versionKey($run->id));
 
         usleep(10); // ensure microtime advances
 
         $run->update(['progress' => ['Fetching repository', 'Running AI analysis']]);
         $listener->handle(new RunProgressed($run->fresh()));
-        $secondVersion = Cache::get("run:{$run->id}:version");
+        $secondVersion = Cache::get(CacheRunProgressedVersion::versionKey($run->id));
 
         $this->assertGreaterThan($firstVersion, $secondVersion);
     }
@@ -74,10 +74,10 @@ class CacheRunProgressedVersionTest extends TestCase
         // expire before $now->addMinutes(2). Travel 119 seconds forward
         // and assert the key is still there.
         $this->travelTo($now->addSeconds(119));
-        $this->assertNotNull(Cache::get("run:{$run->id}:version"));
+        $this->assertNotNull(Cache::get(CacheRunProgressedVersion::versionKey($run->id)));
 
         // After 121 seconds it should be gone.
         $this->travelTo($now->addSeconds(121));
-        $this->assertNull(Cache::get("run:{$run->id}:version"));
+        $this->assertNull(Cache::get(CacheRunProgressedVersion::versionKey($run->id)));
     }
 }
