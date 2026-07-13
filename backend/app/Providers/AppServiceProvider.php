@@ -44,6 +44,7 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
+        RateLimiter::for('magic-link', fn (Request $request) => Limit::perMinute(3)->by($request->ip().'|'.$request->input('email', '')));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
         // Production uses Neon PostgreSQL; file-backed sqlite is local/CI only.
