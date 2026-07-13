@@ -200,7 +200,8 @@ export function App() {
             pathReady &&
             pathRunId === null &&
             view.type !== "home" &&
-            view.type !== "demo-running"
+            view.type !== "demo-running" &&
+            view.type !== "report"
         ) {
             dispatch({ type: "set-view", view: { type: "home" } });
         }
