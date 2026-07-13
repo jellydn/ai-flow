@@ -10,6 +10,7 @@ use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
 {
@@ -35,11 +36,18 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             return;
         }
 
-        $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
+        try {
+            $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
+        } catch (Throwable $e) {
+            $this->failRun($run, 'Run failed unexpectedly.', $e);
+
+            return;
+        }
+
         $executor->execute($run, $ai);
     }
 
-    private function failRun(Run $run, string $message): void
+    private function failRun(Run $run, string $message, ?Throwable $e = null): void
     {
         $run->update([
             'status' => 'failed',
@@ -47,7 +55,10 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             'source_context' => null,
             'completed_at' => now(),
         ]);
-        Log::error('Launcher run failed during provider setup', ['run_id' => $run->id]);
+        Log::error('Launcher run failed during provider setup', [
+            'run_id' => $run->id,
+            'exception' => $e ? get_class($e) : null,
+        ]);
         RunProgressed::dispatch($run->fresh());
     }
 }
