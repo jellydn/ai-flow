@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\ProviderCredential;
 use App\Models\User;
+use App\Providers\AppServiceProvider;
 use App\Security\CredentialCipher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProviderCredentialApiTest extends TestCase
@@ -21,6 +23,21 @@ class ProviderCredentialApiTest extends TestCase
         parent::setUp();
         $this->user = User::factory()->create();
         $this->cipher = new CredentialCipher;
+    }
+
+    /**
+     * Create a ProviderCredential for the test user without mass-assignment.
+     */
+    private function createCredential(string $provider = 'openai', string $label = 'Test Key', string $apiKey = 'sk-test'): ProviderCredential
+    {
+        $credential = new ProviderCredential;
+        $credential->user_id = $this->user->id;
+        $credential->provider = $provider;
+        $credential->label = $label;
+        $credential->encrypted_api_key = $this->cipher->encrypt($apiKey);
+        $credential->save();
+
+        return $credential;
     }
 
     public function test_can_create_credential(): void
@@ -61,12 +78,7 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_can_list_own_credentials(): void
     {
-        $credential = new ProviderCredential;
-        $credential->user_id = $this->user->id;
-        $credential->provider = 'openai';
-        $credential->label = 'Personal Key';
-        $credential->encrypted_api_key = $this->cipher->encrypt('sk-personal');
-        $credential->save();
+        $this->createCredential('openai', 'Personal Key', 'sk-personal');
 
         $this->actingAs($this->user)
             ->getJson('/api/user/provider-credentials')
@@ -77,12 +89,7 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_can_update_credential(): void
     {
-        $credential = new ProviderCredential;
-        $credential->user_id = $this->user->id;
-        $credential->provider = 'openai';
-        $credential->label = 'Old Label';
-        $credential->encrypted_api_key = $this->cipher->encrypt('sk-old-key');
-        $credential->save();
+        $credential = $this->createCredential('openai', 'Old Label', 'sk-old-key');
 
         $this->actingAs($this->user)
             ->patchJson('/api/user/provider-credentials/'.$credential->id, [
@@ -94,12 +101,7 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_can_replace_api_key(): void
     {
-        $credential = new ProviderCredential;
-        $credential->user_id = $this->user->id;
-        $credential->provider = 'openai';
-        $credential->label = 'Test Key';
-        $credential->encrypted_api_key = $this->cipher->encrypt('sk-old-key');
-        $credential->save();
+        $credential = $this->createCredential('openai', 'Test Key', 'sk-old-key');
 
         $response = $this->actingAs($this->user)
             ->patchJson('/api/user/provider-credentials/'.$credential->id, [
@@ -113,12 +115,7 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_can_delete_credential(): void
     {
-        $credential = new ProviderCredential;
-        $credential->user_id = $this->user->id;
-        $credential->provider = 'openai';
-        $credential->label = 'Delete Me';
-        $credential->encrypted_api_key = $this->cipher->encrypt('sk-delete');
-        $credential->save();
+        $credential = $this->createCredential('openai', 'Delete Me', 'sk-delete');
 
         $this->actingAs($this->user)
             ->deleteJson('/api/user/provider-credentials/'.$credential->id)
@@ -129,19 +126,11 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_only_one_default_credential_per_user(): void
     {
-        $first = new ProviderCredential;
-        $first->user_id = $this->user->id;
-        $first->provider = 'openai';
-        $first->label = 'First Key';
-        $first->encrypted_api_key = $this->cipher->encrypt('sk-first');
+        $first = $this->createCredential('openai', 'First Key', 'sk-first');
         $first->is_default = true;
         $first->save();
 
-        $second = new ProviderCredential;
-        $second->user_id = $this->user->id;
-        $second->provider = 'openai';
-        $second->label = 'Second Key';
-        $second->encrypted_api_key = $this->cipher->encrypt('sk-second');
+        $second = $this->createCredential('openai', 'Second Key', 'sk-second');
         $second->is_default = true;
         $second->save();
 
@@ -151,12 +140,7 @@ class ProviderCredentialApiTest extends TestCase
 
     public function test_credential_cascade_deletes_with_user(): void
     {
-        $credential = new ProviderCredential;
-        $credential->user_id = $this->user->id;
-        $credential->provider = 'openai';
-        $credential->label = 'Test Key';
-        $credential->encrypted_api_key = $this->cipher->encrypt('sk-test');
-        $credential->save();
+        $this->createCredential();
 
         $this->user->delete();
 
@@ -179,5 +163,28 @@ class ProviderCredentialApiTest extends TestCase
             ->postJson('/api/user/provider-credentials', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['provider', 'label', 'api_key']);
+    }
+
+    public function test_credential_verify_is_rate_limited(): void
+    {
+        Http::fake();
+
+        $credential = $this->createCredential();
+
+        // The limiter allows CREDENTIAL_VERIFY_PER_MINUTE requests per minute per user.
+        $limit = AppServiceProvider::CREDENTIAL_VERIFY_PER_MINUTE;
+        for ($i = 0; $i < $limit; $i++) {
+            $this->actingAs($this->user)
+                ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
+                ->assertStatus(200);
+        }
+
+        // The provider should have been contacted exactly $limit times.
+        Http::assertSentCount($limit);
+
+        // The next request should be rate limited (not sent to the provider).
+        $this->actingAs($this->user)
+            ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
+            ->assertStatus(429);
     }
 }

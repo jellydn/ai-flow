@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -15,7 +16,7 @@ class StoreProviderCredentialRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'provider' => ['required', 'string', Rule::in(config('services.openai.providers'))],
+            'provider' => ['required', 'string', Rule::in(app(AiProviderRegistry::class)->ids())],
             'label' => ['required', 'string', 'max:255'],
             'api_key' => ['required', 'string', 'max:2048'],
             'base_url' => ['nullable', 'url', 'max:2048'],

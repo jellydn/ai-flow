@@ -59,17 +59,26 @@ test.describe("Demo mode: sign-in → launch → report", () => {
 
         // 7. Wait for all demo steps to complete (5 steps × ~780ms + 650ms delay ≈ 7s total).
         // The running view disappears and the report view appears.
-        // The report renders demo findings.
-        await expect(page.getByText("Missing authorization check")).toBeVisible({
+        // The report renders demo findings (use test IDs for resilience
+        // against demo data content changes).
+        const findings = page.getByTestId("finding");
+        await expect(findings.first()).toBeVisible({
             timeout: 15_000,
         });
 
         // 8. Verify the report shows structured findings with severity levels.
-        await expect(page.getByText("high")).toBeVisible();
-        await expect(page.getByText("Race condition")).toBeVisible();
+        //    Assert non-empty text content (not just visibility) so empty
+        //    elements don't pass. No coupling to specific demo finding text.
+        const severity = page.getByTestId("finding-severity").first();
+        await expect(severity).toBeVisible();
+        await expect(severity).not.toBeEmpty();
 
-        // 9. Verify the share URL is present on the report page.
-        await expect(page.getByText(/Share/)).toBeVisible();
+        const title = page.getByTestId("finding-title").first();
+        await expect(title).toBeVisible();
+        await expect(title).not.toBeEmpty();
+
+        // 9. Verify the share/copy button is present on the report page.
+        await expect(page.getByRole("button", { name: /Copy link/ })).toBeVisible();
     });
 
     test("shows validation error for invalid GitHub URL", async ({ page }) => {

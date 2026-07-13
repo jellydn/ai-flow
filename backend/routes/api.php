@@ -31,7 +31,7 @@ Route::middleware('auth')->prefix('user')->group(function () {
     Route::post('/provider-credentials', [ProviderCredentialController::class, 'store']);
     Route::patch('/provider-credentials/{credential}', [ProviderCredentialController::class, 'update']);
     Route::delete('/provider-credentials/{credential}', [ProviderCredentialController::class, 'destroy']);
-    Route::post('/provider-credentials/{credential}/verify', [ProviderCredentialController::class, 'verify']);
+    Route::post('/provider-credentials/{credential}/verify', [ProviderCredentialController::class, 'verify'])->middleware('throttle:credentials');
     Route::post('/provider-credentials/{credential}/make-default', [ProviderCredentialController::class, 'makeDefault']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });

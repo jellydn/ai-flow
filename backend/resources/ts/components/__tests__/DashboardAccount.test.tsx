@@ -262,17 +262,11 @@ describe("Dashboard — Logout", () => {
 
     it("calls onLogout even if logout() throws", async () => {
         vi.mocked(logout).mockRejectedValue(new Error("Network error"));
-        // Suppress console.error for the expected unhandled rejection.
-        const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-        try {
-            render(<Dashboard {...baseProps} />);
+        render(<Dashboard {...baseProps} />);
 
-            await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
+        await userEvent.setup().click(screen.getByRole("button", { name: "Sign out" }));
 
-            // The finally block in handleLogout always calls onLogout.
-            expect(baseProps.onLogout).toHaveBeenCalled();
-        } finally {
-            spy.mockRestore();
-        }
+        // The catch+finally in handleLogout ensures onLogout is always called.
+        expect(baseProps.onLogout).toHaveBeenCalled();
     });
 });

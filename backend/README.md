@@ -85,7 +85,7 @@ The server key remains the default. A caller can optionally supply an OpenAI-com
 }
 ```
 
-The launch form's optional AI provider selector and API key field send the same `provider` object. Supported `provider.id` values are `openai` (default) and `openrouter`. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
+The launch form's optional AI provider selector and API key field send the same `provider` object. Supported `provider.id` values are `openai` (default), `openrouter`, `anthropic`, and `gemini`; the authoritative list is `AiProviderRegistry::ids()`. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
@@ -123,6 +123,8 @@ curl -X DELETE http://localhost:8000/api/user/runs/RUN_UUID
 
 **Run history filters:** `status` (`queued`/`running`/`completed`/`failed`), `launcher` (slug), `provider` (id), `date_from`/`date_to` (Y-m-d), `search` (source URL substring), and `per_page` (1–100, default 20). A cross-field validation ensures `date_to >= date_from`.
 
+**Provider credentials:** users can save, update, verify, and delete encrypted API keys for any supported provider. The `POST /api/user/provider-credentials/{id}/verify` endpoint is rate-limited to 10 requests per minute per user.
+
 ## Laravel Cloud
 
 Deploy `backend` as the application root. See **[CLOUD_DEPLOY.md](CLOUD_DEPLOY.md)** for monorepo root, build/deploy commands, and troubleshooting (`Vite manifest not found`, SQLite in production).
@@ -151,4 +153,4 @@ Frontend: `npm run test` runs Vitest + React Testing Library component tests. E2
 
 ## Architecture
 
-Backend decisions are recorded in the repo root: [`doc/adr/`](../doc/adr/README.md) (ADRs 0007–0014).
+Backend decisions are recorded in the repo root: [`doc/adr/`](../doc/adr/README.md) (ADRs 0007–0018).

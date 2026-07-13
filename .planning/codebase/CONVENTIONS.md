@@ -91,7 +91,7 @@
 ## Configuration Conventions
 
 - **Environment variables:** `KEY=value` in `.env`; documented in `.env.example`
-- **AI provider config:** All under `config/services.php` → `openai` key (includes `openrouter_*`, `referer`, `timeout`, `providers` array)
+- **AI provider config:** All under `config/services.php` → `openai` key (includes `openrouter_*`, `referer`, `timeout`). Provider IDs are sourced from `AiProviderRegistry::ids()`, not a config array.
 - **Per-provider config:** `anthropic.key`/`anthropic.model`, `gemini.key`/`gemini.model` — separate top-level keys
 - **Frontend env:** `VITE_*` prefix for Vite-injected env vars (`VITE_DEMO_MODE`, `VITE_SENTRY_DSN`)
 - **Deploy:** `backend/` is always the app root; monorepo root is never deployed directly
