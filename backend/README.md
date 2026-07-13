@@ -100,6 +100,27 @@ curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/executions/RUN_
 
 `POST /api/executions` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
 
+### Authenticated user endpoints
+
+When signed in via magic link, users can manage their own runs:
+
+```bash
+# List runs (with optional filters)
+curl http://localhost:8000/api/user/runs
+curl "http://localhost:8000/api/user/runs?status=completed&launcher=review-pr&date_from=2026-01-01"
+
+# Show a single run
+curl http://localhost:8000/api/user/runs/RUN_UUID
+
+# Retry a completed or failed run
+curl -X POST http://localhost:8000/api/user/runs/RUN_UUID/retry
+
+# Delete a run
+curl -X DELETE http://localhost:8000/api/user/runs/RUN_UUID
+```
+
+**Run history filters:** `status` (`queued`/`running`/`completed`/`failed`), `launcher` (slug), `provider` (id), `date_from`/`date_to` (Y-m-d), `search` (source URL substring), and `per_page` (1–100, default 20). A cross-field validation ensures `date_to >= date_from`.
+
 ## Laravel Cloud
 
 Deploy `backend` as the application root. See **[CLOUD_DEPLOY.md](CLOUD_DEPLOY.md)** for monorepo root, build/deploy commands, and troubleshooting (`Vite manifest not found`, SQLite in production).

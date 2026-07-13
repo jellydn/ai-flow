@@ -91,7 +91,11 @@ php artisan test --filter=test_store      # Run specific test method
 
 ## Frontend Testing
 
-- **No frontend tests currently.** `npm run test` in `backend/package.json` is a no-op placeholder (`echo "no frontend tests yet"`).
+- **Vitest + React Testing Library** — `npm run test` runs `vitest run` (was previously a no-op).
+- **Test config:** `backend/vitest.config.ts` uses jsdom environment, React plugin, and `globals: true` for RTL auto-cleanup.
+- **Test setup:** `backend/resources/ts/test/setup.ts` loads `@testing-library/jest-dom/vitest` matchers.
+- **Existing tests:** RunHistory component tests (`backend/resources/ts/components/__tests__/RunHistory.test.tsx`) covering loading state, empty state, error state, retry/delete actions, button disabling, and navigation.
+- **Watch mode:** `npm run test:watch` for interactive development.
 - TypeScript `tsc --noEmit` acts as compile-time verification.
 - `npm run doctor` runs `react-doctor` for codebase analysis.
 - `npm run konsistent` enforces structural conventions.
