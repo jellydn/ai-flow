@@ -17,10 +17,8 @@ class RunHistoryController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
-        $validStatuses = ['queued', 'running', 'completed', 'failed'];
-
         $request->validate([
-            'status' => ['nullable', 'string', 'in:'.implode(',', $validStatuses)],
+            'status' => ['nullable', 'string', 'in:'.implode(',', Run::STATUSES)],
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => [
                 'nullable',
