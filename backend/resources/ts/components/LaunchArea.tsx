@@ -1,9 +1,12 @@
 import { ArrowRight, Clock3, ShieldCheck, Zap } from "lucide-react";
 import type { RunProviderId } from "../services/run.ts";
+import type { ProviderCredential } from "../services/auth.ts";
 
 const runProviders: { id: RunProviderId; name: string }[] = [
     { id: "openai", name: "OpenAI" },
     { id: "openrouter", name: "OpenRouter" },
+    { id: "anthropic", name: "Anthropic" },
+    { id: "gemini", name: "Google Gemini" },
 ];
 
 interface LaunchAreaProps {
@@ -13,6 +16,11 @@ interface LaunchAreaProps {
     setApiKey: (key: string) => void;
     launch: () => void;
     isLaunching: boolean;
+    /** Saved credentials for authenticated users (empty for anonymous). */
+    credentials?: ProviderCredential[];
+    /** Selected saved credential ID (null = use one-time key / server key). */
+    selectedCredentialId?: string | null;
+    setSelectedCredentialId?: (id: string | null) => void;
 }
 
 export function LaunchArea({
@@ -22,7 +30,13 @@ export function LaunchArea({
     setApiKey,
     launch,
     isLaunching,
+    credentials = [],
+    selectedCredentialId = null,
+    setSelectedCredentialId,
 }: LaunchAreaProps) {
+    const hasSavedCredentials = credentials.length > 0;
+    const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
+
     return (
         <>
             <div className="provider-section">
@@ -30,36 +44,76 @@ export function LaunchArea({
                     <strong>AI Provider</strong>
                     <span>Optional</span>
                 </div>
-                <div className="provider-fields">
-                    <label>
-                        <span>Provider</span>
-                        <select
-                            value={provider}
-                            onChange={(event) => setProvider(event.target.value as RunProviderId)}
-                            aria-label="AI provider"
-                        >
-                            {runProviders.map((item) => (
-                                <option key={item.id} value={item.id}>
-                                    {item.name}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
-                    <label>
-                        <span>API Key</span>
-                        <input
-                            type="password"
-                            value={apiKey}
-                            onChange={(event) => setApiKey(event.target.value)}
-                            placeholder="Leave blank to use server key"
-                            autoComplete="off"
-                            spellCheck="false"
-                        />
-                    </label>
-                </div>
+                {hasSavedCredentials && (
+                    <div className="provider-fields">
+                        <label>
+                            <span>Saved key</span>
+                            <select
+                                value={selectedCredentialId ?? ""}
+                                onChange={(event) => {
+                                    const val = event.target.value || null;
+                                    setSelectedCredentialId?.(val);
+                                    // Auto-select provider to match the credential.
+                                    if (val) {
+                                        const cred = credentials.find((c) => c.id === val);
+                                        if (
+                                            cred &&
+                                            (cred.provider === "openai" ||
+                                                cred.provider === "openrouter" ||
+                                                cred.provider === "anthropic" ||
+                                                cred.provider === "gemini")
+                                        ) {
+                                            setProvider(cred.provider);
+                                        }
+                                    }
+                                }}
+                                aria-label="Saved API credential"
+                            >
+                                <option value="">Use one-time key / server key</option>
+                                {credentials.map((cred) => (
+                                    <option key={cred.id} value={cred.id}>
+                                        {cred.label} ({cred.provider})
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+                )}
+                {!usingSavedCredential && (
+                    <div className="provider-fields">
+                        <label>
+                            <span>Provider</span>
+                            <select
+                                value={provider}
+                                onChange={(event) =>
+                                    setProvider(event.target.value as RunProviderId)
+                                }
+                                aria-label="AI provider"
+                            >
+                                {runProviders.map((item) => (
+                                    <option key={item.id} value={item.id}>
+                                        {item.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                        <label>
+                            <span>API Key</span>
+                            <input
+                                type="password"
+                                value={apiKey}
+                                onChange={(event) => setApiKey(event.target.value)}
+                                placeholder="Leave blank to use server key"
+                                autoComplete="off"
+                                spellCheck="false"
+                            />
+                        </label>
+                    </div>
+                )}
                 <p>
-                    Use your own API key to execute this workflow. It is used only for this
-                    execution.
+                    {usingSavedCredential
+                        ? "Using your saved encrypted API key. It is decrypted only for this execution."
+                        : "Use your own API key to execute this workflow. It is used only for this execution."}
                 </p>
             </div>
 

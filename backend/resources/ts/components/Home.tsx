@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import type { Launcher } from "../types/api.ts";
 import type { RunProviderId } from "../services/run.ts";
+import type { ProviderCredential } from "../services/auth.ts";
 import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
@@ -56,6 +57,9 @@ export interface HomeProps {
     selectedProvider: RunProviderId;
     setSelectedProvider: (provider: RunProviderId) => void;
     launchers: Launcher[];
+    credentials?: ProviderCredential[];
+    selectedCredentialId?: string | null;
+    setSelectedCredentialId?: (id: string | null) => void;
 }
 
 export function Home({
@@ -72,6 +76,9 @@ export function Home({
     selectedProvider,
     setSelectedProvider,
     launchers,
+    credentials,
+    selectedCredentialId,
+    setSelectedCredentialId,
 }: HomeProps) {
     return (
         <main>
@@ -120,6 +127,9 @@ export function Home({
                         setApiKey={setApiKey}
                         launch={launch}
                         isLaunching={isLaunching}
+                        credentials={credentials}
+                        selectedCredentialId={selectedCredentialId}
+                        setSelectedCredentialId={setSelectedCredentialId}
                     />
                 </div>
 
