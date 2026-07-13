@@ -33,13 +33,18 @@ class OpenAIProvider implements AIProviderInterface
             $payload['provider'] = ['require_parameters' => true];
         }
 
+        $timeout = (int) config('services.openai.timeout');
+        if ($timeout <= 0) {
+            throw new RuntimeException('The AI provider timeout is not configured.');
+        }
+
         $response = Http::withToken($key)
             ->acceptJson()
             ->withHeaders(array_filter([
                 'HTTP-Referer' => config('services.openai.referer'),
                 'X-OpenRouter-Title' => config('app.name'),
             ]))
-            ->timeout((int) config('services.openai.timeout'))
+            ->timeout($timeout)
             ->retry(2, 500, throw: false)
             ->post($baseUrl.'/chat/completions', $payload);
 
