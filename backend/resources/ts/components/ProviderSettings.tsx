@@ -7,6 +7,7 @@ import {
     verifyCredential,
     type ProviderCredential,
 } from "../services/auth.ts";
+import { logger } from "../lib/logger.ts";
 import { CredentialForm } from "./CredentialForm.tsx";
 import { CredentialList } from "./CredentialList.tsx";
 import { PrivacyNote } from "./PrivacyNote.tsx";
@@ -66,7 +67,8 @@ export function ProviderSettings() {
         try {
             const result = await verifyCredential(id);
             setVerifyResults((prev) => ({ ...prev, [id]: result.message }));
-        } catch {
+        } catch (err) {
+            logger.warn("Credential verification failed", err);
             setVerifyResults((prev) => ({ ...prev, [id]: "Verification failed." }));
         }
     };
@@ -76,7 +78,8 @@ export function ProviderSettings() {
         try {
             await deleteCredential(id);
             setCredentials((prev) => prev.filter((c) => c.id !== id));
-        } catch {
+        } catch (err) {
+            logger.warn("Credential deletion failed", err);
             setError("Could not delete credential.");
         }
     };

@@ -4,17 +4,23 @@
 
 ## Tech Debt
 
-**Redundant `config('services.openai.providers')` array (fixed):**
-- Issue: The `providers` array in `config/services.php` duplicated `AiProviderRegistry::PROVIDERS`, creating two sources of truth for provider IDs.
-- Files: `backend/config/services.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`
-- Status: ✅ Fixed — `StoreProviderCredentialRequest` now injects `AiProviderRegistry` and uses `$registry->ids()` for validation; the `providers` array was removed from `config/services.php`.
-- Impact: None — `AiProviderRegistry` is now the single source of truth.
-
 **No claim flow for anonymous runs:**
 - Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. `RunController::store` sets `user_id` to `$request->user()?->id`, which is `null` for anonymous users. Runs created before auth are permanently anonymous.
 - Files: `backend/app/Http/Controllers/RunController.php`, `backend/app/Models/Run.php`
 - Impact: Users who launch a workflow then sign in lose access to their run history.
 - Fix approach: Add a `claim_runs` endpoint that associates anonymous runs (by IP or cookie) with the newly authenticated user.
+
+**Missing `completed_at` index for recent runs endpoint:**
+- Issue: `RunController::recent()` queries `where('status', 'completed')->whereNull('user_id')->whereNotNull('result')->orderByDesc('completed_at')->limit(6)`. The `runs` table has indexes on `status` and `created_at`, but **no index on `completed_at`**. As the runs table grows, this query will require a full table scan or filesort.
+- Files: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/`
+- Impact: Slow query on the public home page as run volume increases.
+- Fix approach: Add a migration creating a composite index on `(status, user_id, completed_at)` to cover both the `recent()` and `RunHistoryController::index()` query patterns.
+
+**Home.tsx growing large (403 lines):**
+- Issue: `Home.tsx` is 403 lines with the trending card, real-runs fetch, fallback logic, and all section JSX inline. The `recent-section` alone is ~70 lines with a ternary branching between real and static runs.
+- Files: `backend/resources/ts/components/Home.tsx`
+- Impact: Unrelated UI changes conflict easily; hard to unit-test the recent-runs section in isolation.
+- Fix approach: Extract `RecentRunsSection` and `TrendingCard` as sub-components, receiving `realRuns`, `navigate`, `setUrl`, `setSelected` as props.
 
 ## Security
 
@@ -24,19 +30,13 @@
 - Impact: If stored `base_url` is used for provider construction, the server could be used for SSRF attacks.
 - Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) in `StoreProviderCredentialRequest` before allowing user-supplied base URLs to reach provider constructors. ADR-0016 mentions `encrypted_base_url` storage but does not address SSRF — this should be documented when wiring stored `base_url` into provider construction.
 
-**No rate limiting on credential verification (fixed):**
-- Issue: `POST /api/user/provider-credentials/{id}/verify` had no rate limit, allowing excessive outbound API calls.
-- Files: `backend/routes/api.php`, `backend/app/Providers/AppServiceProvider.php`
-- Status: ✅ Fixed — Added `throttle:credentials` rate limiter (10/min/user) in `AppServiceProvider` and applied to the verify route.
-- Impact: None — credential verification is now rate-limited.
+## Performance
 
 **SSE polling resource usage:**
 - Issue: `RunStreamer` polls the database every second for up to 55 seconds per SSE connection. With 30 concurrent streams (rate limit), that's 30 DB queries/second.
 - Files: `backend/app/Services/RunStreamer.php`
 - Impact: Database load scales linearly with concurrent SSE connections.
 - Fix approach: Consider Redis pub/sub or WebSocket for production scale; the current DB-polling approach is fine for MVP but may need optimization.
-
-## Performance
 
 **GitHub context caching is in-memory for tests, database for production:**
 - Issue: `GitHubService::context()` caches for 10 minutes using the default cache store. In production with `CACHE_STORE=database`, this works but adds DB queries. In production with high traffic, the cache miss path fetches from GitHub REST API synchronously in the queue worker.
@@ -52,16 +52,12 @@
 
 ## Bugs
 
-**Demo report view reset (fixed):**
-- Issue: A `useEffect` in `App.tsx` reset the view to `home` when `pathRunId === null` and view type wasn't `home` or `demo-running`. When demo steps completed → `report` view, the effect immediately killed the report. Fixed in commit `680e36a` by excluding `"report"` from the reset condition.
-- Files: `backend/resources/ts/components/App.tsx`
-- Status: ✅ Fixed
-- Impact: E2E test `demo-full-flow.spec.ts:63` was timing out because "Missing authorization check" text never rendered.
+No known bugs at current HEAD.
 
 ## Fragile Areas
 
 **Squash-merge + stacked PR rebasing:**
-- Issue: When using `gh stack` with squash merges, each lower PR squash-merge changes the commit hash, causing all upstack branches to conflict on files that were in the squash-merged PR. Resolving requires `git checkout --ours` on every conflicting file during rebase.
+- Issue: When using `gh stack` with squash merges, each lower PR squash-merge changes the commit hash, causing all upstack branches to conflict on files that were in the squash-merged PR.
 - Files: N/A (process issue)
 - Impact: Time-consuming rebase conflicts when merging stacked PRs via squash.
 - Fix approach: Use regular merge commits for stacked PRs, or merge all PRs in the stack at once via `gh stack merge`.
@@ -72,19 +68,7 @@
 - Impact: Tests are slightly fragile against model changes.
 - Fix approach: Acceptable for test code; document the pattern.
 
-**E2E test depends on specific demo finding text:**
-- Issue: `demo-full-flow.spec.ts` asserts `page.getByText("Missing authorization check")` — if the demo findings in `launcherMeta.ts` change, the E2E test breaks.
-- Files: `backend/tests/E2E/flows/demo-full-flow.spec.ts`, `backend/resources/ts/data/launcherMeta.ts`
-- Impact: E2E test is tightly coupled to demo data content.
-- Fix approach: Use a more resilient selector (e.g. `.finding h3` or test ID) instead of specific text content.
-
 ## Documentation
-
-**`AGENTS.md` references outdated remote names (fixed):**
-- Issue: `AGENTS.md` previously stated "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". The stale Amp sync note has been removed and the Gotchas section now correctly states `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
-- Files: `AGENTS.md`
-- Status: ✅ Fixed (already resolved in current `main`)
-- Impact: None — documentation is now accurate.
 
 **ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
 - Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
@@ -105,3 +89,13 @@
 - Files: N/A
 - Impact: Users miss results for long-running workflows.
 - Fix approach: Add optional email notification on completion (reuse Resend); or add a webhook URL field to the run creation request.
+
+## Previously Fixed (for reference)
+
+- ✅ **Redundant `config('services.openai.providers')` array** — `AiProviderRegistry` is now the single source of truth; config array removed.
+- ✅ **No rate limiting on credential verification** — Added `throttle:credentials` (10/min/user).
+- ✅ **Demo report view reset** — `useEffect` in `App.tsx` now excludes `"report"` from the reset condition.
+- ✅ **AGENTS.md references outdated remote names** — Stale Amp sync note removed; `origin` = `github.com/jellydn/ai-flow` documented.
+- ✅ **E2E test depends on specific demo finding text** — Replaced `toContainText("Missing authorization check")` with structural `toBeVisible()` + `not.toBeEmpty()` on `finding-severity` and `finding-title` test IDs.
+- ✅ **Silent catches in `useRunSubscription.ts` and `App.tsx`** — Replaced with `logger.warn()` calls via consola logger integration.
+- ✅ **Silent catches in `SignIn.tsx`, `ProviderSettings.tsx`, `RunHistory.tsx`** — All 3 remaining `catch {}` blocks replaced with `logger.warn()` calls, completing the frontend logging coverage.

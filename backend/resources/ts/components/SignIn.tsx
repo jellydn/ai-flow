@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { requestMagicLink } from "../services/auth.ts";
+import { logger } from "../lib/logger.ts";
 
 interface SignInProps {
     onRequested: (email: string) => void;
@@ -22,7 +23,8 @@ export function SignIn({ onRequested }: SignInProps) {
         try {
             await requestMagicLink(trimmed);
             onRequested(trimmed);
-        } catch {
+        } catch (err) {
+            logger.warn("Magic link request failed", err);
             setError("Something went wrong. Try again.");
         } finally {
             setLoading(false);

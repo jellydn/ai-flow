@@ -3,6 +3,7 @@ import { deleteRun, fetchUserRuns, retryRun } from "../services/auth.ts";
 import type { Run } from "../types/api.ts";
 import { decodeRun } from "../services/run.ts";
 import { goto } from "../lib/navigate.ts";
+import { logger } from "../lib/logger.ts";
 
 interface RunHistoryProps {
     navigate: (pathname: string) => void;
@@ -44,7 +45,8 @@ export function RunHistory({ navigate }: RunHistoryProps) {
             setActioningId(id);
             try {
                 await fn();
-            } catch {
+            } catch (err) {
+                logger.warn("Run action failed", err);
                 setError(errorMsg);
             } finally {
                 setActioningId(null);
