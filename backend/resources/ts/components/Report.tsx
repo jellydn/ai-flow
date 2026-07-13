@@ -116,17 +116,21 @@ export function Report({
                             {findings.map((finding, index) => (
                                 <div
                                     className="finding"
+                                    data-testid="finding"
                                     key={`${finding.title}::${finding.description}`}
                                 >
                                     <div className="finding-header">
-                                        <span className={`severity ${finding.severity}`}>
+                                        <span
+                                            className={`severity ${finding.severity}`}
+                                            data-testid="finding-severity"
+                                        >
                                             {finding.severity}
                                         </span>
                                         <span className="finding-number">
                                             {String(index + 1).padStart(2, "0")}
                                         </span>
                                     </div>
-                                    <h3>{finding.title}</h3>
+                                    <h3 data-testid="finding-title">{finding.title}</h3>
                                     <p>{finding.description}</p>
                                     <div className="suggestion">
                                         <strong>

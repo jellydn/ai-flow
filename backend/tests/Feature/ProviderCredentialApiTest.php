@@ -6,6 +6,7 @@ use App\Models\ProviderCredential;
 use App\Models\User;
 use App\Security\CredentialCipher;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProviderCredentialApiTest extends TestCase
@@ -179,5 +180,29 @@ class ProviderCredentialApiTest extends TestCase
             ->postJson('/api/user/provider-credentials', [])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['provider', 'label', 'api_key']);
+    }
+
+    public function test_credential_verify_is_rate_limited(): void
+    {
+        Http::fake();
+
+        $credential = new ProviderCredential;
+        $credential->user_id = $this->user->id;
+        $credential->provider = 'openai';
+        $credential->label = 'Test Key';
+        $credential->encrypted_api_key = $this->cipher->encrypt('sk-test');
+        $credential->save();
+
+        // The limiter allows 10 requests per minute per user.
+        for ($i = 0; $i < 10; $i++) {
+            $this->actingAs($this->user)
+                ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
+                ->assertStatus(200);
+        }
+
+        // The 11th request should be rate limited.
+        $this->actingAs($this->user)
+            ->postJson("/api/user/provider-credentials/{$credential->id}/verify")
+            ->assertStatus(429);
     }
 }

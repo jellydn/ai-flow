@@ -14,8 +14,7 @@ use InvalidArgumentException;
  *
  * Maps provider IDs to concrete adapter classes and creates instances
  * with an optional API key. This replaces the ad-hoc app()->make()
- * + config('services.openai.providers') approach with a single source
- * of truth for provider lookup.
+ * with a single source of truth for provider lookup.
  */
 class AiProviderRegistry
 {

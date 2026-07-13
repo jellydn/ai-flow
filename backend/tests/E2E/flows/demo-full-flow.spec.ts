@@ -59,14 +59,17 @@ test.describe("Demo mode: sign-in → launch → report", () => {
 
         // 7. Wait for all demo steps to complete (5 steps × ~780ms + 650ms delay ≈ 7s total).
         // The running view disappears and the report view appears.
-        // The report renders demo findings.
-        await expect(page.getByText("Missing authorization check")).toBeVisible({
+        // The report renders demo findings (use test IDs for resilience
+        // against demo data content changes).
+        const findings = page.getByTestId("finding");
+        await expect(findings.first()).toBeVisible({
             timeout: 15_000,
         });
 
         // 8. Verify the report shows structured findings with severity levels.
-        await expect(page.getByText("high")).toBeVisible();
-        await expect(page.getByText("Race condition")).toBeVisible();
+        await expect(findings).toHaveCount(3);
+        await expect(page.getByTestId("finding-severity").first()).toContainText("high");
+        await expect(page.getByTestId("finding-title").first()).toContainText(/authorization/i);
 
         // 9. Verify the share URL is present on the report page.
         await expect(page.getByText(/Share/)).toBeVisible();

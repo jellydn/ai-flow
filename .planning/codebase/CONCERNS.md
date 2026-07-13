@@ -80,11 +80,11 @@
 
 ## Documentation
 
-**`AGENTS.md` references outdated remote names:**
-- Issue: `AGENTS.md` states "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". In practice, `origin` is `github.com/jellydn/ai-flow` and there is no `github` remote — the Amp sync note is stale.
+**`AGENTS.md` references outdated remote names (fixed):**
+- Issue: `AGENTS.md` previously stated "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". The stale Amp sync note has been removed and the Gotchas section now correctly states `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
 - Files: `AGENTS.md`
-- Impact: Minor confusion for developers reading the docs.
-- Fix approach: Update the remote references in `AGENTS.md` to reflect that `origin` is `jellydn/ai-flow` and `dokku` is the staging remote.
+- Status: ✅ Fixed (already resolved in current `main`)
+- Impact: None — documentation is now accurate.
 
 **ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
 - Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
