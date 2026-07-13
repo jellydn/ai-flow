@@ -4,40 +4,28 @@
 
 ## Tech Debt
 
-**Legacy `AiProviders.php` factory:**
-- Issue: `backend/app/Support/AiProviders.php` is a legacy factory that duplicates the functionality of `AiProviderRegistry`. The registry was introduced as a replacement, but the old factory is kept for backward compatibility.
-- Files: `backend/app/Support/AiProviders.php`, `backend/app/Support/AiProviderRegistry.php`
-- Impact: Two code paths for provider resolution; confusion about which to use.
-- Fix approach: Audit all usages of `AiProviders::createProvider()` and migrate to `AiProviderRegistry::get()`, then remove the legacy factory.
-
 **Redundant `config('services.openai.providers')` array:**
-- Issue: The `providers` array in `config/services.php` under the `openai` key lists `['openai', 'openrouter', 'anthropic', 'gemini']` but is redundant — the authoritative source is `AiProviderRegistry::PROVIDERS`.
-- Files: `backend/config/services.php`
-- Impact: Two sources of truth for provider IDs; risk of drift.
-- Fix approach: Remove the `providers` array from config; use `AiProviderRegistry::ids()` everywhere.
+- Issue: The `providers` array in `config/services.php` under the `openai` key lists `['openai', 'openrouter', 'anthropic', 'gemini']` but is redundant — the authoritative source is `AiProviderRegistry::PROVIDERS`. The config array is still actively used by `StoreProviderCredentialRequest` for validation (`Rule::in(config('services.openai.providers'))`), creating two sources of truth that can drift.
+- Files: `backend/config/services.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`
+- Impact: Two sources of truth for provider IDs; risk of drift if a new provider is added to the registry but not the config array.
+- Fix approach: Inject `AiProviderRegistry` into `StoreProviderCredentialRequest` and use `$registry->ids()` for validation, then remove the `providers` array from `config/services.php`.
 
 **No claim flow for anonymous runs:**
-- Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. Runs created before auth are permanently anonymous.
+- Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. `RunController::store` sets `user_id` to `$request->user()?->id`, which is `null` for anonymous users. Runs created before auth are permanently anonymous.
 - Files: `backend/app/Http/Controllers/RunController.php`, `backend/app/Models/Run.php`
 - Impact: Users who launch a workflow then sign in lose access to their run history.
 - Fix approach: Add a `claim_runs` endpoint that associates anonymous runs (by IP or cookie) with the newly authenticated user.
 
-**`libsql` connection in database config:**
-- Issue: `config/database.php` retains a `libsql` connection for a future Turso return, but `turso/libsql-laravel` doesn't support Laravel 13 yet.
-- Files: `backend/config/database.php`
-- Impact: Dead configuration that may confuse developers.
-- Fix approach: Remove the `libsql` connection until the package supports Laravel 13.
-
 ## Security
 
-**SSRF protection deferred:**
-- Issue: No user-supplied custom base URLs are supported for AI providers, but if this feature is added, there's no SSRF validation. The `OpenRouterProvider` constructor accepts `$baseUrl` and `$referer` without validating them.
-- Files: `backend/app/Services/OpenRouterProvider.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`
-- Impact: If user-supplied base URLs are introduced, the server could be used for SSRF attacks.
-- Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) before allowing user-supplied base URLs. Documented as deferred in ADR-0016.
+**Latent SSRF risk via stored `base_url`:**
+- Issue: `StoreProviderCredentialRequest` accepts a user-supplied `base_url` (`'nullable', 'url', 'max:2048'`) and `ProviderCredentialController::store` encrypts and stores it. The `url` rule validates format but does NOT block localhost, private IPs, or cloud metadata endpoints (e.g. `169.254.169.254`). Currently the stored `base_url` is NOT passed to provider constructors (`AiProviderRegistry::get()` only accepts `providerId` and `apiKey`), so the risk is latent — but it will become exploitable if the stored `base_url` is wired into provider instantiation.
+- Files: `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`, `backend/app/Support/AiProviderRegistry.php`
+- Impact: If stored `base_url` is used for provider construction, the server could be used for SSRF attacks.
+- Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) in `StoreProviderCredentialRequest` before allowing user-supplied base URLs to reach provider constructors. ADR-0016 mentions `encrypted_base_url` storage but does not address SSRF — this should be documented when wiring stored `base_url` into provider construction.
 
 **No rate limiting on credential verification:**
-- Issue: `POST /api/user/provider-credentials/{id}/verify` has no rate limit. An authenticated user could repeatedly verify credentials, causing excessive outbound API calls.
+- Issue: `POST /api/user/provider-credentials/{id}/verify` has no rate limit. An authenticated user could repeatedly verify credentials, causing excessive outbound API calls to AI providers.
 - Files: `backend/routes/api.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`
 - Impact: Potential abuse for outbound API probing.
 - Fix approach: Add a `throttle:credentials` rate limiter (e.g. 10/min/user).
@@ -56,14 +44,8 @@
 - Impact: First request for a URL is slow (GitHub API fetch); subsequent requests are cached.
 - Fix approach: Consider Redis cache for production; current approach is adequate for MVP.
 
-**No query optimization for run history:**
-- Issue: `RunHistoryController::index` fetches all runs for a user without pagination. If a user accumulates hundreds of runs, this could become slow.
-- Files: `backend/app/Http/Controllers/RunHistoryController.php`
-- Impact: Slow response for power users with many runs.
-- Fix approach: Add pagination (e.g. `->paginate(20)`) and return cursor-based links.
-
 **Frontend bundle size:**
-- Issue: The Vite build bundles all React components into a single chunk. No code splitting or lazy loading.
+- Issue: The Vite build bundles all React components into a single chunk. No code splitting or lazy loading. No `React.lazy()` usage found and no `manualChunks` in `vite.config.ts`.
 - Files: `backend/vite.config.ts`, `backend/resources/ts/app.tsx`
 - Impact: Initial page load includes all components (Dashboard, RunHistory, ProviderSettings) even if the user is anonymous.
 - Fix approach: Add `React.lazy()` for authenticated-only views (Dashboard, ProviderSettings, RunHistory).
@@ -99,13 +81,13 @@
 ## Documentation
 
 **`AGENTS.md` references outdated remote names:**
-- Issue: `AGENTS.md` mentions `origin` may point at Amp git and `github` remote is `jellydn/ai-flow`. In practice, `origin` is `github.com/jellydn/ai-flow` and `dokku` is the staging remote.
+- Issue: `AGENTS.md` states "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". In practice, `origin` is `github.com/jellydn/ai-flow` and there is no `github` remote — the Amp sync note is stale.
 - Files: `AGENTS.md`
 - Impact: Minor confusion for developers reading the docs.
-- Fix approach: Update the remote references in `AGENTS.md`.
+- Fix approach: Update the remote references in `AGENTS.md` to reflect that `origin` is `jellydn/ai-flow` and `dokku` is the staging remote.
 
-**ADR-0017 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
-- Issue: ADR-0017 documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
+**ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
+- Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
 - Files: `doc/adr/0016-stored-encrypted-byok-credentials.md`
 - Impact: Gap between documentation and implementation.
 - Fix approach: Either implement the dedicated key or update the ADR to note it's deferred.
