@@ -3,9 +3,12 @@
 namespace App\Providers;
 
 use App\Contracts\RunExecutorInterface;
+use App\Events\RunProgressed;
+use App\Listeners\CacheRunProgressedVersion;
 use App\Services\RunExecutor;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
@@ -33,6 +36,8 @@ class AppServiceProvider extends ServiceProvider
         ) {
             URL::forceScheme('https');
         }
+
+        Event::listen(RunProgressed::class, CacheRunProgressedVersion::class);
 
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
