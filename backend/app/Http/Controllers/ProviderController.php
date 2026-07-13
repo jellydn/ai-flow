@@ -18,7 +18,7 @@ class ProviderController extends Controller
                     'name' => $this->providers()[$id]['name'] ?? $id,
                     'models' => $this->providers()[$id]['models'] ?? [],
                 ]
-            )
+            )->values()
         );
     }
 

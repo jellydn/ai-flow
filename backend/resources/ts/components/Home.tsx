@@ -52,6 +52,8 @@ export interface HomeProps {
     isLaunching: boolean;
     apiKey: string;
     setApiKey: (key: string) => void;
+    selectedTool: string;
+    setSelectedTool: (tool: string) => void;
     launchers: Launcher[];
 }
 
@@ -66,6 +68,8 @@ export function Home({
     isLaunching,
     apiKey,
     setApiKey,
+    selectedTool,
+    setSelectedTool,
     launchers,
 }: HomeProps) {
     return (
@@ -109,6 +113,8 @@ export function Home({
                     />
 
                     <LaunchArea
+                        selectedTool={selectedTool}
+                        setSelectedTool={setSelectedTool}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
                         launch={launch}

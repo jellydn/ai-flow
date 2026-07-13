@@ -1,4 +1,5 @@
 import type { LucideIcon } from "lucide-react";
+import { launcherTemplateBySlug } from "./aiLauncherConfig.ts";
 import {
     BookOpen,
     GitPullRequest,
@@ -144,18 +145,7 @@ export function workflowTitleToSlug(title: string): string {
 }
 
 export function quickLabel(slug: string, title: string): string {
-    switch (slug) {
-        case "review-pr":
-            return "Review PR";
-        case "plan-issue":
-            return "Plan fix";
-        case "explain-repository":
-            return "Explain";
-        case "laravel-doctor":
-            return "Laravel doctor";
-        default:
-            return title;
-    }
+    return launcherTemplateBySlug[slug]?.shortLabel ?? title;
 }
 
 export const demoSteps: ProgressStep[] = [

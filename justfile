@@ -57,6 +57,14 @@ build:
 test-js:
     cd backend && npm run test
 
+# Playwright E2E (demo mode; builds + serves automatically).
+e2e-demo:
+    cd backend && npm run test:e2e:demo
+
+# Playwright E2E against real Laravel API (builds + serves with QUEUE_CONNECTION=sync).
+e2e-real:
+    cd backend && npm run test:e2e:real
+
 # Structural TS conventions (konsistent).
 konsistent:
     cd backend && npm run konsistent

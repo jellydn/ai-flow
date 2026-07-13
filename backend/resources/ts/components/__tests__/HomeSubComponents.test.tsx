@@ -1,3 +1,4 @@
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -296,25 +297,39 @@ describe("LauncherSelector", () => {
 // ---------------------------------------------------------------------------
 // LaunchArea
 // ---------------------------------------------------------------------------
+function renderLaunchArea(overrides: Partial<ComponentProps<typeof LaunchArea>> = {}) {
+    return render(
+        <LaunchArea
+            selectedTool="codex"
+            setSelectedTool={vi.fn()}
+            apiKey=""
+            setApiKey={vi.fn()}
+            launch={vi.fn()}
+            isLaunching={false}
+            {...overrides}
+        />,
+    );
+}
+
 describe("LaunchArea", () => {
     afterEach(() => {
         vi.clearAllMocks();
     });
 
     it("renders launch button with 'Launch workflow' text", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        renderLaunchArea();
         expect(screen.getByRole("button", { name: /Launch workflow/ })).toBeInTheDocument();
     });
 
     it("shows 'Starting…' and disables button when isLaunching", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={true} />);
+        renderLaunchArea({ isLaunching: true });
         const btn = screen.getByRole("button", { name: "Starting…" });
         expect(btn).toBeDisabled();
     });
 
     it("calls launch on button click", async () => {
         const launch = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={launch} isLaunching={false} />);
+        renderLaunchArea({ launch });
 
         await userEvent.setup().click(screen.getByRole("button", { name: /Launch workflow/ }));
         expect(launch).toHaveBeenCalled();
@@ -322,27 +337,33 @@ describe("LaunchArea", () => {
 
     it("disabled button does not fire launch on click", async () => {
         const launch = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={launch} isLaunching={true} />);
+        renderLaunchArea({ launch, isLaunching: true });
 
         await userEvent.setup().click(screen.getByRole("button", { name: "Starting…" }));
         expect(launch).not.toHaveBeenCalled();
     });
 
     it("renders API key input with placeholder", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        renderLaunchArea();
         expect(screen.getByPlaceholderText(/Leave blank/)).toBeInTheDocument();
+    });
+
+    it("renders AI tools from ai-launcher config", () => {
+        renderLaunchArea();
+        expect(screen.getByRole("combobox", { name: "AI tool" })).toHaveValue("codex");
+        expect(screen.getByText("OpenAI Codex CLI")).toBeInTheDocument();
     });
 
     it("calls setApiKey on input change", async () => {
         const setApiKey = vi.fn();
-        render(<LaunchArea apiKey="" setApiKey={setApiKey} launch={vi.fn()} isLaunching={false} />);
+        renderLaunchArea({ setApiKey });
 
         await userEvent.setup().type(screen.getByPlaceholderText(/Leave blank/), "sk-123");
         expect(setApiKey).toHaveBeenCalled();
     });
 
     it("renders trust row with repo and timing info", () => {
-        render(<LaunchArea apiKey="" setApiKey={vi.fn()} launch={vi.fn()} isLaunching={false} />);
+        renderLaunchArea();
         expect(screen.getByText(/Public repositories only/)).toBeInTheDocument();
         expect(screen.getByText(/Results in under a minute/)).toBeInTheDocument();
     });

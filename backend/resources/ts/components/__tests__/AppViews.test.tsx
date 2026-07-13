@@ -83,6 +83,8 @@ const baseHomeProps = {
     isLaunching: false,
     apiKey: "",
     setApiKey: vi.fn(),
+    selectedTool: "codex",
+    setSelectedTool: vi.fn(),
     launchers: [],
 };
 

@@ -37,7 +37,7 @@ class ExecuteLauncherJobTest extends TestCase
         $executor = Mockery::mock(RunExecutorInterface::class);
         $executor->shouldNotReceive('execute');
 
-        (new ExecuteLauncherJob($run->id, 'anthropic'))->handle($executor);
+        (new ExecuteLauncherJob($run->id, 'unknown-provider'))->handle($executor);
 
         $fresh = $run->fresh();
         $this->assertSame('failed', $fresh->status);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { defaultAiToolName, resolveProviderIdForTool } from "../data/aiLauncherConfig.ts";
 import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
@@ -53,6 +54,7 @@ export function App() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState("");
+    const [selectedTool, setSelectedTool] = useState(defaultAiToolName);
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
 
     const [user, setUser] = useState<User | null>(null);
@@ -184,6 +186,7 @@ export function App() {
         goto("/", navigate);
         dispatch({ type: "reset-ui" });
         setApiKey("");
+        setSelectedTool(defaultAiToolName);
         window.scrollTo({ top: 0, behavior: "smooth" });
     }, [navigate]);
 
@@ -209,7 +212,12 @@ export function App() {
 
         setIsLaunching(true);
         try {
-            const body = await createRun(selected, trimmed, apiKey);
+            const body = await createRun(
+                selected,
+                trimmed,
+                apiKey,
+                resolveProviderIdForTool(selectedTool),
+            );
             goto(`/runs/${body.id}`, navigate);
             dispatch({
                 type: "set-view",
@@ -231,7 +239,7 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, apiKey, navigate]);
+    }, [url, selected, apiKey, selectedTool, navigate]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =
@@ -254,6 +262,8 @@ export function App() {
         isLaunching,
         apiKey,
         setApiKey,
+        selectedTool,
+        setSelectedTool,
         launchers,
     };
 
