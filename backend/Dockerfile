@@ -28,8 +28,11 @@ RUN apt-get update \
         pcntl \
         pdo_pgsql \
         zip \
-    && (docker-php-ext-install opcache 2>/dev/null || true) \
-    && test -f "$(php -r 'echo ini_get("extension_dir");')"/opcache.so \
+    && cd /usr/src/php/ext/opcache \
+    && phpize \
+    && ./configure --enable-opcache \
+    && make -j"$(nproc)" \
+    && cp modules/opcache.so "$(php -r 'echo ini_get("extension_dir");')/opcache.so" \
     && docker-php-ext-enable opcache \
     && rm -rf /var/lib/apt/lists/*
 
