@@ -298,6 +298,7 @@ export function App() {
             {user && !deepLinkLoading && view.type === "home" && authChecked && (
                 <Dashboard
                     user={user}
+                    navigate={navigate}
                     onLogout={async () => {
                         await apiLogout();
                         setUser(null);

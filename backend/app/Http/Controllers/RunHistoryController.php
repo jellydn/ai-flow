@@ -16,6 +16,18 @@ class RunHistoryController extends Controller
      */
     public function index(Request $request): AnonymousResourceCollection
     {
+        $validStatuses = ['queued', 'running', 'completed', 'failed'];
+
+        $request->validate([
+            'status' => ['nullable', 'string', 'in:'.implode(',', $validStatuses)],
+            'date_from' => ['nullable', 'date_format:Y-m-d'],
+            'date_to' => ['nullable', 'date_format:Y-m-d'],
+            'launcher' => ['nullable', 'string'],
+            'provider' => ['nullable', 'string'],
+            'search' => ['nullable', 'string', 'max:500'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
         $runs = Run::query()
             ->where('user_id', $request->user()->id)
             ->with('launcher')
@@ -26,7 +38,7 @@ class RunHistoryController extends Controller
             ->when($request->query('date_to'), fn ($q, $v) => $q->whereDate('created_at', '<=', $v))
             ->when($request->query('search'), fn ($q, $v) => $q->where('source_url', 'like', '%'.$v.'%'))
             ->orderByDesc('created_at')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate(min($request->integer('per_page', 20), 100));
 
         return RunResource::collection($runs);
     }
