@@ -8,6 +8,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 use RuntimeException;
 
@@ -26,6 +27,13 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (
+            app()->environment('production')
+            && str_starts_with((string) config('app.url'), 'https://')
+        ) {
+            URL::forceScheme('https');
+        }
+
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
 
