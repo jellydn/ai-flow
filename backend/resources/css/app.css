@@ -676,7 +676,50 @@ em {
   border-radius: 11px;
   overflow: hidden;
 }
-.recent-table > button {
+.trending-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  margin-bottom: 18px;
+  border: 1px solid var(--tone-purple-bg);
+  background: linear-gradient(135deg, #f6f1ff 0%, #fff 100%);
+  border-radius: 10px;
+  flex-wrap: wrap;
+}
+.trending-card > svg:first-child {
+  color: var(--tone-purple-text);
+}
+.trending-label {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  color: var(--tone-purple-text);
+}
+.trending-card button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d9cef5;
+  background: #fff;
+  border-radius: 7px;
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  transition: 0.15s;
+}
+.trending-card button:hover {
+  border-color: var(--tone-purple-text);
+  background: #f6f1ff;
+}
+.trending-hint {
+  color: #8c8981;
+  font-size: 9px;
+  margin-left: auto;
+}
+.recent-table > button,
+.recent-table > a {
   width: 100%;
   border: 0;
   border-bottom: 1px solid #e9e6df;
@@ -690,11 +733,14 @@ em {
   gap: 14px;
   text-align: left;
   transition: 0.15s;
+  text-decoration: none;
 }
-.recent-table > button:last-child {
+.recent-table > button:last-child,
+.recent-table > a:last-child {
   border: 0;
 }
-.recent-table > button:hover {
+.recent-table > button:hover,
+.recent-table > a:hover {
   background: #faf8f3;
 }
 .run-repo {

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -144,6 +145,55 @@ class RunApiTest extends TestCase
         $response->assertOk()->assertHeader('X-Accel-Buffering', 'no');
         $this->assertStringContainsString('event: completed', $response->streamedContent());
         $this->assertStringContainsString('"status":"completed"', $response->streamedContent());
+    }
+
+    public function test_recent_returns_completed_public_runs(): void
+    {
+        $launcher = Launcher::where('slug', 'review-pr')->first();
+
+        $completed = Run::create([
+            'launcher_id' => $launcher->id,
+            'source_url' => 'https://github.com/jellydn/my-ai-tools/pull/42',
+            'input' => ['source_url' => 'https://github.com/jellydn/my-ai-tools/pull/42'],
+            'status' => 'completed',
+            'progress' => ['Done'],
+            'result' => ['summary' => 'OK', 'risk' => 'medium', 'findings' => [['severity' => 'high', 'title' => 'Bug', 'description' => 'd', 'recommendation' => 'r']], 'verification_steps' => []],
+            'started_at' => now()->subSeconds(34),
+            'completed_at' => now(),
+        ]);
+
+        Run::create([
+            'launcher_id' => $launcher->id,
+            'user_id' => User::factory()->create()->id,
+            'source_url' => 'https://github.com/private/repo',
+            'input' => ['source_url' => 'https://github.com/private/repo'],
+            'status' => 'completed',
+            'progress' => [],
+            'result' => ['summary' => 'private'],
+            'completed_at' => now(),
+        ]);
+
+        Run::create([
+            'launcher_id' => $launcher->id,
+            'source_url' => 'https://github.com/failed/repo',
+            'input' => ['source_url' => 'https://github.com/failed/repo'],
+            'status' => 'failed',
+            'progress' => [],
+            'error' => 'Something went wrong',
+            'completed_at' => now(),
+        ]);
+
+        $response = $this->getJson('/api/runs/recent');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $completed->id)
+            ->assertJsonPath('data.0.repo', 'jellydn/my-ai-tools')
+            ->assertJsonPath('data.0.type', 'Pull request')
+            ->assertJsonPath('data.0.risk', 'medium')
+            ->assertJsonPath('data.0.findings_count', 1)
+            ->assertJsonPath('data.0.has_verification_steps', false)
+            ->assertJsonPath('data.0.launcher_slug', 'review-pr');
     }
 
     public function test_rejects_invalid_url_and_unknown_launcher(): void

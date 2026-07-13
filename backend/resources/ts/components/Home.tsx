@@ -7,10 +7,13 @@ import {
     KeyRound,
     Share2,
     Sparkles,
+    TrendingUp,
     Zap,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import type { Launcher } from "../types/api.ts";
-import type { RunProviderId } from "../services/run.ts";
+import type { RunProviderId, RecentRunSummary } from "../services/run.ts";
+import { fetchRecentRuns } from "../services/run.ts";
 import type { ProviderCredential } from "../services/auth.ts";
 import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
@@ -62,6 +65,22 @@ export interface HomeProps {
     setSelectedCredentialId?: (id: string | null) => void;
 }
 
+const TRENDING_REPO = {
+    repo: "calcom/cal.com",
+    label: "Trending repo",
+    launcher: "explain-repository" as const,
+};
+
+function formatDuration(seconds: number | null): string {
+    if (seconds === null) return "—";
+    if (seconds < 60) return `${seconds}s`;
+    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+}
+
+function formatRisk(risk: string): string {
+    return risk === "—" ? risk : risk.charAt(0).toUpperCase() + risk.slice(1);
+}
+
 export function Home({
     selected,
     setSelected,
@@ -80,6 +99,16 @@ export function Home({
     selectedCredentialId,
     setSelectedCredentialId,
 }: HomeProps) {
+    const [realRuns, setRealRuns] = useState<RecentRunSummary[]>([]);
+
+    useEffect(() => {
+        fetchRecentRuns()
+            .then(setRealRuns)
+            .catch(() => setRealRuns([]));
+    }, []);
+
+    const hasRealRuns = realRuns.length > 0;
+
     return (
         <main>
             <section className="hero">
@@ -215,7 +244,7 @@ export function Home({
                 <div className="recent-heading">
                     <div>
                         <div className="section-kicker">Public results</div>
-                        <h2>Recent demo runs</h2>
+                        <h2>Recent public runs</h2>
                     </div>
                     <p>
                         Every run becomes a structured report
@@ -223,34 +252,93 @@ export function Home({
                         with a public URL ready to share.
                     </p>
                 </div>
+
+                <div className="trending-card">
+                    <TrendingUp size={16} />
+                    <span className="trending-label">Trending repo</span>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setUrl(`https://github.com/${TRENDING_REPO.repo}`);
+                            setSelected(TRENDING_REPO.launcher);
+                            scrollToSelector("#launcher");
+                        }}
+                    >
+                        <strong>{TRENDING_REPO.repo}</strong>
+                        <ArrowRight size={14} />
+                    </button>
+                    <span className="trending-hint">
+                        Explain repository → get architecture insights
+                    </span>
+                </div>
+
                 <div className="recent-table">
-                    {recentRuns.map((run) => (
-                        <button
-                            type="button"
-                            key={run.repo}
-                            onClick={() => {
-                                setUrl(`https://github.com/${run.repo}/pull/42`);
-                                setSelected(workflowTitleToSlug(run.workflow));
-                                scrollToSelector("#launcher");
-                            }}
-                        >
-                            <span className="run-repo">
-                                <GitFork size={17} />
-                                <strong>{run.repo}</strong>
-                                <small>{run.run}</small>
-                            </span>
-                            <span className="run-workflow">{run.workflow}</span>
-                            <span className={`run-risk ${run.risk.toLowerCase()}`}>{run.risk}</span>
-                            <span className="run-findings">
-                                {run.findings}{" "}
-                                {run.workflow === "Issue Plan" ? "steps" : "findings"}
-                            </span>
-                            <span className="run-time">
-                                <Clock3 size={13} /> {run.time}
-                            </span>
-                            <ArrowRight size={16} />
-                        </button>
-                    ))}
+                    {hasRealRuns
+                        ? realRuns.map((run) => (
+                              <a
+                                  key={run.id}
+                                  href={`/runs/${run.id}`}
+                                  onClick={(e) => {
+                                      e.preventDefault();
+                                      if (run.repo) {
+                                          setUrl(`https://github.com/${run.repo}`);
+                                      }
+                                      if (run.launcher_slug) {
+                                          setSelected(run.launcher_slug);
+                                      }
+                                      scrollToSelector("#launcher");
+                                  }}
+                              >
+                                  <span className="run-repo">
+                                      <GitFork size={17} />
+                                      <strong>{run.repo ?? "github.com"}</strong>
+                                      <small>{run.type}</small>
+                                  </span>
+                                  <span className="run-workflow">
+                                      {run.launcher_name ?? run.launcher_slug ?? "Workflow"}
+                                  </span>
+                                  <span className={`run-risk ${run.risk.toLowerCase()}`}>
+                                      {formatRisk(run.risk)}
+                                  </span>
+                                  <span className="run-findings">
+                                      {run.findings_count}{" "}
+                                      {run.has_verification_steps ? "steps" : "findings"}
+                                  </span>
+                                  <span className="run-time">
+                                      <Clock3 size={13} /> {formatDuration(run.duration_seconds)}
+                                  </span>
+                                  <ArrowRight size={16} />
+                              </a>
+                          ))
+                        : recentRuns.map((run) => (
+                              <button
+                                  type="button"
+                                  key={run.repo}
+                                  onClick={() => {
+                                      setUrl(`https://github.com/${run.repo}/pull/42`);
+                                      setSelected(workflowTitleToSlug(run.workflow));
+                                      scrollToSelector("#launcher");
+                                  }}
+                              >
+                                  <span className="run-repo">
+                                      <GitFork size={17} />
+                                      <strong>{run.repo}</strong>
+                                      <small>{run.run}</small>
+                                  </span>
+                                  <span className="run-workflow">{run.workflow}</span>
+                                  <span className={`run-risk ${run.risk.toLowerCase()}`}>
+                                      {run.risk}
+                                  </span>
+                                  <span className="run-findings">
+                                      {run.findings}{" "}
+                                      {run.workflow === "Issue Plan" ? "steps" : "findings"}
+                                  </span>
+                                  <span className="run-time">
+                                      <Clock3 size={13} /> {run.time}
+                                  </span>
+                                  <ArrowRight size={16} />
+                              </button>
+                          ))}
                 </div>
             </section>
 
