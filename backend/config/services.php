@@ -41,7 +41,7 @@ return [
         'base_url' => env('AI_BASE_URL', 'https://api.openai.com/v1'),
         'model' => env('AI_MODEL') ?: env('OPENAI_MODEL', 'gpt-4o-mini'),
         'timeout' => env('OPENAI_TIMEOUT', 30),
-        'providers' => ['openai', 'openrouter'],
+        'providers' => ['openai', 'openrouter', 'anthropic', 'gemini'],
         'openai_base_url' => env('OPENAI_BASE_URL', 'https://api.openai.com/v1'),
         'openrouter_key' => env('OPENROUTER_API_KEY'),
         'openrouter_base_url' => env('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1'),
