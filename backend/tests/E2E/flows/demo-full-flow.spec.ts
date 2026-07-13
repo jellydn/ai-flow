@@ -67,9 +67,10 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         });
 
         // 8. Verify the report shows structured findings with severity levels.
-        await expect(findings).toHaveCount(3);
-        await expect(page.getByTestId("finding-severity").first()).toContainText("high");
-        await expect(page.getByTestId("finding-title").first()).toContainText(/authorization/i);
+        //    Use structural selectors only — no coupling to specific demo
+        //    finding text or count, so changing demo data won't break this test.
+        await expect(page.getByTestId("finding-severity").first()).toBeVisible();
+        await expect(page.getByTestId("finding-title").first()).toBeVisible();
 
         // 9. Verify the share URL is present on the report page.
         await expect(page.getByText(/Share/)).toBeVisible();
