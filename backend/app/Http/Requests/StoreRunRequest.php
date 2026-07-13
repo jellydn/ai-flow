@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Support\AiProviders;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -27,7 +26,7 @@ class StoreRunRequest extends FormRequest
             'launcher' => ['required', 'string', 'exists:launchers,slug'],
             'source_url' => ['required', 'url', 'max:2048', 'regex:/^https:\/\/(?:www\.)?github\.com\//i'],
             'provider' => ['sometimes', 'array'],
-            'provider.id' => ['nullable', 'string', Rule::in(AiProviders::ids())],
+            'provider.id' => ['nullable', 'string', Rule::in(config('services.openai.providers'))],
             'provider.api_key' => ['nullable', 'string', 'max:512'],
         ];
     }

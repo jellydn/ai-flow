@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
-use App\Support\AiProviders;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -94,7 +93,7 @@ class RunApiTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
     }
 
-    public function test_run_defaults_openai_provider_when_provider_id_is_null(): void
+    public function test_run_passes_null_provider_when_provider_id_omitted(): void
     {
         Queue::fake();
 
@@ -111,7 +110,7 @@ class RunApiTest extends TestCase
             $provider = (new \ReflectionProperty(ExecuteLauncherJob::class, 'provider'));
             $provider->setAccessible(true);
 
-            return $provider->getValue($job) === AiProviders::OPENAI;
+            return $provider->getValue($job) === null;
         });
     }
 

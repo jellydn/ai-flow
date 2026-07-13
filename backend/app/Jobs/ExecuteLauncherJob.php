@@ -2,15 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
-use App\Support\AiProviders;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
-use InvalidArgumentException;
 use Throwable;
 
 class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
@@ -23,7 +22,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
 
     public function __construct(
         public string $runId,
-        private string $provider = AiProviders::OPENAI,
+        private ?string $provider = null,
         private ?string $apiKey = null,
     ) {}
 
@@ -31,12 +30,14 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
 
-        try {
-            $ai = AiProviders::createProvider($this->provider, $this->apiKey);
-        } catch (InvalidArgumentException $e) {
-            $this->failRun($run, $e->getMessage(), $e);
+        if ($this->provider !== null && ! in_array($this->provider, config('services.openai.providers'), true)) {
+            $this->failRun($run, 'Unsupported AI provider.');
 
             return;
+        }
+
+        try {
+            $ai = app()->make(AIProviderInterface::class, ['apiKey' => $this->apiKey]);
         } catch (Throwable $e) {
             $this->failRun($run, 'Run failed unexpectedly.', $e);
 
@@ -46,7 +47,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         $executor->execute($run, $ai);
     }
 
-    private function failRun(Run $run, string $message, Throwable $e): void
+    private function failRun(Run $run, string $message, ?Throwable $e = null): void
     {
         $run->update([
             'status' => 'failed',
@@ -54,7 +55,10 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             'source_context' => null,
             'completed_at' => now(),
         ]);
-        Log::error('Launcher run failed during provider setup', ['run_id' => $run->id, 'exception' => get_class($e)]);
+        Log::error('Launcher run failed during provider setup', [
+            'run_id' => $run->id,
+            'exception' => $e ? get_class($e) : null,
+        ]);
         RunProgressed::dispatch($run->fresh());
     }
 }
