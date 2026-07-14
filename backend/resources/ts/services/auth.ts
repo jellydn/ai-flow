@@ -1,5 +1,5 @@
 import { get, mutationHeaders, post } from "../lib/http.ts";
-import { assertString, assertObject, assertArray } from "./run.ts";
+import { assertArray, assertIntegerId, assertObject, assertString } from "./run.ts";
 
 export interface User {
     id: number;
@@ -25,7 +25,7 @@ export interface ProviderCredential {
 export function decodeUser(value: unknown): User {
     const data = assertObject(value);
     return {
-        id: Number(assertString(data.id, "id")),
+        id: assertIntegerId(data.id, "id"),
         name: data.name && typeof data.name === "string" ? data.name : null,
         email: assertString(data.email, "email"),
         email_verified_at:
