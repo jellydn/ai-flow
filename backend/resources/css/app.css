@@ -1402,10 +1402,20 @@ footer > span {
     0 2px 0 rgba(255, 255, 255, 0.8) inset;
   text-align: center;
 }
+.auth-kicker {
+  color: var(--orange);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-family: DM Mono, monospace;
+  font-size: 10px;
+  font-weight: 500;
+  margin: 0 0 6px;
+}
 .auth-card h2 {
   font-size: 24px;
   letter-spacing: -0.04em;
   margin: 0 0 8px;
+  text-wrap: balance;
 }
 .auth-tabs {
   display: flex;
@@ -1431,6 +1441,46 @@ footer > span {
   color: var(--ink);
   background: rgba(242, 99, 52, 0.08);
 }
+.auth-tab:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.auth-field > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.auth-alt {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+  margin: 14px 0 0;
+  text-align: center;
+}
+.auth-link {
+  color: var(--tertiary-action);
+  background: none;
+  border: 0;
+  padding: 0;
+  font-size: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+.auth-link:hover {
+  color: var(--tertiary-action-hover);
+}
+.auth-link:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
 .auth-card > p {
   color: var(--muted);
   font-size: 12px;
@@ -1455,9 +1505,15 @@ footer > span {
   font-size: 13px;
   transition: 0.2s;
 }
-.auth-card input:focus {
+.auth-card input:focus-visible {
   border-color: var(--orange);
   box-shadow: 0 0 0 3px rgba(242, 99, 52, 0.1);
+}
+.auth-check-message {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  margin: 0 0 24px;
 }
 .auth-card button[type="submit"] {
   width: 100%;
@@ -1476,8 +1532,34 @@ footer > span {
   transition: 0.2s;
 }
 .auth-card button[type="submit"]:hover {
-  transform: translateY(-1px);
   background: var(--tertiary-action-hover);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .auth-card button[type="submit"]:hover {
+    transform: translateY(-1px);
+  }
+}
+.auth-card button[type="submit"]:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+}
+.auth-card-back {
+  margin-top: 20px;
+  width: 100%;
+  height: 44px;
+  border: 1px solid #d6d3ca;
+  border-radius: var(--radius-md);
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+}
+.auth-card-back:hover {
+  border-color: #bcb7ab;
+}
+.auth-card-back:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
 }
 .auth-error {
   color: #b93838;

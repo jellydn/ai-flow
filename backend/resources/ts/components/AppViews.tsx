@@ -65,18 +65,23 @@ export function AppViews({
     return (
         <>
             {checkEmail && (
-                <div className="auth-page">
+                <main className="auth-page">
                     <div className="auth-card">
+                        <p className="auth-kicker">Account</p>
                         <h2>Check your email</h2>
-                        <p>
-                            A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link
-                            in the email to continue.
+                        <p className="auth-check-message" role="status" aria-live="polite">
+                            A sign-in link was sent to <strong>{checkEmail}</strong>. Open the email
+                            and click the link to continue.
                         </p>
-                        <button type="button" onClick={() => setCheckEmail("")}>
-                            Back
+                        <button
+                            type="button"
+                            className="auth-card-back"
+                            onClick={() => setCheckEmail("")}
+                        >
+                            Back to sign in
                         </button>
                     </div>
-                </div>
+                </main>
             )}
 
             {!checked && !checkEmail && (

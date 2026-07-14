@@ -172,7 +172,7 @@ describe("AppViews", () => {
 
     it("clears checkEmail when Back is clicked", async () => {
         renderAppViews({ authState: { checked: true, checkEmail: "a@b.com" } });
-        await userEvent.setup().click(screen.getByRole("button", { name: "Back" }));
+        await userEvent.setup().click(screen.getByRole("button", { name: "Back to sign in" }));
         expect(setCheckEmail).toHaveBeenCalledWith("");
     });
 
