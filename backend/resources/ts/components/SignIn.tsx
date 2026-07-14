@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
 import {
     loginWithPassword,
     registerWithPassword,
@@ -21,7 +21,16 @@ function firstValidationMessage(err: unknown): string {
     return err.message;
 }
 
+function AuthError({ message }: { message: string }) {
+    return (
+        <p className="auth-error" role="alert" aria-live="polite">
+            {message}
+        </p>
+    );
+}
+
 export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
+    const baseId = useId();
     const [mode, setMode] = useState<AuthMode>("sign-in");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
@@ -31,11 +40,47 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
     const [error, setError] = useState("");
 
     const trimmedEmail = email.trim();
+    const emailId = `${baseId}-email`;
+    const passwordId = `${baseId}-password`;
+    const passwordConfirmId = `${baseId}-password-confirm`;
+    const nameId = `${baseId}-name`;
+
+    const emailRef = useRef<HTMLInputElement>(null);
+    const passwordRef = useRef<HTMLInputElement>(null);
+    const passwordConfirmRef = useRef<HTMLInputElement>(null);
+
+    const switchMode = (next: AuthMode) => {
+        setMode(next);
+        setError("");
+        const params = new URLSearchParams(window.location.search);
+        if (next === "sign-in") {
+            params.delete("auth");
+        } else {
+            params.set("auth", next === "magic" ? "link" : "signup");
+        }
+        const qs = params.toString();
+        const path = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
+        window.history.replaceState({}, "", path);
+    };
+
+    useEffect(() => {
+        const auth = new URLSearchParams(window.location.search).get("auth");
+        if (auth === "link" || auth === "magic") {
+            setMode("magic");
+        } else if (auth === "signup" || auth === "sign-up") {
+            setMode("sign-up");
+        }
+    }, []);
+
+    const focusField = (ref: RefObject<HTMLInputElement | null>) => {
+        requestAnimationFrame(() => ref.current?.focus());
+    };
 
     const handleMagicSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!trimmedEmail || !trimmedEmail.includes("@")) {
             setError("Enter a valid email address.");
+            focusField(emailRef);
             return;
         }
         setLoading(true);
@@ -55,10 +100,12 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
         e.preventDefault();
         if (!trimmedEmail || !trimmedEmail.includes("@")) {
             setError("Enter a valid email address.");
+            focusField(emailRef);
             return;
         }
         if (!password) {
             setError("Enter your password.");
+            focusField(passwordRef);
             return;
         }
         setLoading(true);
@@ -78,14 +125,17 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
         e.preventDefault();
         if (!trimmedEmail || !trimmedEmail.includes("@")) {
             setError("Enter a valid email address.");
+            focusField(emailRef);
             return;
         }
         if (password.length < 8) {
             setError("Password must be at least 8 characters.");
+            focusField(passwordRef);
             return;
         }
         if (password !== passwordConfirmation) {
             setError("Passwords do not match.");
+            focusField(passwordConfirmRef);
             return;
         }
         setLoading(true);
@@ -106,148 +156,250 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
         }
     };
 
+    const tabIds = {
+        "sign-in": `${baseId}-tab-sign-in`,
+        "sign-up": `${baseId}-tab-sign-up`,
+        magic: `${baseId}-tab-magic`,
+    };
+    const panelIds = {
+        "sign-in": `${baseId}-panel-sign-in`,
+        "sign-up": `${baseId}-panel-sign-up`,
+        magic: `${baseId}-panel-magic`,
+    };
+
     return (
-        <div className="auth-page">
+        <main className="auth-page">
             <div className="auth-card">
-                <h2>{mode === "sign-up" ? "Create account" : "Sign in"}</h2>
-                <div className="auth-tabs" role="tablist">
+                <p className="auth-kicker">Account</p>
+                <h2 id={`${baseId}-heading`}>
+                    {mode === "sign-up"
+                        ? "Create account"
+                        : mode === "magic"
+                          ? "Email link"
+                          : "Sign in"}
+                </h2>
+
+                <div className="auth-tabs" role="tablist" aria-labelledby={`${baseId}-heading`}>
                     <button
                         type="button"
                         role="tab"
+                        id={tabIds["sign-in"]}
                         aria-selected={mode === "sign-in"}
+                        aria-controls={panelIds["sign-in"]}
                         className={mode === "sign-in" ? "auth-tab active" : "auth-tab"}
-                        onClick={() => {
-                            setMode("sign-in");
-                            setError("");
-                        }}
+                        onClick={() => switchMode("sign-in")}
                     >
                         Password
                     </button>
                     <button
                         type="button"
                         role="tab"
+                        id={tabIds["sign-up"]}
                         aria-selected={mode === "sign-up"}
+                        aria-controls={panelIds["sign-up"]}
                         className={mode === "sign-up" ? "auth-tab active" : "auth-tab"}
-                        onClick={() => {
-                            setMode("sign-up");
-                            setError("");
-                        }}
+                        onClick={() => switchMode("sign-up")}
                     >
                         Sign up
                     </button>
                     <button
                         type="button"
                         role="tab"
+                        id={tabIds.magic}
                         aria-selected={mode === "magic"}
+                        aria-controls={panelIds.magic}
                         className={mode === "magic" ? "auth-tab active" : "auth-tab"}
-                        onClick={() => {
-                            setMode("magic");
-                            setError("");
-                        }}
+                        onClick={() => switchMode("magic")}
                     >
                         Email link
                     </button>
                 </div>
 
                 {mode === "magic" && (
-                    <>
-                        <p>Enter your email to receive a one-click sign-in link.</p>
+                    <div role="tabpanel" id={panelIds.magic} aria-labelledby={tabIds.magic}>
+                        <p>We’ll email you a one-click sign-in link. No password required.</p>
                         <form onSubmit={handleMagicSubmit}>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                required
-                                autoFocus
-                                disabled={loading}
-                            />
-                            {error && <p className="auth-error">{error}</p>}
+                            <label className="auth-field" htmlFor={emailId}>
+                                <span>Email</span>
+                                <input
+                                    ref={emailRef}
+                                    id={emailId}
+                                    name="email"
+                                    type="email"
+                                    inputMode="email"
+                                    autoComplete="email"
+                                    spellCheck={false}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            {error && <AuthError message={error} />}
                             <button type="submit" disabled={loading}>
                                 {loading ? "Sending…" : "Send sign-in link"}
                             </button>
                         </form>
-                    </>
+                    </div>
                 )}
 
                 {mode === "sign-in" && (
-                    <>
-                        <p>Sign in with your email and password.</p>
+                    <div
+                        role="tabpanel"
+                        id={panelIds["sign-in"]}
+                        aria-labelledby={tabIds["sign-in"]}
+                    >
+                        <p>Use the email and password for your account.</p>
                         <form onSubmit={handlePasswordSignIn}>
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                required
-                                autoFocus
-                                disabled={loading}
-                            />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Password"
-                                required
-                                autoComplete="current-password"
-                                disabled={loading}
-                            />
-                            {error && <p className="auth-error">{error}</p>}
+                            <label className="auth-field" htmlFor={emailId}>
+                                <span>Email</span>
+                                <input
+                                    ref={emailRef}
+                                    id={emailId}
+                                    name="email"
+                                    type="email"
+                                    inputMode="email"
+                                    autoComplete="username email"
+                                    spellCheck={false}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            <label className="auth-field" htmlFor={passwordId}>
+                                <span>Password</span>
+                                <input
+                                    ref={passwordRef}
+                                    id={passwordId}
+                                    name="password"
+                                    type="password"
+                                    autoComplete="current-password"
+                                    spellCheck={false}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Your password…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            {error && <AuthError message={error} />}
                             <button type="submit" disabled={loading}>
                                 {loading ? "Signing in…" : "Sign in"}
                             </button>
                         </form>
-                    </>
+                        <p className="auth-alt">
+                            Prefer no password?{" "}
+                            <button
+                                type="button"
+                                className="auth-link"
+                                onClick={() => switchMode("magic")}
+                            >
+                                Use email link
+                            </button>
+                        </p>
+                    </div>
                 )}
 
                 {mode === "sign-up" && (
-                    <>
+                    <div
+                        role="tabpanel"
+                        id={panelIds["sign-up"]}
+                        aria-labelledby={tabIds["sign-up"]}
+                    >
                         <p>
-                            Create an account with email and password. Magic-link-only users can use
-                            the same email to set a password.
+                            New here? Register with email and password. If you already use email
+                            link sign-in, keep using that—this form is for new accounts only.
                         </p>
                         <form onSubmit={handleSignUp}>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="Name (optional)"
-                                disabled={loading}
-                            />
-                            <input
-                                type="email"
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                placeholder="you@example.com"
-                                required
-                                disabled={loading}
-                            />
-                            <input
-                                type="password"
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                placeholder="Password"
-                                required
-                                autoComplete="new-password"
-                                disabled={loading}
-                            />
-                            <input
-                                type="password"
-                                value={passwordConfirmation}
-                                onChange={(e) => setPasswordConfirmation(e.target.value)}
-                                placeholder="Confirm password"
-                                required
-                                autoComplete="new-password"
-                                disabled={loading}
-                            />
-                            {error && <p className="auth-error">{error}</p>}
+                            <label className="auth-field" htmlFor={nameId}>
+                                <span>Name (optional)</span>
+                                <input
+                                    id={nameId}
+                                    name="name"
+                                    type="text"
+                                    autoComplete="name"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    placeholder="Your name…"
+                                    disabled={loading}
+                                />
+                            </label>
+                            <label className="auth-field" htmlFor={emailId}>
+                                <span>Email</span>
+                                <input
+                                    ref={emailRef}
+                                    id={emailId}
+                                    name="email"
+                                    type="email"
+                                    inputMode="email"
+                                    autoComplete="email"
+                                    spellCheck={false}
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="you@example.com…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            <label className="auth-field" htmlFor={passwordId}>
+                                <span>Password</span>
+                                <input
+                                    ref={passwordRef}
+                                    id={passwordId}
+                                    name="password"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    spellCheck={false}
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="At least 8 characters…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            <label className="auth-field" htmlFor={passwordConfirmId}>
+                                <span>Confirm password</span>
+                                <input
+                                    ref={passwordConfirmRef}
+                                    id={passwordConfirmId}
+                                    name="password_confirmation"
+                                    type="password"
+                                    autoComplete="new-password"
+                                    spellCheck={false}
+                                    value={passwordConfirmation}
+                                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                    placeholder="Repeat password…"
+                                    required
+                                    disabled={loading}
+                                    aria-invalid={error ? true : undefined}
+                                />
+                            </label>
+                            {error && <AuthError message={error} />}
                             <button type="submit" disabled={loading}>
                                 {loading ? "Creating…" : "Create account"}
                             </button>
                         </form>
-                    </>
+                        <p className="auth-alt">
+                            Already have an account?{" "}
+                            <button
+                                type="button"
+                                className="auth-link"
+                                onClick={() => switchMode("sign-in")}
+                            >
+                                Sign in
+                            </button>
+                        </p>
+                    </div>
                 )}
             </div>
-        </div>
+        </main>
     );
 }
