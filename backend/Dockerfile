@@ -21,19 +21,14 @@ RUN apt-get update \
         nginx \
         supervisor \
         unzip \
-    && (docker-php-ext-install -j"$(nproc)" \
+    && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         intl \
         mbstring \
+        opcache \
         pcntl \
         pdo_pgsql \
         zip \
-        opcache \
-    || true) \
-    && PHP_EXT_DIR="$(php -r 'echo ini_get("extension_dir");')" \
-    && if [ -f "$PHP_EXT_DIR/opcache.so" ]; then \
-        docker-php-ext-enable opcache; \
-    fi \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
