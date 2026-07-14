@@ -65,11 +65,13 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
                     {loggingOut ? "Signing out…" : "Sign out"}
                 </button>
             </div>
-            <div className="dashboard-tabs">
+            <div className="dashboard-tabs" role="tablist" aria-label="Account sections">
                 {tabs.map((t) => (
                     <button
                         key={t.key}
                         type="button"
+                        role="tab"
+                        aria-selected={tab === t.key}
                         className={tab === t.key ? "tab active" : "tab"}
                         onClick={() => setTab(t.key)}
                     >
