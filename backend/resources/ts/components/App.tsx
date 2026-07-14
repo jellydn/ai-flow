@@ -24,6 +24,7 @@ import {
     type ViewState,
     uiStateFromRun,
 } from "./appUiState.ts";
+import { isUserAccountPath } from "../lib/appPaths.ts";
 import { goto } from "../lib/navigate.ts";
 import { AppViews } from "./AppViews.tsx";
 import { Footer } from "./Footer.tsx";
@@ -93,6 +94,15 @@ export function App() {
             .catch(() => setUser(null))
             .finally(() => setAuthChecked(true));
     }, []);
+
+    useEffect(() => {
+        if (!authChecked || user) {
+            return;
+        }
+        if (isUserAccountPath(window.location.pathname)) {
+            setShowSignIn(true);
+        }
+    }, [authChecked, user]);
 
     const {
         runId: pathRunId,
@@ -310,6 +320,7 @@ export function App() {
                 onAuthClick={() => {
                     if (user) {
                         setShowSignIn(false);
+                        goto("/user", navigate);
                     } else {
                         setShowSignIn(!showSignIn);
                     }
@@ -330,10 +341,12 @@ export function App() {
                     onAuthenticated: (signedIn) => {
                         setUser(signedIn);
                         setShowSignIn(false);
+                        goto("/user", navigate);
                     },
                     onLogout: async () => {
                         await apiLogout();
                         setUser(null);
+                        goto("/", navigate);
                     },
                 }}
                 view={view}

@@ -202,7 +202,18 @@ describe("AppViews", () => {
         expect(screen.getByTestId("home")).toBeInTheDocument();
     });
 
-    it("renders Dashboard for authenticated user with home view", () => {
+    it("renders Home for authenticated user on / (launch surface)", () => {
+        window.history.replaceState({}, "", "/");
+        renderAppViews({
+            authState: { user: { email: "a@b.com" }, checked: true },
+            view: { type: "home" },
+        });
+        expect(screen.getByTestId("home")).toBeInTheDocument();
+        expect(screen.queryByTestId("dashboard")).not.toBeInTheDocument();
+    });
+
+    it("renders Dashboard for authenticated user on /user", () => {
+        window.history.replaceState({}, "", "/user");
         renderAppViews({
             authState: { user: { email: "a@b.com" }, checked: true },
             view: { type: "home" },
