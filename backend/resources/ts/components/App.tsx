@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
+import { logger } from "../lib/logger.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
 import {
@@ -141,6 +142,7 @@ export function App() {
         getLaunchers()
             .then(setLaunchers)
             .catch((e) => {
+                logger.warn("Failed to load launchers, falling back to static", e);
                 setLaunchers(staticLaunchers);
                 dispatch({
                     type: "patch",
@@ -295,6 +297,7 @@ export function App() {
         credentials,
         selectedCredentialId,
         setSelectedCredentialId,
+        navigate,
     };
 
     return (

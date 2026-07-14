@@ -19,6 +19,7 @@ Route::get('/launchers', $launchersResponse);
 Route::get('/flows', $launchersResponse);
 Route::get('/providers', [ProviderController::class, 'index']);
 Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs');
+Route::get('/runs/recent', [RunController::class, 'recent']);
 Route::get('/runs/{run}', [RunController::class, 'show']);
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
 Route::middleware('auth')->prefix('user')->group(function () {

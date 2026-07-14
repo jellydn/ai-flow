@@ -25,7 +25,7 @@ async function parseJson(response: Response): Promise<unknown> {
     try {
         return JSON.parse(text);
     } catch {
-        throw new Error("Invalid JSON response from the server.");
+        throw new Error(`Invalid JSON response from ${response.url} (status ${response.status}).`);
     }
 }
 

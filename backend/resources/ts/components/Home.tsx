@@ -12,12 +12,13 @@ import {
 import type { Launcher } from "../types/api.ts";
 import type { RunProviderId } from "../services/run.ts";
 import type { ProviderCredential } from "../services/auth.ts";
-import { launcherMetaBySlug, recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
+import { launcherMetaBySlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
 import { FlowMark } from "./Logo.tsx";
 import { LauncherSelector } from "./LauncherSelector.tsx";
 import { LaunchArea } from "./LaunchArea.tsx";
+import { RecentRunsSection } from "./RecentRunsSection.tsx";
 import { UrlInput } from "./UrlInput.tsx";
 
 const features = [
@@ -60,6 +61,7 @@ export interface HomeProps {
     credentials?: ProviderCredential[];
     selectedCredentialId?: string | null;
     setSelectedCredentialId?: (id: string | null) => void;
+    navigate: (pathname: string) => void;
 }
 
 export function Home({
@@ -79,6 +81,7 @@ export function Home({
     credentials,
     selectedCredentialId,
     setSelectedCredentialId,
+    navigate,
 }: HomeProps) {
     return (
         <main>
@@ -211,48 +214,7 @@ export function Home({
                 </div>
             </section>
 
-            <section className="recent-section">
-                <div className="recent-heading">
-                    <div>
-                        <div className="section-kicker">Public results</div>
-                        <h2>Recent demo runs</h2>
-                    </div>
-                    <p>
-                        Every run becomes a structured report
-                        <br />
-                        with a public URL ready to share.
-                    </p>
-                </div>
-                <div className="recent-table">
-                    {recentRuns.map((run) => (
-                        <button
-                            type="button"
-                            key={run.repo}
-                            onClick={() => {
-                                setUrl(`https://github.com/${run.repo}/pull/42`);
-                                setSelected(workflowTitleToSlug(run.workflow));
-                                scrollToSelector("#launcher");
-                            }}
-                        >
-                            <span className="run-repo">
-                                <GitFork size={17} />
-                                <strong>{run.repo}</strong>
-                                <small>{run.run}</small>
-                            </span>
-                            <span className="run-workflow">{run.workflow}</span>
-                            <span className={`run-risk ${run.risk.toLowerCase()}`}>{run.risk}</span>
-                            <span className="run-findings">
-                                {run.findings}{" "}
-                                {run.workflow === "Issue Plan" ? "steps" : "findings"}
-                            </span>
-                            <span className="run-time">
-                                <Clock3 size={13} /> {run.time}
-                            </span>
-                            <ArrowRight size={16} />
-                        </button>
-                    ))}
-                </div>
-            </section>
+            <RecentRunsSection setUrl={setUrl} setSelected={setSelected} navigate={navigate} />
 
             <section className="how-section" id="how">
                 <div className="how-copy">

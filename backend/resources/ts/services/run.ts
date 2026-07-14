@@ -145,6 +145,52 @@ export async function getLaunchers(): Promise<Launcher[]> {
     return items.map(decodeLauncher);
 }
 
+export interface RecentRunSummary {
+    id: string;
+    repo: string | null;
+    type: string;
+    launcher_slug: string | null;
+    launcher_name: string | null;
+    risk: string;
+    findings_count: number;
+    has_verification_steps: boolean;
+    duration_seconds: number | null;
+    completed_at: string | null;
+}
+
+function decodeRecentRun(value: unknown): RecentRunSummary {
+    const data = assertObject(value);
+    return {
+        id: assertString(data.id, "id"),
+        repo: data.repo && typeof data.repo === "string" ? data.repo : null,
+        type: assertString(data.type, "type"),
+        launcher_slug:
+            data.launcher_slug && typeof data.launcher_slug === "string"
+                ? data.launcher_slug
+                : null,
+        launcher_name:
+            data.launcher_name && typeof data.launcher_name === "string"
+                ? data.launcher_name
+                : null,
+        risk: assertString(data.risk, "risk"),
+        findings_count: typeof data.findings_count === "number" ? data.findings_count : 0,
+        has_verification_steps: Boolean(data.has_verification_steps),
+        duration_seconds:
+            data.duration_seconds !== null && data.duration_seconds !== undefined
+                ? Number(data.duration_seconds)
+                : null,
+        completed_at:
+            data.completed_at && typeof data.completed_at === "string" ? data.completed_at : null,
+    };
+}
+
+export async function fetchRecentRuns(): Promise<RecentRunSummary[]> {
+    const body = await get("/api/runs/recent");
+    const payload = assertObject(body);
+    const items = assertArray(payload.data ?? body, "data");
+    return items.map(decodeRecentRun);
+}
+
 export async function fetchRun(id: string): Promise<Run> {
     const body = await get(`/api/runs/${encodeURIComponent(id)}`);
     const payload =
