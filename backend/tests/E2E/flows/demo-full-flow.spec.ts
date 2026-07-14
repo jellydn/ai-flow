@@ -15,9 +15,13 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         // Click the "Sign in" button in the header.
         await page.getByRole("button", { name: "Sign in" }).click();
 
-        // Verify the sign-in modal appears with email input.
+        // Verify the sign-in modal appears (password tab is default).
         await expect(page.locator(".auth-card")).toBeVisible({ timeout: 5000 });
         await expect(page.getByPlaceholder(/you@example.com/)).toBeVisible();
+        await expect(page.getByRole("button", { name: /^Sign in$/ })).toBeVisible();
+
+        // Magic-link flow lives on the Email link tab.
+        await page.getByRole("tab", { name: "Email link" }).click();
         await expect(
             page.getByRole("button", { name: /Send sign-in link/ }),
         ).toBeVisible();
