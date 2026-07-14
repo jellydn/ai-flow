@@ -1608,6 +1608,13 @@ footer > span {
   font-size: 12px;
   margin: 0;
 }
+.dashboard-hint {
+  color: var(--muted);
+  font-size: 13px;
+  margin: 10px 0 0;
+  max-width: 36rem;
+  line-height: 1.45;
+}
 .logout-btn {
   border: 1px solid #d6d2c9;
   background: #fff;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { deleteAccount, logout, type User } from "../services/auth.ts";
+import { goto } from "../lib/navigate.ts";
 import { logger } from "../lib/logger.ts";
 import { ProviderSettings } from "./ProviderSettings.tsx";
 import { RunHistory } from "./RunHistory.tsx";
@@ -39,11 +40,21 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
     ];
 
     return (
-        <div className="dashboard">
+        <main className="dashboard" id="account">
             <div className="dashboard-header">
                 <div>
-                    <h2>Dashboard</h2>
+                    <h2>Your account</h2>
                     <p className="user-email">{user.email}</p>
+                    <p className="dashboard-hint">
+                        Run history lists workflows you started while signed in.{" "}
+                        <button
+                            type="button"
+                            className="auth-link"
+                            onClick={() => goto("/", navigate)}
+                        >
+                            Launch a new workflow
+                        </button>
+                    </p>
                 </div>
                 <button
                     type="button"
@@ -129,6 +140,6 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
                     </div>
                 )}
             </div>
-        </div>
+        </main>
     );
 }

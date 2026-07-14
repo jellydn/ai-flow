@@ -24,9 +24,9 @@ test.describe("Auth user flow (real backend)", () => {
         await signUp.getByLabel("Confirm password").fill(password);
         await signUp.getByRole("button", { name: "Create account" }).click();
 
-        await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
-            timeout: 15_000,
-        });
+        await expect(page).toHaveURL(/\/user\/?$/, { timeout: 15_000 });
+        await expect(page.getByRole("heading", { name: "Your account" })).toBeVisible();
+        await expect(page.getByRole("tab", { name: "Run History" })).toBeVisible();
         await expect(page.locator(".user-email")).toContainText(email);
 
         await page.getByRole("button", { name: "Sign out" }).click();
@@ -40,7 +40,8 @@ test.describe("Auth user flow (real backend)", () => {
         await signIn.getByLabel("Password").fill(password);
         await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
 
-        await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({
+        await expect(page).toHaveURL(/\/user\/?$/);
+        await expect(page.getByRole("heading", { name: "Your account" })).toBeVisible({
             timeout: 15_000,
         });
     });
@@ -65,7 +66,7 @@ test.describe("Auth user flow (real backend)", () => {
         await signIn.getByRole("button", { name: "Sign in", exact: true }).click();
 
         await expect(authCard(page).locator(".auth-error")).toBeVisible({ timeout: 10_000 });
-        await expect(page.getByRole("heading", { name: "Dashboard" })).not.toBeVisible();
+        await expect(page.getByRole("heading", { name: "Your account" })).not.toBeVisible();
     });
 
     test("sign-up rejects duplicate email", async ({ page, request }) => {
@@ -90,7 +91,7 @@ test.describe("Auth user flow (real backend)", () => {
         await signUp.getByRole("button", { name: "Create account" }).click();
 
         await expect(authCard(page).locator(".auth-error")).toBeVisible({ timeout: 10_000 });
-        await expect(page.getByRole("heading", { name: "Dashboard" })).not.toBeVisible();
+        await expect(page.getByRole("heading", { name: "Your account" })).not.toBeVisible();
     });
 
     test("email link tab submits and shows check-your-email screen", async ({ page }) => {

@@ -136,6 +136,7 @@ export function decodeRun(value: unknown): Run {
         error: assertStringOrNull(data.error, "error"),
         started_at: assertStringOrNull(data.started_at, "started_at"),
         completed_at: assertStringOrNull(data.completed_at, "completed_at"),
+        created_at: assertStringOrNull(data.created_at, "created_at") ?? undefined,
     };
 }
 

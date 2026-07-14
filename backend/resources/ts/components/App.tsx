@@ -325,6 +325,13 @@ export function App() {
                         setShowSignIn(!showSignIn);
                     }
                 }}
+                onLaunchClick={() => {
+                    goto("/", navigate);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    requestAnimationFrame(() => {
+                        document.querySelector("#launcher")?.scrollIntoView({ behavior: "smooth" });
+                    });
+                }}
             />
 
             <AppViews
