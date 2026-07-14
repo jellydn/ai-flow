@@ -203,7 +203,10 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
 
                 {mode === "sign-up" && (
                     <>
-                        <p>Create an account with email and password. Magic-link-only users can use the same email to set a password.</p>
+                        <p>
+                            Create an account with email and password. Magic-link-only users can use
+                            the same email to set a password.
+                        </p>
                         <form onSubmit={handleSignUp}>
                             <input
                                 type="text"
