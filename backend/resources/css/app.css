@@ -414,6 +414,9 @@ em {
   grid-template-columns: 1fr 2fr;
   gap: 8px;
 }
+.provider-fields-single {
+  grid-template-columns: 1fr;
+}
 .provider-fields label > span {
   display: block;
   margin-bottom: 6px;

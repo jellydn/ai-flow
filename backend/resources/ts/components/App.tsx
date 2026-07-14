@@ -84,8 +84,30 @@ export function App() {
             return;
         }
         fetchCredentials()
-            .then(setCredentials)
-            .catch(() => setCredentials([]));
+            .then((creds) => {
+                setCredentials(creds);
+                // Prefer an already-chosen key if it still exists; otherwise default/first.
+                setSelectedCredentialId((current) => {
+                    if (current && creds.some((c) => c.id === current)) {
+                        return current;
+                    }
+                    const preferred = creds.find((c) => c.is_default) ?? creds[0];
+                    if (
+                        preferred &&
+                        (preferred.provider === "openai" ||
+                            preferred.provider === "openrouter" ||
+                            preferred.provider === "anthropic" ||
+                            preferred.provider === "gemini")
+                    ) {
+                        setSelectedProvider(preferred.provider);
+                    }
+                    return preferred?.id ?? null;
+                });
+            })
+            .catch(() => {
+                setCredentials([]);
+                setSelectedCredentialId(null);
+            });
     }, [user]);
 
     useEffect(() => {
