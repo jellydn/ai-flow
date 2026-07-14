@@ -4,11 +4,11 @@
 
 ## Tech Debt
 
-**Redundant `config('services.openai.providers')` array:**
-- Issue: The `providers` array in `config/services.php` under the `openai` key lists `['openai', 'openrouter', 'anthropic', 'gemini']` but is redundant — the authoritative source is `AiProviderRegistry::PROVIDERS`. The config array is still actively used by `StoreProviderCredentialRequest` for validation (`Rule::in(config('services.openai.providers'))`), creating two sources of truth that can drift.
+**Redundant `config('services.openai.providers')` array (fixed):**
+- Issue: The `providers` array in `config/services.php` duplicated `AiProviderRegistry::PROVIDERS`, creating two sources of truth for provider IDs.
 - Files: `backend/config/services.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`
-- Impact: Two sources of truth for provider IDs; risk of drift if a new provider is added to the registry but not the config array.
-- Fix approach: Inject `AiProviderRegistry` into `StoreProviderCredentialRequest` and use `$registry->ids()` for validation, then remove the `providers` array from `config/services.php`.
+- Status: ✅ Fixed — `StoreProviderCredentialRequest` now injects `AiProviderRegistry` and uses `$registry->ids()` for validation; the `providers` array was removed from `config/services.php`.
+- Impact: None — `AiProviderRegistry` is now the single source of truth.
 
 **No claim flow for anonymous runs:**
 - Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. `RunController::store` sets `user_id` to `$request->user()?->id`, which is `null` for anonymous users. Runs created before auth are permanently anonymous.
@@ -24,11 +24,11 @@
 - Impact: If stored `base_url` is used for provider construction, the server could be used for SSRF attacks.
 - Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) in `StoreProviderCredentialRequest` before allowing user-supplied base URLs to reach provider constructors. ADR-0016 mentions `encrypted_base_url` storage but does not address SSRF — this should be documented when wiring stored `base_url` into provider construction.
 
-**No rate limiting on credential verification:**
-- Issue: `POST /api/user/provider-credentials/{id}/verify` has no rate limit. An authenticated user could repeatedly verify credentials, causing excessive outbound API calls to AI providers.
-- Files: `backend/routes/api.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`
-- Impact: Potential abuse for outbound API probing.
-- Fix approach: Add a `throttle:credentials` rate limiter (e.g. 10/min/user).
+**No rate limiting on credential verification (fixed):**
+- Issue: `POST /api/user/provider-credentials/{id}/verify` had no rate limit, allowing excessive outbound API calls.
+- Files: `backend/routes/api.php`, `backend/app/Providers/AppServiceProvider.php`
+- Status: ✅ Fixed — Added `throttle:credentials` rate limiter (10/min/user) in `AppServiceProvider` and applied to the verify route.
+- Impact: None — credential verification is now rate-limited.
 
 **SSE polling resource usage:**
 - Issue: `RunStreamer` polls the database every second for up to 55 seconds per SSE connection. With 30 concurrent streams (rate limit), that's 30 DB queries/second.
@@ -80,11 +80,11 @@
 
 ## Documentation
 
-**`AGENTS.md` references outdated remote names:**
-- Issue: `AGENTS.md` states "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". In practice, `origin` is `github.com/jellydn/ai-flow` and there is no `github` remote — the Amp sync note is stale.
+**`AGENTS.md` references outdated remote names (fixed):**
+- Issue: `AGENTS.md` previously stated "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". The stale Amp sync note has been removed and the Gotchas section now correctly states `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
 - Files: `AGENTS.md`
-- Impact: Minor confusion for developers reading the docs.
-- Fix approach: Update the remote references in `AGENTS.md` to reflect that `origin` is `jellydn/ai-flow` and `dokku` is the staging remote.
+- Status: ✅ Fixed (already resolved in current `main`)
+- Impact: None — documentation is now accurate.
 
 **ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
 - Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.

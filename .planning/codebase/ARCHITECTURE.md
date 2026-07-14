@@ -128,7 +128,7 @@
 
 **AIProviderInterface:**
 - Purpose: hide the concrete AI backend; callers depend on `generate(string $prompt, array $schema): array` and `verifyCredential(string $apiKey): array`.
-- Pattern: Strategy + Factory. `AiProviderRegistry::get()` maps IDs to adapter instances. Config-driven base URLs/models/timeouts.
+- Pattern: Strategy + Factory. `AiProviderRegistry` is the **single source of truth** for provider IDs (`ids()`, `has()`) and adapter instantiation (`get()`). It replaces the former `config/services.php` provider array — config is now only for per-provider credentials/base URLs/models, not for which providers exist. Config-driven base URLs/models/timeouts.
 
 **LauncherInterface / BaseLauncher:**
 - Purpose: declare a workflow's metadata in one place; the DB `launchers` row is the runtime instance.
@@ -156,7 +156,7 @@
 
 **Artisan console:** `backend/routes/console.php` — schedules `app:reap-stuck-runs` every minute in production
 
-**Container / DI:** `backend/app/Providers/AppServiceProvider.php` — binds `RunExecutorInterface` → `RunExecutor`, registers `AiProviderRegistry` as singleton, defines rate limiters (`runs`, `runs-stream`, `magic-link`), production DB/TLS/queue guards
+**Container / DI:** `backend/app/Providers/AppServiceProvider.php` — binds `RunExecutorInterface` → `RunExecutor`, registers `AiProviderRegistry` as singleton, defines rate limiters (`runs`, `runs-stream`, `magic-link`, `credentials`), production DB/TLS/queue guards
 
 ## Error Handling
 
@@ -177,7 +177,7 @@
 
 **Authentication / Authorization:** No API auth for public endpoints (launchers, runs). Auth group via `auth` middleware. Policies: `RunPolicy`, `ProviderCredentialPolicy` enforce ownership. Per-request AI key via `provider.api_key` or saved credential.
 
-**Rate limiting:** `runs` (5/hour/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP+email).
+**Rate limiting:** `runs` (5/hour/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP+email), `credentials` (`CREDENTIAL_VERIFY_PER_MINUTE` = 10/min/user).
 
 **Caching:** `GitHubService::context` caches for 10 minutes keyed by `sha1(url)`. `CacheRunProgressedVersion` listener caches run version for SSE change detection.
 

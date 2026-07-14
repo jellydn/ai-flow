@@ -37,14 +37,14 @@ CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) 
 
 - Required: `OPENAI_API_KEY`. Recommended: `GITHUB_TOKEN` (rate limits). Optional: `OPENAI_TIMEOUT`, `VITE_DEMO_MODE=true` (browser-only simulated runs, no backend worker).
 - Model resolution (`config/services.php`): `AI_MODEL` overrides `OPENAI_MODEL` (code default `gpt-4o-mini`; `.env.example` bumps to `gpt-5`). Per-adapter: `ANTHROPIC_MODEL` (`claude-sonnet-4-20250514`), `GEMINI_MODEL` (`gemini-2.0-flash`).
-- Multiple providers implement `AIProviderInterface` (`OpenAI`/`Anthropic`/`Gemini`). Requests may carry `provider.id`; users manage keys via `provider-credentials` (never stored on runs, never logged). User-supplied HTTPS GitHub URLs only.
+- Multiple providers implement `AIProviderInterface` (`OpenAI`/`OpenRouter`/`Anthropic`/`Gemini`). Provider IDs are sourced from `AiProviderRegistry::ids()`, not a config array. Requests may carry `provider.id`; users manage keys via `provider-credentials` (never stored on runs, never logged). User-supplied HTTPS GitHub URLs only.
 - `QUEUE_CONNECTION=database` by default; never `sync` in production. Local DB: SQLite (`database/database.sqlite`). Production: durable Postgres/MySQL.
 
 ## API
 
 - Slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`.
 - Aliases: `/api/flows`=`/api/launchers`, `/api/executions`=`/api/runs` (backward compat).
-- Rate limiters in `AppServiceProvider`: `runs` (5/hr/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP).
+- Rate limiters in `AppServiceProvider`: `runs` (5/hr/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP), `credentials` (10/min/user).
 - `POST /api/runs` returns **202** + UUID; status at `GET /api/runs/{uuid}`; progress via SSE `GET /api/runs/{uuid}/stream` (DB-polled, ~55s window). Do not add synchronous OpenAI/GitHub calls to the HTTP cycle.
 - Authenticated user routes under `auth` middleware: run history (`/api/user/runs`), provider credentials (`/api/user/provider-credentials`).
 
