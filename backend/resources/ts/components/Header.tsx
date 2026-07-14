@@ -30,6 +30,10 @@ export function Header({
                     type="button"
                     onClick={() => {
                         setMobileOpen(false);
+                        if (user && onLaunchClick) {
+                            onLaunchClick();
+                            return;
+                        }
                         reset();
                         scrollToSelector("#workflows");
                     }}
@@ -53,29 +57,17 @@ export function Header({
             <div className="header-end">
                 <div className="header-actions">
                     {user ? (
-                        <>
-                            <button
-                                type="button"
-                                className="header-auth-btn"
-                                onClick={() => {
-                                    setMobileOpen(false);
-                                    onLaunchClick?.();
-                                }}
-                            >
-                                Launch
-                            </button>
-                            <button
-                                type="button"
-                                className="header-cta"
-                                onClick={() => {
-                                    setMobileOpen(false);
-                                    onAuthClick();
-                                }}
-                                title="Account and run history"
-                            >
-                                {user.email}
-                            </button>
-                        </>
+                        <button
+                            type="button"
+                            className="header-cta"
+                            onClick={() => {
+                                setMobileOpen(false);
+                                onAuthClick();
+                            }}
+                            title="Account and run history"
+                        >
+                            {user.email}
+                        </button>
                     ) : (
                         <>
                             <button

@@ -308,6 +308,12 @@ export function App() {
         selectedCredentialId,
         setSelectedCredentialId,
         navigate,
+        user,
+        onManageApiKeys: user
+            ? () => {
+                  goto("/user", navigate);
+              }
+            : undefined,
     };
 
     return (

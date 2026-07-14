@@ -385,6 +385,13 @@ em {
   border-color: #ef9d81;
   box-shadow: 0 0 0 2px rgba(242, 99, 52, 0.08);
 }
+.launch-signed-in-hint {
+  color: var(--muted);
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
 .provider-section {
   margin-top: 18px;
   padding-top: 17px;

@@ -21,6 +21,9 @@ interface LaunchAreaProps {
     /** Selected saved credential ID (null = use one-time key / server key). */
     selectedCredentialId?: string | null;
     setSelectedCredentialId?: (id: string | null) => void;
+    /** Show step 3 label when the user is signed in (provider / own key). */
+    showSignedInStep?: boolean;
+    onManageApiKeys?: () => void;
 }
 
 export function LaunchArea({
@@ -33,16 +36,33 @@ export function LaunchArea({
     credentials = [],
     selectedCredentialId = null,
     setSelectedCredentialId,
+    showSignedInStep = false,
+    onManageApiKeys,
 }: LaunchAreaProps) {
     const hasSavedCredentials = credentials.length > 0;
     const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
 
     return (
         <>
-            <div className="provider-section">
+            {showSignedInStep && (
+                <div className="step-label workflow-label" id="provider-step">
+                    <span>3</span> Choose AI provider &amp; key
+                </div>
+            )}
+            {showSignedInStep && (
+                <p className="launch-signed-in-hint">
+                    Signed in: use a saved API key, a one-time key, or the server key.{" "}
+                    {onManageApiKeys && (
+                        <button type="button" className="auth-link" onClick={onManageApiKeys}>
+                            Manage API keys
+                        </button>
+                    )}
+                </p>
+            )}
+            <div className="provider-section" id="provider">
                 <div className="provider-heading">
                     <strong>AI Provider</strong>
-                    <span>Optional</span>
+                    <span>{showSignedInStep ? "Your key or server" : "Optional"}</span>
                 </div>
                 {hasSavedCredentials && (
                     <div className="provider-fields">
