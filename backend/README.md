@@ -30,7 +30,7 @@ php artisan queue:work --tries=2 --timeout=120
 npm run dev
 ```
 
-Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. `RESEND_API_KEY` is required for magic-link sign-in emails. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
+Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. `RESEND_API_KEY` is required for **Email link** sign-in (magic links); password sign-in does not use email delivery. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
 
 Optional error monitoring: set `SENTRY_LARAVEL_DSN` and `VITE_SENTRY_DSN` to enable Sentry error tracking on both backend and frontend (no-op when unset).
 
@@ -102,9 +102,23 @@ curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/executions/RUN_
 
 `POST /api/executions` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
 
+### Sign-in
+
+The UI supports **password** sign-in, **sign-up** (email + password), and **email link** (magic link). All methods use the same Laravel session cookie on the app origin.
+
+| Method | HTTP | Notes |
+|--------|------|--------|
+| Register | `POST /auth/register` | `email`, `password`, `password_confirmation`, optional `name`. Magic-link-only users can use the same email to set a password. |
+| Login | `POST /auth/login` | `email`, `password`. |
+| Magic link request | `POST /auth/magic-link` | `email`; queues email (needs worker + `RESEND_API_KEY`). |
+| Magic link verify | `GET /auth/magic-link/{token}` | Browser redirect; sets session. |
+| Logout | `POST /auth/logout` | Clears session. |
+
+Authenticated JSON endpoints expect the session cookie (`credentials: include` from the SPA).
+
 ### Authenticated user endpoints
 
-When signed in via magic link, users can manage their own runs:
+When signed in (password or magic link), users can manage their own runs:
 
 ```bash
 # List runs (with optional filters)
