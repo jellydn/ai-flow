@@ -25,10 +25,12 @@ RUN apt-get update \
         bcmath \
         intl \
         mbstring \
-        opcache \
         pcntl \
         pdo_pgsql \
         zip \
+    && (docker-php-ext-install opcache 2>/dev/null || true) \
+    && test -f "$(php -r 'echo ini_get("extension_dir");')"/opcache.so \
+    && docker-php-ext-enable opcache \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer

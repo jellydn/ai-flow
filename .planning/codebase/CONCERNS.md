@@ -4,6 +4,12 @@
 
 ## Tech Debt
 
+**Redundant `config('services.openai.providers')` array (fixed):**
+- Issue: The `providers` array in `config/services.php` duplicated `AiProviderRegistry::PROVIDERS`, creating two sources of truth for provider IDs.
+- Files: `backend/config/services.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`
+- Status: ✅ Fixed — `StoreProviderCredentialRequest` now injects `AiProviderRegistry` and uses `$registry->ids()` for validation; the `providers` array was removed from `config/services.php`.
+- Impact: None — `AiProviderRegistry` is now the single source of truth.
+
 **No claim flow for anonymous runs:**
 - Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. `RunController::store` sets `user_id` to `$request->user()?->id`, which is `null` for anonymous users. Runs created before auth are permanently anonymous.
 - Files: `backend/app/Http/Controllers/RunController.php`, `backend/app/Models/Run.php`
@@ -29,6 +35,12 @@
 - Files: `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`, `backend/app/Support/AiProviderRegistry.php`
 - Impact: If stored `base_url` is used for provider construction, the server could be used for SSRF attacks.
 - Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) in `StoreProviderCredentialRequest` before allowing user-supplied base URLs to reach provider constructors. ADR-0016 mentions `encrypted_base_url` storage but does not address SSRF — this should be documented when wiring stored `base_url` into provider construction.
+
+**No rate limiting on credential verification (fixed):**
+- Issue: `POST /api/user/provider-credentials/{id}/verify` had no rate limit, allowing excessive outbound API calls.
+- Files: `backend/routes/api.php`, `backend/app/Providers/AppServiceProvider.php`
+- Status: ✅ Fixed — Added `throttle:credentials` rate limiter (10/min/user) in `AppServiceProvider` and applied to the verify route.
+- Impact: None — credential verification is now rate-limited.
 
 ## Performance
 
@@ -69,6 +81,12 @@ No known bugs at current HEAD.
 - Fix approach: Acceptable for test code; document the pattern.
 
 ## Documentation
+
+**`AGENTS.md` references outdated remote names (fixed):**
+- Issue: `AGENTS.md` previously stated "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". The stale Amp sync note has been removed and the Gotchas section now correctly states `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
+- Files: `AGENTS.md`
+- Status: ✅ Fixed (already resolved in current `main`)
+- Impact: None — documentation is now accurate.
 
 **ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
 - Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
