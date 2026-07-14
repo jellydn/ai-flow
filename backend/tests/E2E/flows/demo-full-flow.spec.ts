@@ -18,12 +18,13 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         // Verify the sign-in modal appears (password tab is default).
         await expect(page.locator(".auth-card")).toBeVisible({ timeout: 5000 });
         await expect(page.getByPlaceholder(/you@example.com/)).toBeVisible();
-        await expect(page.getByRole("button", { name: /^Sign in$/ })).toBeVisible();
+        const authCard = page.locator(".auth-card");
+        await expect(authCard.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
         // Magic-link flow lives on the Email link tab.
-        await page.getByRole("tab", { name: "Email link" }).click();
+        await authCard.getByRole("tab", { name: "Email link" }).click();
         await expect(
-            page.getByRole("button", { name: /Send sign-in link/ }),
+            authCard.getByRole("button", { name: /Send sign-in link/ }),
         ).toBeVisible();
 
         // In demo mode, the sign-in form cannot actually submit (no backend
