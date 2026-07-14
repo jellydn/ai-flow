@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { authCard, authTabPanel } from "../helpers/authCard.ts";
 
 /**
  * Demo-mode E2E: full visual flow from sign-in to viewing a report.
@@ -13,9 +14,9 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         await page.goto("/");
         await page.getByRole("button", { name: "Sign in" }).click();
 
-        const card = page.locator(".auth-card");
+        const card = authCard(page);
         await card.getByRole("tab", { name: "Sign up" }).click();
-        const signUp = card.getByRole("tabpanel", { name: "Sign up" });
+        const signUp = authTabPanel(page, "Sign up");
 
         await expect(signUp.getByLabel("Email")).toBeVisible();
         await expect(signUp.getByLabel("Password", { exact: true })).toBeVisible();
@@ -31,16 +32,14 @@ test.describe("Demo mode: sign-in → launch → report", () => {
         await page.getByRole("button", { name: "Sign in" }).click();
 
         // Verify the sign-in modal appears (password tab is default).
-        await expect(page.locator(".auth-card")).toBeVisible({ timeout: 5000 });
+        const card = authCard(page);
+        await expect(card).toBeVisible({ timeout: 5000 });
         await expect(page.getByPlaceholder(/you@example.com/)).toBeVisible();
-        const authCard = page.locator(".auth-card");
-        await expect(authCard.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+        await expect(card.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
         // Magic-link flow lives on the Email link tab.
-        await authCard.getByRole("tab", { name: "Email link" }).click();
-        await expect(
-            authCard.getByRole("button", { name: /Send sign-in link/ }),
-        ).toBeVisible();
+        await card.getByRole("tab", { name: "Email link" }).click();
+        await expect(card.getByRole("button", { name: /Send sign-in link/ })).toBeVisible();
 
         // In demo mode, the sign-in form cannot actually submit (no backend
         // auth API), so we verify the UI renders and then navigate back to

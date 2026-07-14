@@ -1406,7 +1406,7 @@ footer > span {
   color: var(--orange);
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  font-family: DM Mono, monospace;
+  font-family: "DM Mono", monospace;
   font-size: 10px;
   font-weight: 500;
   margin: 0 0 6px;

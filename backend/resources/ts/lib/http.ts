@@ -1,12 +1,9 @@
 const DEFAULT_TIMEOUT = 10_000;
 
 function getCookie(name: string): string | undefined {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
-    if (parts.length === 2) {
-        return parts.pop()?.split(";").shift();
-    }
-    return undefined;
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const match = document.cookie.match(new RegExp(`(?:^|; )${escaped}=([^;]*)`));
+    return match ? match[1] : undefined;
 }
 
 export function mutationHeaders(extra: Record<string, string> = {}): Record<string, string> {

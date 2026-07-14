@@ -66,15 +66,20 @@ class PasswordAuthController extends Controller
         $email = strtolower(trim($credentials['email']));
         $user = User::query()->where('email', $email)->first();
 
-        $passwordValid = $user !== null
-            && $user->password !== null
-            && Auth::validate([
+        $hasPassword = $user !== null && $user->password !== null;
+        $passwordValid = false;
+
+        if ($hasPassword) {
+            $passwordValid = Auth::validate([
                 'email' => $user->email,
                 'password' => $credentials['password'],
             ]);
+        }
 
         if (! $passwordValid) {
-            Hash::check($credentials['password'], self::DUMMY_PASSWORD_HASH);
+            if (! $hasPassword) {
+                Hash::check($credentials['password'], self::DUMMY_PASSWORD_HASH);
+            }
 
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],

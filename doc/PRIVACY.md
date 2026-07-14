@@ -5,7 +5,7 @@
 | Data | Stored? | Encrypted? | Purpose |
 |------|---------|------------|---------|
 | Email address | Yes | No | Sign-in (password or magic link) |
-| Password (optional) | Yes | **Yes** (bcrypt hash) | Password sign-in only; not stored for magic-link-only users |
+| Password (optional) | Yes | No (bcrypt hash) | Password sign-in only; not stored for magic-link-only users |
 | User name (optional) | Yes | No | Display in dashboard |
 | Saved provider API keys | Yes | **Yes** (AES-256 via `APP_KEY`) | BYOK — use your own AI provider key |
 | Saved provider base URLs | Yes | **Yes** | Optional custom endpoint for OpenAI-compatible providers |
