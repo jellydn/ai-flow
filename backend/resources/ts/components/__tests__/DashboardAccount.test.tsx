@@ -48,13 +48,13 @@ describe("Dashboard — Account tab", () => {
 
     it("renders account tab button", () => {
         render(<Dashboard {...baseProps} />);
-        expect(screen.getByRole("button", { name: "Account" })).toBeInTheDocument();
+        expect(screen.getByRole("tab", { name: "Account" })).toBeInTheDocument();
     });
 
     it("switches to account tab on click and shows privacy panel", async () => {
         render(<Dashboard {...baseProps} />);
 
-        await userEvent.setup().click(screen.getByRole("button", { name: "Account" }));
+        await userEvent.setup().click(screen.getByRole("tab", { name: "Account" }));
 
         expect(screen.getByText("Privacy & Data")).toBeInTheDocument();
         expect(screen.getByText(/encrypted before being stored/)).toBeInTheDocument();
@@ -64,7 +64,7 @@ describe("Dashboard — Account tab", () => {
     it("shows danger zone with delete account heading after switching to account tab", async () => {
         render(<Dashboard {...baseProps} />);
 
-        await userEvent.setup().click(screen.getByRole("button", { name: "Account" }));
+        await userEvent.setup().click(screen.getByRole("tab", { name: "Account" }));
 
         expect(screen.getByText("Delete account")).toBeInTheDocument();
         expect(screen.getByText(/Permanently delete your account/)).toBeInTheDocument();
@@ -82,7 +82,7 @@ describe("Dashboard — Account deletion confirmation flow", () => {
     // Helper: switch to account tab.
     async function goToAccountTab() {
         render(<Dashboard {...baseProps} />);
-        await userEvent.setup().click(screen.getByRole("button", { name: "Account" }));
+        await userEvent.setup().click(screen.getByRole("tab", { name: "Account" }));
     }
 
     it("renders confirmation checkbox and delete button", async () => {
