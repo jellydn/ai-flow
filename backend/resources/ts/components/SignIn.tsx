@@ -18,8 +18,7 @@ function firstValidationMessage(err: unknown): string {
     if (!(err instanceof Error)) {
         return "Something went wrong. Try again.";
     }
-    const match = err.message.match(/"([^"]+)"/);
-    return match?.[1] ?? err.message;
+    return err.message;
 }
 
 export function SignIn({ onRequested, onAuthenticated }: SignInProps) {

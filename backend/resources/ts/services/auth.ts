@@ -1,4 +1,4 @@
-import { get, post } from "../lib/http.ts";
+import { get, mutationHeaders, post } from "../lib/http.ts";
 import { assertString, assertObject, assertArray } from "./run.ts";
 
 export interface User {
@@ -125,7 +125,7 @@ export async function verifyCredential(id: string): Promise<{ valid: boolean; me
 export async function deleteCredential(id: string): Promise<void> {
     const raw = await fetch(`/api/user/provider-credentials/${id}`, {
         method: "DELETE",
-        headers: { Accept: "application/json" },
+        headers: mutationHeaders(),
         credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete credential.");
@@ -144,7 +144,7 @@ export async function retryRun(id: string): Promise<{ id: string; status: string
 export async function deleteRun(id: string): Promise<void> {
     const raw = await fetch(`/api/user/runs/${id}`, {
         method: "DELETE",
-        headers: { Accept: "application/json" },
+        headers: mutationHeaders(),
         credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete run.");
@@ -153,10 +153,7 @@ export async function deleteRun(id: string): Promise<void> {
 export async function deleteAccount(): Promise<void> {
     const raw = await fetch(`/api/user/account`, {
         method: "DELETE",
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-        },
+        headers: mutationHeaders({ "Content-Type": "application/json" }),
         credentials: "include",
         body: JSON.stringify({ confirm: true }),
     });

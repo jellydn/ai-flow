@@ -108,7 +108,7 @@ The UI supports **password** sign-in, **sign-up** (email + password), and **emai
 
 | Method | HTTP | Notes |
 |--------|------|--------|
-| Register | `POST /auth/register` | `email`, `password`, `password_confirmation`, optional `name`. Magic-link-only users can use the same email to set a password. |
+| Register | `POST /auth/register` | `email`, `password`, `password_confirmation`, optional `name`. Rejects emails that already have an account (including magic-link-only); use magic link first, then set a password from Settings when that flow exists. |
 | Login | `POST /auth/login` | `email`, `password`. |
 | Magic link request | `POST /auth/magic-link` | `email`; queues email (needs worker + `RESEND_API_KEY`). |
 | Magic link verify | `GET /auth/magic-link/{token}` | Browser redirect; sets session. |

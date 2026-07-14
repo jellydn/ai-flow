@@ -1,5 +1,26 @@
 const DEFAULT_TIMEOUT = 10_000;
 
+function getCookie(name: string): string | undefined {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) {
+        return parts.pop()?.split(";").shift();
+    }
+    return undefined;
+}
+
+export function mutationHeaders(extra: Record<string, string> = {}): Record<string, string> {
+    const headers: Record<string, string> = {
+        Accept: "application/json",
+        ...extra,
+    };
+    const xsrfToken = getCookie("XSRF-TOKEN");
+    if (xsrfToken) {
+        headers["X-XSRF-TOKEN"] = decodeURIComponent(xsrfToken);
+    }
+    return headers;
+}
+
 function buildErrorMessage(response: Response, body: unknown): string {
     if (
         body &&
@@ -32,9 +53,15 @@ async function parseJson(response: Response): Promise<unknown> {
 async function request(input: RequestInfo, init: RequestInit, timeout: number): Promise<unknown> {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
+    const method = (init.method ?? "GET").toUpperCase();
+    const headers =
+        method === "GET" || method === "HEAD"
+            ? { Accept: "application/json", ...(init.headers as Record<string, string>) }
+            : mutationHeaders(init.headers as Record<string, string>);
     try {
         const response = await fetch(input, {
             ...init,
+            headers,
             credentials: "include",
             signal: controller.signal,
         });
@@ -67,7 +94,6 @@ export function post(
         {
             method: "POST",
             headers: {
-                Accept: "application/json",
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),

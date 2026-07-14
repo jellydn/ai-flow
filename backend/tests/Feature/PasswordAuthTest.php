@@ -27,7 +27,7 @@ class PasswordAuthTest extends TestCase
         $this->assertAuthenticatedAs($user);
     }
 
-    public function test_register_sets_password_on_magic_link_only_user(): void
+    public function test_register_rejects_magic_link_only_user_email(): void
     {
         User::factory()->create([
             'email' => 'magic@example.com',
@@ -39,11 +39,8 @@ class PasswordAuthTest extends TestCase
             'password' => 'SecretPass1!',
             'password_confirmation' => 'SecretPass1!',
         ])
-            ->assertCreated();
-
-        $user = User::query()->where('email', 'magic@example.com')->firstOrFail();
-        $this->assertNotNull($user->password);
-        $this->assertAuthenticated();
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
     }
 
     public function test_register_rejects_existing_password_user(): void

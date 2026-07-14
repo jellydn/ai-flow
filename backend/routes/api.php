@@ -22,7 +22,7 @@ Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs
 Route::get('/runs/recent', [RunController::class, 'recent']);
 Route::get('/runs/{run}', [RunController::class, 'show']);
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
-Route::middleware('auth')->prefix('user')->group(function () {
+Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::get('/', fn () => new UserResource(request()->user()));
     Route::get('/runs', [RunHistoryController::class, 'index']);
     Route::get('/runs/{run}', [RunHistoryController::class, 'show']);
