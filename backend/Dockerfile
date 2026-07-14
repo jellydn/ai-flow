@@ -21,7 +21,7 @@ RUN apt-get update \
         nginx \
         supervisor \
         unzip \
-    && (docker-php-ext-install -j"$(nproc)" \
+    && docker-php-ext-install -j"$(nproc)" \
         bcmath \
         intl \
         mbstring \
