@@ -6,19 +6,49 @@ function getCookie(name: string): string | undefined {
     return match ? match[1] : undefined;
 }
 
+function getCsrfTokenFromMeta(): string | undefined {
+    const content = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+    return content && content.length > 0 ? content : undefined;
+}
+
 export function mutationHeaders(extra: Record<string, string> = {}): Record<string, string> {
     const headers: Record<string, string> = {
         Accept: "application/json",
         ...extra,
     };
-    const xsrfToken = getCookie("XSRF-TOKEN");
-    if (xsrfToken) {
-        headers["X-XSRF-TOKEN"] = decodeURIComponent(xsrfToken);
+    const cookieToken = getCookie("XSRF-TOKEN");
+    if (cookieToken) {
+        headers["X-XSRF-TOKEN"] = decodeURIComponent(cookieToken);
+    } else {
+        const metaToken = getCsrfTokenFromMeta();
+        if (metaToken) {
+            headers["X-CSRF-TOKEN"] = metaToken;
+        }
     }
     return headers;
 }
 
+function firstValidationErrorFromBag(body: Record<string, unknown>): string | undefined {
+    const errors = body.errors;
+    if (!errors || typeof errors !== "object") {
+        return undefined;
+    }
+    for (const messages of Object.values(errors as Record<string, unknown>)) {
+        if (Array.isArray(messages) && typeof messages[0] === "string") {
+            return messages[0];
+        }
+    }
+    return undefined;
+}
+
 function buildErrorMessage(response: Response, body: unknown): string {
+    if (body && typeof body === "object") {
+        const record = body as Record<string, unknown>;
+        const fromBag = firstValidationErrorFromBag(record);
+        if (fromBag) {
+            return fromBag;
+        }
+    }
     if (
         body &&
         typeof body === "object" &&

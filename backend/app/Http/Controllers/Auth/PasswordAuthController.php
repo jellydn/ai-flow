@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -43,7 +44,14 @@ class PasswordAuthController extends Controller
             'password' => $validated['password'],
             'last_login_at' => now(),
         ]);
-        $user->save();
+
+        try {
+            $user->save();
+        } catch (UniqueConstraintViolationException) {
+            throw ValidationException::withMessages([
+                'email' => ['An account with this email already exists.'],
+            ]);
+        }
 
         Auth::login($user, true);
         $request->session()->regenerate();
@@ -67,20 +75,11 @@ class PasswordAuthController extends Controller
         $user = User::query()->where('email', $email)->first();
 
         $hasPassword = $user !== null && $user->password !== null;
-        $passwordValid = false;
-
-        if ($hasPassword) {
-            $passwordValid = Auth::validate([
-                'email' => $user->email,
-                'password' => $credentials['password'],
-            ]);
-        }
+        $hashToCheck = $hasPassword ? $user->password : self::DUMMY_PASSWORD_HASH;
+        $passwordMatches = Hash::check($credentials['password'], $hashToCheck);
+        $passwordValid = $hasPassword && $passwordMatches;
 
         if (! $passwordValid) {
-            if (! $hasPassword) {
-                Hash::check($credentials['password'], self::DUMMY_PASSWORD_HASH);
-            }
-
             throw ValidationException::withMessages([
                 'email' => ['These credentials do not match our records.'],
             ]);

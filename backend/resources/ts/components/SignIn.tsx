@@ -1,4 +1,12 @@
-import { type FormEvent, type RefObject, useEffect, useId, useRef, useState } from "react";
+import {
+    type FormEvent,
+    type KeyboardEvent,
+    type RefObject,
+    useEffect,
+    useId,
+    useRef,
+    useState,
+} from "react";
 import {
     loginWithPassword,
     registerWithPassword,
@@ -8,6 +16,8 @@ import {
 import { logger } from "../lib/logger.ts";
 
 type AuthMode = "sign-in" | "sign-up" | "magic";
+
+const AUTH_TAB_MODES: AuthMode[] = ["sign-in", "sign-up", "magic"];
 
 interface SignInProps {
     onRequested: (email: string) => void;
@@ -167,6 +177,30 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
         magic: `${baseId}-panel-magic`,
     };
 
+    const handleTabListKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+        const idx = AUTH_TAB_MODES.indexOf(mode);
+        if (idx < 0) {
+            return;
+        }
+
+        let next: AuthMode | null = null;
+        if (e.key === "ArrowRight") {
+            next = AUTH_TAB_MODES[(idx + 1) % AUTH_TAB_MODES.length];
+        } else if (e.key === "ArrowLeft") {
+            next = AUTH_TAB_MODES[(idx - 1 + AUTH_TAB_MODES.length) % AUTH_TAB_MODES.length];
+        } else if (e.key === "Home") {
+            next = AUTH_TAB_MODES[0];
+        } else if (e.key === "End") {
+            next = AUTH_TAB_MODES[AUTH_TAB_MODES.length - 1];
+        }
+
+        if (next && next !== mode) {
+            e.preventDefault();
+            switchMode(next);
+            requestAnimationFrame(() => document.getElementById(tabIds[next])?.focus());
+        }
+    };
+
     return (
         <main className="auth-page">
             <div className="auth-card">
@@ -179,13 +213,19 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
                           : "Sign in"}
                 </h2>
 
-                <div className="auth-tabs" role="tablist" aria-labelledby={`${baseId}-heading`}>
+                <div
+                    className="auth-tabs"
+                    role="tablist"
+                    aria-labelledby={`${baseId}-heading`}
+                    onKeyDown={handleTabListKeyDown}
+                >
                     <button
                         type="button"
                         role="tab"
                         id={tabIds["sign-in"]}
                         aria-selected={mode === "sign-in"}
                         aria-controls={panelIds["sign-in"]}
+                        tabIndex={mode === "sign-in" ? 0 : -1}
                         className={mode === "sign-in" ? "auth-tab active" : "auth-tab"}
                         onClick={() => switchMode("sign-in")}
                     >
@@ -197,6 +237,7 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
                         id={tabIds["sign-up"]}
                         aria-selected={mode === "sign-up"}
                         aria-controls={panelIds["sign-up"]}
+                        tabIndex={mode === "sign-up" ? 0 : -1}
                         className={mode === "sign-up" ? "auth-tab active" : "auth-tab"}
                         onClick={() => switchMode("sign-up")}
                     >
@@ -208,6 +249,7 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
                         id={tabIds.magic}
                         aria-selected={mode === "magic"}
                         aria-controls={panelIds.magic}
+                        tabIndex={mode === "magic" ? 0 : -1}
                         className={mode === "magic" ? "auth-tab active" : "auth-tab"}
                         onClick={() => switchMode("magic")}
                     >
