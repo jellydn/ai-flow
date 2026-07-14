@@ -13,4 +13,4 @@ touch database/database.sqlite
 php artisan migrate --force --seed
 
 VITE_DEMO_MODE=true npm run build
-exec php artisan serve --port="${PORT}" --no-reload
+exec php artisan serve --host=localhost --port="${PORT}" --no-reload

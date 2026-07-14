@@ -9,6 +9,21 @@ import { expect, test } from "@playwright/test";
  * Flow: navigate → paste URL → select launcher → launch → watch progress → view report.
  */
 test.describe("Demo mode: sign-in → launch → report", () => {
+    test("sign-up tab shows labeled fields and link to sign in", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("button", { name: "Sign in" }).click();
+
+        const card = page.locator(".auth-card");
+        await card.getByRole("tab", { name: "Sign up" }).click();
+        const signUp = card.getByRole("tabpanel", { name: "Sign up" });
+
+        await expect(signUp.getByLabel("Email")).toBeVisible();
+        await expect(signUp.getByLabel("Password", { exact: true })).toBeVisible();
+        await expect(signUp.getByLabel("Confirm password")).toBeVisible();
+        await expect(signUp.getByRole("button", { name: "Create account" })).toBeVisible();
+        await expect(signUp.getByRole("button", { name: /^Sign in$/ })).toBeVisible();
+    });
+
     test("shows sign-in UI when clicking Sign in button", async ({ page }) => {
         await page.goto("/");
 
