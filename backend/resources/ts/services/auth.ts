@@ -66,6 +66,23 @@ export async function requestMagicLink(email: string): Promise<void> {
     await post("/auth/magic-link", { email });
 }
 
+export async function loginWithPassword(email: string, password: string): Promise<User> {
+    const body = await post("/auth/login", { email, password });
+    const data = assertObject(body);
+    return decodeUser(data.data ?? body);
+}
+
+export async function registerWithPassword(payload: {
+    email: string;
+    password: string;
+    password_confirmation: string;
+    name?: string;
+}): Promise<User> {
+    const body = await post("/auth/register", payload);
+    const data = assertObject(body);
+    return decodeUser(data.data ?? body);
+}
+
 export async function logout(): Promise<void> {
     await post("/auth/logout", {});
 }
@@ -109,6 +126,7 @@ export async function deleteCredential(id: string): Promise<void> {
     const raw = await fetch(`/api/user/provider-credentials/${id}`, {
         method: "DELETE",
         headers: { Accept: "application/json" },
+        credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete credential.");
 }
@@ -127,6 +145,7 @@ export async function deleteRun(id: string): Promise<void> {
     const raw = await fetch(`/api/user/runs/${id}`, {
         method: "DELETE",
         headers: { Accept: "application/json" },
+        credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete run.");
 }
@@ -138,6 +157,7 @@ export async function deleteAccount(): Promise<void> {
             Accept: "application/json",
             "Content-Type": "application/json",
         },
+        credentials: "include",
         body: JSON.stringify({ confirm: true }),
     });
     if (!raw.ok) throw new Error("Failed to delete account.");

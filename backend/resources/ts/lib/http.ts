@@ -33,7 +33,11 @@ async function request(input: RequestInfo, init: RequestInit, timeout: number): 
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
     try {
-        const response = await fetch(input, { ...init, signal: controller.signal });
+        const response = await fetch(input, {
+            ...init,
+            credentials: "include",
+            signal: controller.signal,
+        });
         clearTimeout(id);
         const body = await parseJson(response);
         if (!response.ok) {

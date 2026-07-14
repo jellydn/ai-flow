@@ -18,6 +18,7 @@ interface AuthState {
 interface AuthActions {
     setShowSignIn: (v: boolean) => void;
     setCheckEmail: (v: string) => void;
+    onAuthenticated: (user: User) => void;
     onLogout: () => void;
 }
 
@@ -59,7 +60,7 @@ export function AppViews({
     onNavigate,
 }: AppViewsProps) {
     const { user, checked, checkEmail, showSignIn, deepLinkLoading } = authState;
-    const { setShowSignIn, setCheckEmail, onLogout } = authActions;
+    const { setShowSignIn, setCheckEmail, onAuthenticated, onLogout } = authActions;
 
     return (
         <>
@@ -91,6 +92,10 @@ export function AppViews({
                     onRequested={(email) => {
                         setShowSignIn(false);
                         setCheckEmail(email);
+                    }}
+                    onAuthenticated={(signedIn) => {
+                        setShowSignIn(false);
+                        onAuthenticated(signedIn);
                     }}
                 />
             )}

@@ -327,6 +327,10 @@ export function App() {
                 authActions={{
                     setShowSignIn,
                     setCheckEmail,
+                    onAuthenticated: (signedIn) => {
+                        setUser(signedIn);
+                        setShowSignIn(false);
+                    },
                     onLogout: async () => {
                         await apiLogout();
                         setUser(null);

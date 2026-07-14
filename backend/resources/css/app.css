@@ -1407,6 +1407,30 @@ footer > span {
   letter-spacing: -0.04em;
   margin: 0 0 8px;
 }
+.auth-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 16px;
+  flex-wrap: wrap;
+}
+.auth-tab {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #d6d3ca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.auth-tab.active {
+  border-color: var(--orange);
+  color: var(--ink);
+  background: rgba(242, 99, 52, 0.08);
+}
 .auth-card > p {
   color: var(--muted);
   font-size: 12px;
