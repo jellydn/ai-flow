@@ -2,6 +2,7 @@ import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from "lucide-
 import type { Finding, RunResult } from "../types/api.ts";
 import { demoFindings } from "../data/launcherMeta.ts";
 import { shareRunUrl } from "../services/run.ts";
+import { MarkdownBody } from "./MarkdownBody.tsx";
 
 interface ReportProps {
     launcherName: string;
@@ -103,7 +104,7 @@ export function Report({
                             <h2>Executive summary</h2>
                         </div>
                         <div className="summary-box">
-                            <p>{summary}</p>
+                            <MarkdownBody>{summary}</MarkdownBody>
                         </div>
                     </section>
                     <section id="findings">
@@ -131,12 +132,12 @@ export function Report({
                                         </span>
                                     </div>
                                     <h3 data-testid="finding-title">{finding.title}</h3>
-                                    <p>{finding.description}</p>
+                                    <MarkdownBody>{finding.description}</MarkdownBody>
                                     <div className="suggestion">
                                         <strong>
                                             <Sparkles size={14} /> Suggested fix
                                         </strong>
-                                        <p>{finding.recommendation}</p>
+                                        <MarkdownBody>{finding.recommendation}</MarkdownBody>
                                     </div>
                                 </div>
                             ))}
@@ -154,7 +155,9 @@ export function Report({
                                         type="checkbox"
                                         defaultChecked={index === checklist.length - 1}
                                     />
-                                    <span>{item}</span>
+                                    <span className="checklist-text">
+                                        <MarkdownBody>{item}</MarkdownBody>
+                                    </span>
                                 </label>
                             ))}
                         </div>

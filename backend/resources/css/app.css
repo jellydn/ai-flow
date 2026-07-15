@@ -1362,6 +1362,97 @@ footer > span {
   color: #6f6b64;
   font-size: 10px;
 }
+.markdown-body {
+  color: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body pre,
+.markdown-body blockquote,
+.markdown-body table {
+  margin: 0 0 0.85em;
+}
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.4em;
+}
+.markdown-body li + li {
+  margin-top: 0.35em;
+}
+.markdown-body code {
+  display: inline;
+  padding: 0.12em 0.35em;
+  border-radius: 4px;
+  background: #f3f1eb;
+  color: #3e3b36;
+  font: 400 0.9em "DM Mono";
+}
+.markdown-body pre {
+  overflow-x: auto;
+  padding: 12px;
+  border-radius: 8px;
+  background: #211f1c;
+}
+.markdown-body pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: #f7f3ea;
+}
+.markdown-body blockquote {
+  border-left: 3px solid var(--orange);
+  padding-left: 12px;
+  color: #77736c;
+}
+.markdown-body a {
+  color: var(--orange);
+  text-decoration: underline;
+}
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95em;
+}
+.markdown-body th,
+.markdown-body td {
+  border: 1px solid var(--line);
+  padding: 6px 8px;
+  text-align: left;
+}
+.summary-box .markdown-body {
+  font-size: 13px;
+  line-height: 1.75;
+  color: #55524c;
+}
+.finding > .markdown-body {
+  color: #66625b;
+  font-size: 11px;
+  line-height: 1.7;
+}
+.suggestion .markdown-body {
+  margin-top: 6px;
+  color: #6f6b64;
+  font-size: 10px;
+}
+.checklist-text .markdown-body {
+  display: inline;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+}
+.checklist-text .markdown-body p {
+  display: inline;
+  margin: 0;
+}
 .checklist {
   background: #fff;
   border: 1px solid var(--line);
