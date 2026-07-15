@@ -6,6 +6,7 @@ use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
 use App\Http\Controllers\RunHistoryController;
+use App\Http\Controllers\TrendingRepositoryController;
 use App\Http\Resources\UserResource;
 use App\Models\Launcher;
 use Illuminate\Support\Facades\Route;
@@ -26,6 +27,7 @@ Route::get('/providers', [ProviderController::class, 'index']);
 // CSRF applies to mutating methods only; SPA sends X-XSRF-TOKEN on POST.
 Route::post('/runs', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
 Route::get('/runs/recent', [RunController::class, 'recent']);
+Route::get('/trending-repositories', [TrendingRepositoryController::class, 'index']);
 Route::get('/runs/{run}', [RunController::class, 'show'])->middleware('web');
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware(['web', 'throttle:runs-stream']);
 Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
