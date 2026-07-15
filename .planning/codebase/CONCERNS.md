@@ -16,11 +16,17 @@
 - Impact: UI/storage suggests custom endpoints work; BYOK users pointing at compatible proxies cannot use saved base URLs yet.
 - Fix approach: Decrypt base URL in the job (same lifetime rules as API key), pass into provider constructors, and add integration tests.
 
-**Home.tsx concentration:**
-- Issue: Home bundles trending, recent runs, and launch UX in one component (~287 lines).
+**Missing `completed_at` index for recent runs endpoint (fixed):**
+- Issue: `RunController::recent()` queries completed public runs ordered by `completed_at`. The `runs` table had indexes on `status` and `created_at`, but no index on `completed_at`.
+- Files: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/2026_07_15_000001_add_recent_runs_index_to_runs_table.php`
+- Status: ✅ Fixed — composite index `runs_status_user_completed_at_index` on `(status, user_id, completed_at)`.
+- Impact: Home-page recent runs query is indexed for typical volumes.
+
+**Home.tsx size (watch):**
+- Issue: `Home.tsx` bundles trending, recent runs, and launch UX (~287 lines).
 - Files: `backend/resources/ts/components/Home.tsx`
 - Impact: Higher merge conflict risk; harder to unit-test recent-runs block in isolation.
-- Fix approach: Extract `RecentRunsSection` / trending cards when next touching home layout.
+- Fix approach: Extract `RecentRunsSection` and `TrendingCard` when next touching home layout.
 
 **Legacy API field aliases:**
 - Issue: `StoreRunRequest` still accepts `flow_id` and `input.url` alongside `launcher` / `source_url`.
@@ -28,9 +34,15 @@
 - Impact: Two naming schemes to document and test indefinitely unless deprecated with sunset.
 - Fix approach: Deprecation headers or docs; remove aliases once clients migrate.
 
+**Latent SSRF risk via stored `base_url` (mitigated):**
+- Issue: User-supplied `base_url` on provider credentials could target localhost, private IPs, or cloud metadata if later used for outbound HTTP from workers.
+- Files: `backend/app/Rules/PublicHttpUrl.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Requests/UpdateProviderCredentialRequest.php`, `backend/tests/Feature/ProviderCredentialBaseUrlValidationTest.php`
+- Status: ✅ Mitigated — `PublicHttpUrl` on create/update. Stored `base_url` is still not wired into `AiProviderRegistry::get()`; re-validate when that lands.
+- Impact: Credentials cannot be saved with obvious SSRF targets; remaining risk is DNS rebinding if providers fetch stored URLs without additional hardening.
+
 ## Known Bugs
 
-No confirmed production bugs at current HEAD (`fix/concerns-base-url-index`, commit `41b6620`).
+No confirmed production bugs at current `main` (post PR #57).
 
 ## Security Considerations
 
@@ -194,16 +206,18 @@ No confirmed production bugs at current HEAD (`fix/concerns-base-url-index`, com
 ## Codebase Scan Notes
 
 - **TODO / FIXME / HACK:** None found in `backend/` PHP/TS/TSX (2026-07-15 scan).
-- **PR #57 / branch `fix/concerns-base-url-index` (commit `41b6620`):** Landed `PublicHttpUrl`, credential request validation, composite index `runs_status_user_completed_at_index` on `(status, user_id, completed_at)` for `GET /api/runs/recent`, and `ProviderCredentialBaseUrlValidationTest`.
+- **PR #57 (merged):** `PublicHttpUrl`, credential validation, composite index `runs_status_user_completed_at_index`, `ProviderCredentialBaseUrlValidationTest`.
 
 ## Previously Fixed (for reference)
 
-- ✅ Redundant `config('services.openai.providers')` — `AiProviderRegistry` single source of truth.
-- ✅ Credential verify rate limit — `throttle:credentials` (10/min/user) on verify route.
-- ✅ Recent runs query index — `2026_07_15_000001_add_recent_runs_index_to_runs_table.php`.
-- ✅ Credential `base_url` validation — `PublicHttpUrl` on store/update.
-- ✅ Demo report view reset, E2E brittle text assertions, silent `catch {}` → `logger.warn()` across frontend.
-- ✅ `AGENTS.md` remote naming (`origin` = GitHub, `dokku` = staging).
+- ✅ **Redundant `config('services.openai.providers')` array** — `AiProviderRegistry` single source of truth.
+- ✅ **No rate limiting on credential verification** — `throttle:credentials` (10/min/user).
+- ✅ **Demo report view reset** — `useEffect` in `App.tsx` excludes `"report"` from reset.
+- ✅ **AGENTS.md remote naming** — `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging.
+- ✅ **E2E brittle demo finding text** — Structural test IDs on findings.
+- ✅ **Silent `catch {}` on frontend** — `logger.warn()` across subscription, auth, settings, history.
+- ✅ **Missing `completed_at` index for recent runs** — Composite index on `(status, user_id, completed_at)`.
+- ✅ **Latent SSRF via credential `base_url`** — `PublicHttpUrl` on store/update.
 
 ---
 
