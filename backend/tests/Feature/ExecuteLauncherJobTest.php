@@ -45,9 +45,30 @@ class ExecuteLauncherJobTest extends TestCase
         $this->assertNotNull($fresh->completed_at);
     }
 
+    public function test_job_fails_when_no_api_key_configured(): void
+    {
+        $this->seed();
+        config()->set('services.openai.key', null);
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'source_url' => 'https://github.com/a/b',
+            'input' => ['source_url' => 'https://github.com/a/b'],
+            'progress' => [],
+        ]);
+        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor->shouldNotReceive('execute');
+
+        (new ExecuteLauncherJob($run->id))->handle($executor);
+
+        $fresh = $run->fresh();
+        $this->assertSame('failed', $fresh->status);
+        $this->assertStringContainsString('No AI provider API key', $fresh->error);
+    }
+
     public function test_job_delegates_run_execution(): void
     {
         $this->seed();
+        config()->set('services.openai.key', 'server-test-key');
         $run = Run::create(['launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'), 'source_url' => 'https://github.com/a/b', 'input' => ['source_url' => 'https://github.com/a/b'], 'progress' => []]);
         $executor = Mockery::mock(RunExecutorInterface::class);
         $executor->shouldReceive('execute')->once()->withArgs(fn (Run $executedRun, AIProviderInterface $executedAi): bool => $executedRun->is($run));
