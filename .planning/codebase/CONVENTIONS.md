@@ -1,114 +1,97 @@
-# Coding Conventions
+# Conventions
 
-**Analysis Date:** 2026-07-15
+**Analysis Date:** 2026-07-14
 
-## Naming Patterns
+## PHP / Laravel (`backend/`)
 
-**Files (PHP):**
-- PSR-4 under `backend/app/`: one class per file; name matches class (`RunController.php`, `StoreRunRequest.php`, `ExecuteLauncherJob.php`).
-- Launchers: `backend/app/Launchers/{Workflow}Launcher.php` (e.g. `ReviewPullRequestLauncher.php`, `ExplainRepositoryLauncher.php`), extending `BaseLauncher`.
-- Contracts in `backend/app/Contracts/`, services in `backend/app/Services/`, API resources in `backend/app/Http/Resources/`.
+### Style & Formatting
 
-**Files (TypeScript/React):**
-- UI under `backend/resources/ts/`: `components/{PascalCase}.tsx`, `hooks/{useName}.ts`, `services/`, `lib/`, `types/`, `data/`.
-- Tests co-located in `backend/resources/ts/components/__tests__/` as `{Component}.test.tsx`.
-- E2E under `backend/tests/E2E/flows/*.spec.ts`.
+- **PSR-12** + **Laravel conventions** enforced by **Laravel Pint** (`./vendor/bin/pint`)
+- **Explicit return types** on methods where practical (`: void`, `: JsonResponse`, `: array`)
+- **Form requests** for HTTP validation (`StoreRunRequest`, `StoreProviderCredentialRequest`), not fat controllers
+- **API resources** for JSON shape (`RunResource`, `ProviderCredentialResource`, `UserResource`)
+- **Contracts + container binding** for swappable services (`AIProviderInterface` → `OpenAIProvider`, `RunExecutorInterface` → `RunExecutor`)
+- **Jobs** for slow/IO work (`ExecuteLauncherJob`); controllers return **202** and dispatch
+- **Thin routes** in `routes/api.php`; logic in controllers, services, jobs, launchers
+- **No nested ternaries** — prefer `match`, early returns, or clear `if/else`
 
-**Functions (PHP):**
-- camelCase methods with explicit return types (`public function store(StoreRunRequest $request): JsonResponse`).
-- Test methods: `test_{snake_case_description}` or `test{PascalCaseDescription}` (both appear; prefer descriptive names ending in `: void`).
+### Architecture Patterns
 
-**Functions (TS):**
-- camelCase; React components and hooks exported with names enforced by konsistent (see below).
-- Hooks must be `use*` and match filename (`useRunSubscription.ts` → `useRunSubscription`).
+- **Launchers:** one class per workflow under `app/Launchers/`, metadata via `BaseLauncher::make()`; seed in `DatabaseSeeder`
+- **Services:** orchestration in `app/Services/`, not controllers. Services are injected or resolved via `app()`
+- **Singletons:** `AiProviderRegistry` registered as singleton in `AppServiceProvider`
+- **Policies:** `RunPolicy`, `ProviderCredentialPolicy` for ownership checks on authenticated routes
+- **Events:** `RunProgressed` dispatched on every run state change; `CacheRunProgressedVersion` listener caches version for SSE diffing
 
-**Variables:**
-- PHP: camelCase for locals/properties; snake_case for DB columns and request keys where Laravel convention applies.
-- TS: camelCase; React state via `useState`; avoid broad `any` (strict TS per `AGENTS.md`).
+### Error Handling
 
-**Types:**
-- TS types/interfaces in `backend/resources/ts/types/`; import with `.ts` extension (`import type { Run } from "../types/api.ts"`).
-- PHP typed properties, constructor promotion, and interface contracts for swappable services (`AIProviderInterface`, `RunExecutorInterface`).
+- Domain failures as `RuntimeException` / `InvalidArgumentException` with safe user-facing messages in `runs.error`
+- Log details server-side via `Log::error()` / `Log::warning()`; never return stack traces to the client
+- `RunExecutor::execute` catches all `Throwable`: `RuntimeException` keeps its message, other `Throwable` becomes "Run failed unexpectedly."
+- Provider errors: 401/403 → "Invalid API key", other non-2xx → generic failure message
+- GitHub errors: 404/403/401 mapped to friendly messages in `GitHubContextFetcher::mapRequestException()`
+- `AccountController::destroy()` logs out + invalidates session BEFORE deleting user (prevents SessionGuard interference)
 
-## Code Style
+### Security Patterns
 
-**Formatting (PHP):**
-- **Laravel Pint** (PSR-12): `backend/vendor/bin/pint` to fix; `./vendor/bin/pint --test` for CI/pre-commit (fails on violations).
-- Repo root `justfile`: `just pint-check`, `just pint` (both run inside `backend/`).
+- **Credential encryption:** `CredentialCipher` uses Laravel `Crypt::encryptString()` (AES-256 via `APP_KEY`)
+- **Decrypt-on-use only:** Plaintext key never stored, logged, serialized, or returned in API responses
+- **Masked display:** `CredentialCipher::mask()` shows `sk-abcd...9X2A` format
+- **Mass-assignment:** `ProviderCredential.$hidden` includes `encrypted_api_key`, `encrypted_base_url`; `$fillable` excludes `user_id` (set manually in controller)
+- **Token hashing:** Magic-link tokens stored as SHA-256 hash, never plaintext
+- **Open redirect prevention:** `MagicLinkMail::isSafeRedirect()` only allows relative paths or same-origin URLs
+- **Production guards:** `AppServiceProvider` throws if `sqlite`, `pgsql` without TLS, or `sync` queue in production
 
-**Formatting (TypeScript):**
-- **oxfmt** via repo-root `../.oxfmtrc.json`; scope `backend/resources/ts`. `npm run format` writes; `npm run format:check` / `npm run lint` checks.
-- Ignore: `backend/node_modules/**`, `backend/public/**`, `backend/vendor/**`.
+## React / Frontend (`backend/resources/ts/`)
 
-**Linting (TypeScript):**
-- **oxlint** with `../.oxlintrc.json`: plugins `typescript`, `unicorn`, `oxc`; category `correctness` → `error`; rule `no-console` → `error` (use `backend/resources/ts/lib/logger.ts` instead).
-- `npm run lint` = oxlint + oxfmt `--check` on `resources/ts`.
-- **Typecheck** is separate: `npm run typecheck` (`tsc --noEmit`, strict).
+### Component Patterns
 
-**Structural conventions (TypeScript):**
-- **konsistent** (`konsistent.json` at repo root): `components/{componentName}.tsx` must export function/class matching PascalCase basename; `hooks/{hookName}.ts` must export `use*` hook matching basename; `ErrorBoundary.tsx` exports class `ErrorBoundary`. Run: `npm run konsistent` from `backend/`.
+- **Functional components + hooks only** — no class components (except `ErrorBoundary` which requires it)
+- **TypeScript strict mode** — avoid broad `any`; use `unknown` with explicit narrowing via assertion functions
+- **`useReducer` for complex state** — `AppUiState` in `appUiState.ts` drives view transitions
+- **Prop drilling** for component configuration (no context provider for app state)
+- **`konsistent` enforces:** `components/*.tsx` must export a PascalCase component matching the filename; `hooks/*.ts` must export `use*` functions
 
-**PHP/Laravel patterns (`AGENTS.md`):**
-- Form requests (`StoreRunRequest`, etc.) for HTTP validation; API resources (`RunResource`) for JSON shapes.
-- Thin `routes/api.php`; jobs for slow/IO work (`ExecuteLauncherJob`); contracts + container binding.
-- No nested ternaries—prefer `match` or early returns.
+### Data & Transport
 
-## Import Organization
+- **Same-origin `/api/*` requests** — no CORS needed in production (SPA served by Laravel)
+- **Runtime decoders** — `services/run.ts` and `services/auth.ts` use `assertString`, `assertObject`, `assertArray` to validate API responses at runtime
+- **Typed contracts** — `types/api.ts` defines `Run`, `RunResult`, `Finding`, `Launcher`, `ProgressStep`
+- **SSE + polling fallback** — `useRunSubscription` opens `EventSource`, falls back to `fetchRun()` polling every 1500ms on error
+- **Deep-link routing** — `useRunFromPath` parses `/runs/{uuid}` from `window.location.pathname`, no router library
 
-**PHP:**
-- Namespace `App\...` per PSR-4; use statements grouped by framework, then app classes (Pint orders imports).
+### Styling
 
-**TypeScript:**
-- React and external packages first, then relative imports to `../services/`, `../lib/`, `../types/` with **explicit `.ts` / `.tsx` extensions** (`allowImportingTsExtensions` in `backend/tsconfig.json`).
-- Type-only imports: `import type { ... }`.
+- **Plain CSS** in `resources/css/app.css` (BEM-like class names: `.launcher-card`, `.report-page`, `.running-page`)
+- **No CSS-in-JS** or Tailwind — just imported CSS file
+- **lucide-react** for icons — imported per-component, never globally
 
-**Path Aliases:**
-- No `@/` alias in `tsconfig`; relative paths from feature folders.
+### Linting & Formatting
 
-## Error Handling
+- **oxlint** (Rust-based) — config at repo root `.oxlintrc.json`, 95 rules
+- **oxfmt** (Rust-based) — config at `.oxfmtrc.json`; run `npm run format` to fix
+- **No ESLint/Prettier** — there is no `.prettierrc`
+- **konsistent** — structural TS convention checks; run via `npm run konsistent`
 
-**PHP:**
-- Validation failures: FormRequest rules + `assertJsonValidationErrors` in feature tests.
-- Domain/runtime failures: throw `RuntimeException` (or specific exceptions) with **safe user-facing messages** (e.g. OpenAI provider maps 401 to `Invalid API key.` without leaking provider details).
-- Job/run failures: persist `status`/`error` on `Run`; log context with `Log::error` / `Log::warning` (no API keys or credentials in logs).
-- Never log or persist user `provider.api_key` on runs (asserted in `RunApiTest`).
+### Frontend Error Handling
 
-**TypeScript:**
-- Service errors surfaced in UI state; hooks use `logger.warn` / `logger.error` for non-fatal failures (e.g. SSE/polling in `useRunSubscription.ts`).
-- `ErrorBoundary` class component for React tree failures; Sentry integration on frontend.
+- `ErrorBoundary` catches uncaught React rendering errors and offers reload
+- `lib/http.ts` extracts error messages from `message`/`error` keys in JSON responses
+- Service decoders throw on malformed payloads, caught and surfaced in `useRunSubscription` / `App`
+- Demo mode (`VITE_DEMO_MODE=true`) bypasses API entirely with timer-driven steps and static findings
 
-## Logging
+## Git Conventions
 
-**Backend:** Laravel `Illuminate\Support\Facades\Log` for server-side events (`ExecuteLauncherJob`, `RunExecutor`, `ReapStuckRuns`, `AppServiceProvider` production `LOG_LEVEL` warning).
+- **Commit messages:** commitizen conventional commits — `<type>(<scope>): <subject>`
+- **Types:** `feat`, `fix`, `test`, `docs`, `refactor`, `chore`, `ci`, `perf`, `style`, `build`, `revert`
+- **Branches:** `feat/<description>`, `fix/<description>`, or date-based `YYYY-MM-DD-<description>`
+- **PRs:** squash merge preferred; draft PRs for work-in-progress
+- **Stacked PRs:** `gh stack` for dependent PR chains (rebase + force-push with lease)
 
-**Frontend:** `backend/resources/ts/lib/logger.ts` — **consola** wrapper; dev verbose, prod info+; `logger.error` forwards to **Sentry**. **Do not use `console.*`** (oxlint `no-console`).
+## Configuration Conventions
 
-## Comments
-
-**When to Comment:**
-- Explain **why** (encryption in queue payload, alias fields in `StoreRunRequest`, logger/Sentry behavior)—not restating obvious code.
-- PHPDoc on non-obvious request validation or public API behavior where helpful.
-
-**JSDoc/TSDoc:**
-- Used on shared utilities (`logger.ts` usage block); not required on every component.
-
-## Function Design
-
-**Size:** Controllers and launchers stay thin; orchestration in services (`RunExecutor`, `GitHubService`, providers).
-
-**Parameters:** Constructor injection in controllers; job `handle()` receives resolved interfaces; TS components receive explicit props interfaces (`RunHistoryProps`).
-
-**Return Values:** PHP explicit return types on all public methods; TS explicit return types on exported functions where clarity helps; React components return `JSX.Element` implicitly.
-
-## Module Design
-
-**Exports:**
-- TS: named exports for components/hooks (`export function RunHistory`); konsistent enforces name ↔ file alignment.
-- PHP: one primary class per file; launchers registered via `BaseLauncher::make()` metadata and seeder.
-
-**Barrel Files:**
-- Not used heavily; direct imports to concrete modules (`../services/auth.ts`).
-
----
-
-*Convention analysis: 2026-07-15*
+- **Environment variables:** `KEY=value` in `.env`; documented in `.env.example`
+- **AI provider config:** All under `config/services.php` → `openai` key (includes `openrouter_*`, `referer`, `timeout`). Provider IDs are sourced from `AiProviderRegistry::ids()`, not a config array.
+- **Per-provider config:** `anthropic.key`/`anthropic.model`, `gemini.key`/`gemini.model` — separate top-level keys
+- **Frontend env:** `VITE_*` prefix for Vite-injected env vars (`VITE_DEMO_MODE`, `VITE_SENTRY_DSN`)
+- **Deploy:** `backend/` is always the app root; monorepo root is never deployed directly
