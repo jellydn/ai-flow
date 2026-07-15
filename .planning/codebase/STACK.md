@@ -1,120 +1,91 @@
-# Stack
+# Technology Stack
 
-**Analysis Date:** 2026-07-14
+**Analysis Date:** 2026-07-15
 
-## Languages & Runtimes
+## Languages
 
-| Area | Language | Runtime | Version |
-|------|----------|---------|---------|
-| Backend | PHP | PHP-FPM / CLI | 8.4+ |
-| Frontend | TypeScript | Browser (Vite bundling) | Node 24 for builds |
-| E2E | TypeScript | Playwright (Chromium) | Node 24 |
+**Primary:**
+- PHP ^8.4 (runtime constraint in `backend/composer.json`; production image uses PHP 8.5 FPM in `backend/Dockerfile`) — Laravel API, jobs, launchers under `backend/app/`
+- TypeScript 5.9.3 — React SPA under `backend/resources/ts/` (`backend/tsconfig.json`, strict mode)
 
-## Backend Framework
+**Secondary:**
+- CSS — `backend/resources/css/app.css`, loaded from `backend/resources/ts/app.tsx`
+- Shell — deploy/release scripts (`backend/docker/bin/`, repo `scripts/hooks/`)
 
-- **Laravel** ^13.0 (`laravel/framework`) — the API server, queue worker, and static-asset host
-- **Laravel Tinker** ^3.0 — REPL for debugging
-- **Resend** ^1.5 (`resend/resend-php`) — transactional email for magic-link auth
-- **Sentry** ^4.26 (`sentry/sentry-laravel`) — error monitoring (optional, env-gated)
+## Runtime
 
-## Frontend Stack
+**Environment:**
+- PHP 8.4+ locally/CI (`.github/workflows/ci.yml`); PHP 8.5-FPM in Docker (`backend/Dockerfile`)
+- Node.js 24 — CI (`.github/workflows/ci.yml`), frontend build stage (`backend/Dockerfile`)
 
-- **React** 19.2.7 — functional components + hooks only
-- **Vite** — bundler via `laravel-vite-plugin` + `@vitejs/plugin-react`
-- **TypeScript** strict mode — `tsc --noEmit` for typechecking
-- **lucide-react** 1.24.0 — icon library (pinned)
-- **Sentry React** ^10.65.0 — frontend error monitoring
+**Package Manager:**
+- Composer 2 — PHP (`backend/composer.json`, `backend/composer.lock` present)
+- npm — JavaScript (`backend/package.json`, `backend/package-lock.json` present)
 
-## Frontend Tooling
+## Frameworks
 
-- **oxlint** + **oxfmt** — Rust-based linter/formatter (config: `.oxlintrc.json`, `.oxfmtrc.json`); no ESLint/Prettier
-- **konsistent** — structural TS convention checks (`components/*.tsx` must export PascalCase matching filename, `hooks/*.ts` must export `use*`)
-- **Vitest** + `@testing-library/react` + `@testing-library/user-event` — unit/component tests
-- **Playwright** ^1.61.1 — E2E tests (demo + real-backend projects)
+**Core:**
+- Laravel ^13.0 — HTTP API, auth, queue, Eloquent (`backend/composer.json`, `backend/bootstrap/app.php`, `backend/routes/api.php`)
+- React 19.2.7 — UI (`backend/package.json`, entry `backend/resources/ts/app.tsx`)
 
-## Backend Dev Dependencies
+**Testing:**
+- PHPUnit ^13.0 — backend (`backend/composer.json`, `backend/tests/`)
+- Vitest ^4.1.10 + Testing Library — unit/component tests (`backend/package.json`, `backend/vitest.config.ts`)
+- Playwright ^1.61.1 — E2E (`backend/package.json`, `backend/tests/E2E/`, `backend/playwright.config.ts`)
 
-- **PHPUnit** ^13.0 — test framework
-- **Mockery** ^1.6 — test doubles
-- **Laravel Pint** ^1.24 — PSR-12 / Laravel style enforcer
-- **Laravel Pail** ^1.2.2 — log tailing in dev
-- **Laravel Sail** ^1.41 — Docker dev environment (optional)
-- **Faker** ^1.23 — test data generation
+**Build/Dev:**
+- Vite 8.1.4 + `laravel-vite-plugin` 3.1.3 — asset pipeline (`backend/vite.config.ts`, `backend/package.json`)
+- `@vitejs/plugin-react` 6.0.3 — JSX/TSX transform
+- Laravel Pint ^1.24 — PHP style (`backend/composer.json`, CI in `.github/workflows/ci.yml`)
+- oxlint / oxfmt — TS lint/format (repo root `.oxlintrc.json`, `.oxfmtrc.json`; invoked via `backend/package.json` scripts)
+- konsistent ^1.0.0-beta.3 — structural TS conventions (`konsistent.json`)
+- concurrently 10.0.3 — local dev orchestration (`backend/composer.json` `dev` script)
+- laravel/pail ^1.2.2 — log tailing in dev (`backend/composer.json`)
 
-## Database
+## Key Dependencies
 
-| Environment | Driver | Config |
-|-------------|--------|--------|
-| Local dev | SQLite | `database/database.sqlite` (file) |
-| Test | SQLite | `:memory:` (phpunit.xml) |
-| Production | PostgreSQL or MySQL | Laravel Cloud managed DB; `DB_CONNECTION=pgsql` or `mysql` |
-| Staging (Dokku) | PostgreSQL | Dokku Postgres plugin or external (e.g. Neon) |
+**Critical:**
+- `laravel/framework` ^13.0 — application core
+- `react` / `react-dom` 19.2.7 — SPA
+- `lucide-react` 1.24.0 — icons (pinned in `backend/package.json`)
+- `sentry/sentry-laravel` ^4.26 — server error reporting (`backend/composer.json`, `backend/config/sentry.php`)
+- `@sentry/react` ^10.65.0 — client error reporting (`backend/resources/ts/app.tsx`)
+- `resend/resend-php` ^1.5 — transactional email for magic links (`backend/.env.example` `MAIL_MAILER=resend`)
 
-**Note:** `turso/libsql-laravel` does not support Laravel 13 yet; a `libsql` connection remains in `config/database.php` for future Turso return.
+**Infrastructure (app code, not separate packages):**
+- Laravel HTTP client (`Illuminate\Support\Facades\Http`) — OpenAI/OpenRouter, Anthropic, Gemini, GitHub REST (`backend/app/Services/OpenAIProvider.php`, `backend/app/Services/GitHubContextFetcher.php`)
+- Database queue driver — async runs (`backend/.env.example` `QUEUE_CONNECTION=database`, `backend/app/Jobs/ExecuteLauncherJob.php`)
 
-## Queue
+## Configuration
 
-- **Default:** `database` (`QUEUE_CONNECTION=database`) — jobs stored in `jobs` table
-- **Never `sync` in production** — `AppServiceProvider` throws if `sync` detected
-- Worker: `php artisan queue:work --sleep=1 --tries=2 --timeout=120`
+**Environment:**
+- Laravel `.env` / `.env.example` in `backend/` — DB, AI keys, mail, Sentry, CORS (`backend/.env.example`)
+- Vite env: `VITE_DEMO_MODE`, `VITE_SENTRY_DSN` (`backend/.env.example`, `backend/resources/ts/`)
+- Service credentials centralized in `backend/config/services.php` (GitHub, OpenAI, Anthropic, Gemini, Resend)
 
-## Cache
+**Build:**
+- `backend/vite.config.ts` — Laravel plugin, React, dev server port 5173
+- `backend/tsconfig.json` — ES2022, strict, `noEmit` (typecheck only)
+- `backend/phpunit.xml` — PHP test runner
+- `konsistent.json` — component/hook naming rules at repo root
 
-- **Default:** `database` cache store (via `CACHE_STORE`)
-- Used by: `GitHubService` (10-min context cache), `CacheRunProgressedVersion` listener
+**Quality gates:**
+- `.github/workflows/ci.yml` — backend + frontend + E2E jobs
+- `.pre-commit-config.yaml` — Pint, typecheck, oxlint, composer validate
 
-## Session
+## Platform Requirements
 
-- **Default:** `database` session driver
-- Used by: magic-link auth (`SessionGuard`), `Auth::login()`, `session()->regenerate()`
+**Development:**
+- PHP 8.4+ with extensions used in CI: mbstring, xml, zip, sqlite3, pgsql (`.github/workflows/ci.yml`)
+- Composer, Node 24, SQLite file `backend/database/database.sqlite` for local default (`backend/.env.example`)
+- Queue worker for real runs: `php artisan queue:work` (documented in `backend/README.md`, `AGENTS.md`)
 
-## Mail
+**Production:**
+- Deploy root **`backend/`** only (`backend/CLOUD_DEPLOY.md`, `backend/DOKKU_DEPLOY.md`)
+- **Dokku (staging):** Dockerfile + nginx/PHP-FPM + separate worker (`backend/Dockerfile`, `backend/Procfile`, `backend/DOKKU_DEPLOY.md`) — e.g. `https://ai-flow-staging.itman.fyi`
+- **Laravel Cloud (alternative):** `composer install --no-dev && npm ci && npm run build`, Postgres, queue worker (`backend/CLOUD_DEPLOY.md`)
+- Postgres/MySQL in production; SQLite rejected when `APP_ENV=production` (`backend/app/Providers/AppServiceProvider.php`)
 
-- **Resend** (`resend/resend-php`) — sends magic-link emails
-- Config: `config/services.php` → `resend.key` from `RESEND_API_KEY`
-- Fallback: Postmark, AWS SES configured but not used by default
+---
 
-## Deployment Targets
-
-| Target | Method | App Root |
-|--------|--------|----------|
-| Laravel Cloud | `cloud deploy` CLI | `backend/` |
-| Dokku VPS (staging) | `git push dokku main:main` | `backend/` (Dockerfile builder) |
-| Local dev | `php artisan serve` + `npm run dev` | `backend/` |
-
-## Key Environment Variables
-
-| Variable | Purpose | Required |
-|----------|---------|----------|
-| `APP_KEY` | Encryption (credentials, sessions) | Yes |
-| `OPENAI_API_KEY` | OpenAI provider (or fallback for OpenRouter) | Yes |
-| `GITHUB_TOKEN` | GitHub API rate-limit bypass | Recommended |
-| `RESEND_API_KEY` | Magic-link email sending | Yes (auth) |
-| `ANTHROPIC_API_KEY` | Anthropic provider | Optional |
-| `GEMINI_API_KEY` | Gemini provider | Optional |
-| `OPENROUTER_API_KEY` | OpenRouter provider | Optional |
-| `AI_MODEL` | Default model override | Optional |
-| `AI_BASE_URL` | OpenAI-compatible base URL | Optional |
-| `VITE_DEMO_MODE` | Frontend simulated runs | Optional |
-| `QUEUE_CONNECTION` | Must not be `sync` in prod | Yes (prod) |
-| `DB_CONNECTION` | `sqlite` (dev), `pgsql`/`mysql` (prod) | Yes (prod) |
-
-## CI Pipeline
-
-**GitHub Actions** (`.github/workflows/ci.yml`):
-- **backend** job: `composer validate` → `composer install` → `migrate` → `php artisan test` → `pint --test`
-- **frontend** job: `npm ci` → `typecheck` → `lint` (oxlint + oxfmt) → `konsistent` → `build` → `test`
-- **e2e** job: `composer install` + `npm ci` + Playwright Chromium → `npm run test:e2e:demo`
-- **deploy** job (`.github/workflows/deploy-staging.yml`): pushes to Dokku on `main`
-
-## Pre-commit Hooks
-
-Via [prek](https://prek.j178.dev) (`.pre-commit-config.yaml`):
-- `composer-validate`, `pint`, `frontend-typecheck`, `oxlint`, `oxfmt`, `konsistent`
-- Run all: `just prek` (requires `cd backend && npm ci`)
-
-## Sentry Integration
-
-- Backend: `sentry/sentry-laravel` — captures unhandled exceptions
-- Frontend: `@sentry/react` — initialized in `resources/ts/app.tsx`
-- Both disabled in test/CI unless `SENTRY_DSN` is set
+*Stack analysis: 2026-07-15*

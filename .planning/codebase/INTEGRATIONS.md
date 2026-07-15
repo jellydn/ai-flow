@@ -1,138 +1,104 @@
-# Integrations
+# External Integrations
 
-**Analysis Date:** 2026-07-14
+**Analysis Date:** 2026-07-15
 
-## AI Providers
+## APIs & External Services
 
-### OpenAI (`backend/app/Services/OpenAIProvider.php`)
+**AI / LLM (workflow output):**
+- OpenAI Chat Completions — default provider (`backend/app/Services/OpenAIProvider.php`, `backend/config/services.php`)
+- OpenRouter — OpenAI-compatible routing (`backend/app/Services/OpenRouterProvider.php`, `backend/app/Support/AiProviderRegistry.php`)
+- Anthropic Messages API (`backend/app/Services/AnthropicProvider.php`)
+- Google Gemini (`backend/app/Services/GeminiProvider.php`)
+- SDK/Client: Laravel `Http` facade (no vendor AI SDK)
+- Auth: server `OPENAI_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` in `backend/config/services.php`; per-user keys via `provider-credentials` API (`backend/routes/api.php`, stored encrypted — never on run records)
 
-- **API:** OpenAI Chat Completions (`/chat/completions`)
-- **Auth:** Bearer token (`OPENAI_API_KEY` env)
-- **Config:** `config/services.php` → `openai.key`, `openai.base_url`, `openai.model`
-- **JSON Schema:** Uses `response_format: { type: "json_schema" }` for structured output
-- **Compatibility:** Supports any OpenAI-compatible endpoint via `AI_BASE_URL` (e.g. OpenRouter free tier)
+**GitHub (context for launchers):**
+- GitHub REST API `https://api.github.com` — repos, README, trees, PRs, issues (`backend/app/Services/GitHubContextFetcher.php`, `backend/app/Services/GitHubService.php`)
+- Auth: optional `GITHUB_TOKEN` (`backend/config/services.php` → `services.github.token`)
 
-### OpenRouter (`backend/app/Services/OpenRouterProvider.php`)
+**Email:**
+- Resend — magic-link sign-in (`backend/.env.example` `MAIL_MAILER=resend`, `backend/app/Http/Controllers/Auth/MagicLinkController.php`, `resend/resend-php` in `backend/composer.json`)
+- Auth: `RESEND_API_KEY`
 
-- **API:** OpenRouter Chat Completions (`/chat/completions`) — OpenAI-compatible
-- **Auth:** Bearer token (`OPENROUTER_API_KEY` env)
-- **Config:** `config/services.php` → `openai.openrouter_key`, `openai.openrouter_base_url`, `openai.openrouter_model`, `openai.referer`
-- **Headers:** Sends `HTTP-Referer` and `X-Title` for ranking/identification
-- **Base URL + Referer:** Configurable via constructor, falls back to config values
+## Data Storage
 
-### Anthropic (`backend/app/Services/AnthropicProvider.php`)
+**Databases:**
+- SQLite — local default (`backend/config/database.php`, `backend/.env.example` `DB_CONNECTION=sqlite`)
+- PostgreSQL — staging/production (Dokku plugin or Neon; `backend/DOKKU_DEPLOY.md`, `backend/CLOUD_DEPLOY.md`)
+- Connection: `DB_CONNECTION`, `DB_URL` or `DB_HOST`/`DB_*`, `DB_SSLMODE` (`backend/.env.example`)
+- Client: Eloquent ORM (Laravel); migrations in `backend/database/migrations/`
 
-- **API:** Anthropic Messages API (`/v1/messages`)
-- **Auth:** `x-api-key` header (`ANTHROPIC_API_KEY` env)
-- **Config:** `config/services.php` → `anthropic.key`, `anthropic.model` (default: `claude-sonnet-4-20250514`)
-- **Headers:** `anthropic-version: 2023-06-01`
-- **Output:** Parses `content[0].text` as JSON (no native JSON schema mode)
+**File Storage:**
+- Local filesystem — `FILESYSTEM_DISK=local` (`backend/.env.example`); Laravel `storage/` and `public/`
 
-### Gemini (`backend/app/Services/GeminiProvider.php`)
+**Caching:**
+- Database cache store — `CACHE_STORE=database` (`backend/.env.example`, `backend/config/cache.php` pattern)
 
-- **API:** Google Generative Language API (`/v1beta/models/{model}:generateContent`)
-- **Auth:** API key as URL query param (`GEMINI_API_KEY` env)
-- **Config:** `config/services.php` → `gemini.key`, `gemini.model` (default: `gemini-2.0-flash`)
-- **Output:** Uses `generationConfig.responseMimeType: "application/json"` for structured output
+**Sessions:**
+- Database-backed sessions — `SESSION_DRIVER=database` (`backend/.env.example`)
 
-### Provider Registry (`backend/app/Support/AiProviderRegistry.php`)
+## Authentication & Identity
 
-- **Single source of truth:** Replaces the former `config/services.php` provider array. The registry's `PROVIDERS` constant is the authoritative list of supported provider IDs; `config/services.php` is now only for per-provider credentials, base URLs, and model defaults.
-- **Providers:** `openai`, `openrouter`, `anthropic`, `gemini` (hardcoded in `PROVIDERS` constant)
-- **Resolution:** `get($id, $apiKey)` instantiates the adapter with an optional API key; throws `InvalidArgumentException` for unknown IDs
-- **ID lookup:** `ids()` returns the full list of registered provider IDs; `has($id)` checks membership — used by `StoreRunRequest` for validation
-- **Metadata:** `list()` returns `{ id, name, models }` for each provider — consumed by `GET /api/providers`
-- **Singleton:** Registered as a singleton in `AppServiceProvider`
-- **Test sync:** `AppServiceProvider::CREDENTIAL_VERIFY_PER_MINUTE` constant shared with tests so the credentials rate limiter and its test stay in sync
+**Auth Provider:**
+- Custom Laravel session auth — password register/login (`backend/routes/auth.php`, `backend/app/Http/Controllers/Auth/PasswordAuthController.php`) and email magic links (`backend/app/Http/Controllers/Auth/MagicLinkController.php`, table `magic_login_tokens` in `backend/database/migrations/2026_07_13_000002_create_magic_login_tokens_table.php`)
+- SPA uses cookie session + CSRF on mutating API routes (`backend/routes/api.php` `web` middleware on `POST /api/runs`)
+- Post-verify redirect: `FRONTEND_URL` (`backend/.env.example`, `backend/config/app.php`)
 
-## GitHub
+## Monitoring & Observability
 
-### GitHub REST API (`backend/app/Services/GitHubContextFetcher.php`)
+**Error Tracking:**
+- Sentry — optional when DSN set (`SENTRY_LARAVEL_DSN`, `VITE_SENTRY_DSN` in `backend/.env.example`; `backend/config/sentry.php`; `backend/resources/ts/lib/logger.ts` forwards errors to Sentry)
 
-- **Endpoints:** `/repos/{owner}/{repo}`, `/pulls/{number}`, `/issues/{number}`, `/contents/{path}`
-- **Auth:** `GITHUB_TOKEN` env (optional but recommended for rate limits)
-- **Caching:** 10-minute cache keyed by `sha1(url)` via Laravel `Cache` facade
-- **Error mapping:** 404 → "Repository not found", 403 → "Rate limit exceeded", 401 → "Authentication failed"
+**Logs:**
+- Laravel logging stack (`LOG_CHANNEL=stack` in `backend/.env.example`); `laravel/pail` in local `composer run dev`; job failures captured in `backend/app/Services/RunExecutor.php` via `\Sentry\captureException`
 
-### GitHub Service (`backend/app/Services/GitHubService.php`)
+## CI/CD & Deployment
 
-- **URL parsing:** `parse($url)` → `GitHubReference` DTO (owner, repo, type: repo/issue/pr, number)
-- **Context assembly:** `context($url)` → fetches + assembles via `GitHubContextFetcher` + `GitHubContextAssembler`
-- **Bounding:** `ContextEncoder::encode($context)` limits total payload size
+**Hosting:**
+- Dokku on VPS — primary staging path (`backend/DOKKU_DEPLOY.md`, git remote `dokku`)
+- Laravel Cloud — documented production alternative (`backend/CLOUD_DEPLOY.md`)
 
-### GitHub Reference DTO (`backend/app/Data/GitHubReference.php`)
+**CI Pipeline:**
+- GitHub Actions — `.github/workflows/ci.yml` (PHP 8.4 tests + Pint, Node 24 typecheck/lint/konsistent/build/vitest, Playwright E2E demo + real-backend auth spec)
 
-- Immutable value object: `owner`, `repo`, `type` (`repository`|`issue`|`pull-request`), `number` (nullable)
-- Produced by `GitHubService::parse()`, consumed by `RunExecutor`
+**Container:**
+- Multi-stage `backend/Dockerfile` (Node build → PHP-FPM + nginx)
+- Process types: `backend/Procfile` (`web`, `worker`, `release` migrate/seed)
 
-## Email (Magic Link Auth)
+## Environment Configuration
 
-### Resend (`backend/app/Mail/MagicLinkMail.php`)
+**Required env vars (workflow runs):**
+- `OPENAI_API_KEY` (or user credential / OpenRouter key) — `backend/.env.example`
+- `APP_KEY` — Laravel encryption
 
-- **Provider:** Resend (`resend/resend-php`)
-- **Config:** `config/services.php` → `resend.key` from `RESEND_API_KEY`
-- **Template:** Markdown mail `mail.magic-link`
-- **Content:** Signed URL with token, expiry notice (15 minutes)
-- **Queue:** Mail is queued via `Mail::to($email)->queue(...)`
+**Strongly recommended:**
+- `GITHUB_TOKEN` — rate limits and private repo access
+- `QUEUE_CONNECTION=database` (never `sync` in production — enforced in `backend/app/Providers/AppServiceProvider.php`)
 
-## Database
+**Production database:**
+- `DB_CONNECTION=pgsql`, `DB_SSLMODE=require`, durable `DB_URL` or discrete vars (`backend/DOKKU_DEPLOY.md`)
 
-### PostgreSQL (Production)
+**Optional:**
+- `AI_MODEL`, `AI_BASE_URL`, `OPENAI_TIMEOUT`, provider-specific model env vars (`backend/config/services.php`)
+- `RESEND_API_KEY`, `MAIL_FROM_*` for magic links
+- `CORS_ALLOWED_ORIGINS` for SPA origins
+- `VITE_DEMO_MODE` — browser-only simulated runs without queue (`backend/.env.example`)
 
-- **Driver:** `pgsql` via `config/database.php`
-- **TLS:** Enforced in production — `AppServiceProvider` checks `DB_SSLMODE` is `require`/`verify-ca`/`verify-full`
-- **External providers:** Dokku Postgres plugin (staging), Laravel Cloud Serverless Postgres (prod), Neon (alternative)
+**Secrets location:**
+- Server/Dokku/Laravel Cloud environment config (not committed); user AI keys in DB via provider credentials API
 
-### SQLite (Development)
+## Webhooks & Callbacks
 
-- **Driver:** `sqlite` — `database/database.sqlite` file
-- **Test:** `:memory:` (phpunit.xml)
-- **Production guard:** `AppServiceProvider` throws if `sqlite` detected in production
+**Incoming:**
+- None — no third-party webhook endpoints; user-facing auth callbacks are GET `/auth/magic-link/{token}` (`backend/routes/auth.php`)
 
-## Authentication
+**Outgoing:**
+- HTTPS only to OpenAI/OpenRouter, Anthropic, Gemini, GitHub API, Resend API (queued mail)
+- No outbound webhooks to customer systems
 
-### Magic Link (`backend/app/Http/Controllers/Auth/MagicLinkController.php`)
+**Real-time to clients:**
+- Server-Sent Events — `GET /api/runs/{run}/stream` (`backend/routes/api.php`); Dokku nginx `proxy-buffering off` and extended read timeout (`backend/DOKKU_DEPLOY.md`)
 
-- **Flow:** Email → `POST /api/auth/magic-link` → Resend email with signed URL → `GET /auth/magic-link/{token}` → session regenerate → redirect to app
-- **Tokens:** 32-byte random, SHA-256 hashed, stored in `magic_login_tokens` table, 15-min expiry, single-use
-- **Rate limit:** 3/min per `IP|email` (named limiter `magic-link` in `AppServiceProvider`)
-- **User creation:** `firstOrCreate` — new emails auto-create accounts
-- **Guard:** Laravel `web` guard (session driver, Eloquent user provider)
+---
 
-### Session (`config/session.php`)
-
-- **Driver:** `database` (sessions table)
-- **Lifetime:** 120 minutes (configurable)
-- **Encryption:** Session data encrypted via `APP_KEY`
-
-## Credential Encryption
-
-### CredentialCipher (`backend/app/Security/CredentialCipher.php`)
-
-- **Encryption:** Laravel `Crypt::encryptString()` — AES-256-CBC authenticated encryption via `APP_KEY`
-- **API:** `encrypt($plaintext)`, `decrypt($ciphertext)`, `mask($plaintext)` → `sk-abcd...9X2A`
-- **Model:** `ProviderCredential` — stores `encrypted_api_key` (never plaintext), `masked_key` for display
-- **Decrypt-on-use:** `ProviderCredential::decryptApiKey(CredentialCipher)` — only called inside `ExecuteLauncherJob::resolveApiKey()`
-
-## Sentry
-
-- **Backend:** `sentry/sentry-laravel` — captures unhandled exceptions, disabled in testing
-- **Frontend:** `@sentry/react` — initialized in `resources/ts/app.tsx` with `import.meta.env.VITE_SENTRY_DSN`
-
-## Dokku (Staging Deployment)
-
-- **SSH host:** `docklight-staging.itman.fyi`
-- **App name:** `ai-flow`
-- **URL:** `https://ai-flow-staging.itman.fyi`
-- **Builder:** Dockerfile (`backend/Dockerfile`)
-- **Git remote:** `dokku@docklight-staging.itman.fyi:ai-flow`
-- **Deploy:** `git push dokku main:main` (or CI workflow)
-- **Nginx:** `proxy-buffering off`, `proxy-read-timeout 75s` for SSE
-
-## Laravel Cloud (Production)
-
-- **Console:** `https://cloud.laravel.com/dung-huynh-duc/ai-flow/production`
-- **Deploy:** `cloud deploy ai-flow production -n`
-- **App root:** `backend/` (not monorepo root)
-- **Worker:** Separate queue worker process (`php artisan queue:work`)
-- **SSE:** Proxy must disable buffering for `/api/runs/*/stream`
+*Integration audit: 2026-07-15*
