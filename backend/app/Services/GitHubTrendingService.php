@@ -16,6 +16,8 @@ class GitHubTrendingService
 
     private const LAST_SUCCESSFUL_TTL_DAYS = 3;
 
+    private const FAILURE_CACHE_MINUTES = 10;
+
     /**
      * @return list<array{repo: string, url: string}>
      */
@@ -24,7 +26,7 @@ class GitHubTrendingService
         $dailyKey = 'github_trending:daily:'.now()->toDateString();
 
         $cached = Cache::get($dailyKey);
-        if (is_array($cached) && $cached !== []) {
+        if ($cached !== null && is_array($cached)) {
             return $cached;
         }
 
@@ -37,8 +39,11 @@ class GitHubTrendingService
         }
 
         $stale = Cache::get(self::LAST_SUCCESSFUL_KEY);
+        $fallback = is_array($stale) ? $stale : [];
 
-        return is_array($stale) ? $stale : [];
+        Cache::put($dailyKey, $fallback, now()->addMinutes(self::FAILURE_CACHE_MINUTES));
+
+        return $fallback;
     }
 
     /**
@@ -47,7 +52,7 @@ class GitHubTrendingService
     private function fetchDailyTopRepositories(): array
     {
         try {
-            $response = Http::timeout(15)
+            $response = Http::timeout(5)
                 ->withHeaders([
                     'User-Agent' => 'ai-flow-trending/1.0',
                     'Accept' => 'text/html',
@@ -76,7 +81,7 @@ class GitHubTrendingService
         $repos = [];
 
         if (preg_match_all(
-            '#<h2[^>]*>\s*<a[^>]+href="/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)"#',
+            '#<h2[^>]*>\s*<a[^>]+href="/([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+)[^"]*"#',
             $html,
             $matches,
             PREG_SET_ORDER

@@ -48,7 +48,7 @@ class TrendingRepositoriesApiTest extends TestCase
         $response->assertOk()->assertJsonPath('data', []);
 
         $dailyKey = 'github_trending:daily:'.now()->toDateString();
-        $this->assertFalse(Cache::has($dailyKey));
+        $this->assertTrue(Cache::has($dailyKey));
     }
 
     public function test_trending_repositories_returns_stale_cache_when_github_fails(): void
