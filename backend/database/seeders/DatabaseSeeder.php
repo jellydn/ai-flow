@@ -23,5 +23,7 @@ class DatabaseSeeder extends Seeder
             $metadata = $class::metadata();
             Launcher::updateOrCreate(['slug' => $metadata['slug']], ['name' => $metadata['name'], 'description' => $metadata['description'], 'input_type' => $metadata['inputType'], 'prompt_template' => $metadata['prompt'], 'output_schema' => $metadata['outputSchema'], 'active' => true]);
         }
+
+        $this->call(SuperAdminBootstrapSeeder::class);
     }
 }
