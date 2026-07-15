@@ -8,6 +8,7 @@ use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\ProviderCredential;
 use App\Models\Run;
+use App\Services\LauncherPromptResolver;
 use App\Services\RunStreamer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -17,6 +18,7 @@ class RunController extends Controller
 {
     public function __construct(
         private RunStreamer $streamer,
+        private LauncherPromptResolver $promptResolver,
     ) {}
 
     public function store(StoreRunRequest $request): JsonResponse
@@ -34,12 +36,15 @@ class RunController extends Controller
             $provider = $credential->provider;
         }
 
+        $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());
+
         $run = $launcher->runs()->create([
             'user_id' => $request->user()?->id,
             'provider_credential_id' => $providerCredentialId,
             'provider' => $provider,
             'source_url' => $input['source_url'],
             'input' => $input,
+            'prompt_snapshot' => $promptSnapshot,
             'status' => 'queued',
             'progress' => [],
         ]);

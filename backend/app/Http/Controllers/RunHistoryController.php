@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Run;
+use App\Services\LauncherPromptResolver;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,10 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class RunHistoryController extends Controller
 {
+    public function __construct(
+        private LauncherPromptResolver $promptResolver,
+    ) {}
+
     /**
      * List the authenticated user's runs with optional filtering and pagination.
      */
@@ -63,11 +68,14 @@ class RunHistoryController extends Controller
     /**
      * Retry a completed or failed run.
      */
-    public function retry(Run $run): JsonResponse
+    public function retry(Request $request, Run $run): JsonResponse
     {
         $this->authorize('retry', $run);
 
+        $run->loadMissing('launcher');
+
         $newRun = $run->replicate(['id', 'status', 'progress', 'result', 'error', 'source_context', 'started_at', 'completed_at', 'created_at', 'updated_at']);
+        $newRun->prompt_snapshot = $this->promptResolver->effectivePrompt($run->launcher, $request->user());
         $newRun->status = 'queued';
         $newRun->progress = [];
         $newRun->result = null;

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\LauncherPromptController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
@@ -39,6 +40,9 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::delete('/provider-credentials/{credential}', [ProviderCredentialController::class, 'destroy']);
     Route::post('/provider-credentials/{credential}/verify', [ProviderCredentialController::class, 'verify'])->middleware('throttle:credentials');
     Route::post('/provider-credentials/{credential}/make-default', [ProviderCredentialController::class, 'makeDefault']);
+    Route::get('/launcher-prompts', [LauncherPromptController::class, 'index']);
+    Route::put('/launcher-prompts/{slug}', [LauncherPromptController::class, 'update']);
+    Route::delete('/launcher-prompts/{slug}', [LauncherPromptController::class, 'destroy']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
