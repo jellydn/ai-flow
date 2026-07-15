@@ -150,6 +150,63 @@ export async function deleteRun(id: string): Promise<void> {
     if (!raw.ok) throw new Error("Failed to delete run.");
 }
 
+export interface LauncherPromptEntry {
+    slug: string;
+    name: string;
+    default_prompt_template: string;
+    override_prompt_template: string | null;
+    uses_override: boolean;
+}
+
+export function decodeLauncherPromptEntry(value: unknown): LauncherPromptEntry {
+    const data = assertObject(value);
+    return {
+        slug: assertString(data.slug, "slug"),
+        name: assertString(data.name, "name"),
+        default_prompt_template: assertString(
+            data.default_prompt_template,
+            "default_prompt_template",
+        ),
+        override_prompt_template:
+            data.override_prompt_template && typeof data.override_prompt_template === "string"
+                ? data.override_prompt_template
+                : null,
+        uses_override: Boolean(data.uses_override),
+    };
+}
+
+export async function fetchLauncherPrompts(): Promise<LauncherPromptEntry[]> {
+    const body = await get("/api/user/launcher-prompts");
+    const data = assertObject(body);
+    return assertArray(data.data ?? body, "data").map(decodeLauncherPromptEntry);
+}
+
+export async function upsertLauncherPrompt(slug: string, prompt_template: string): Promise<void> {
+    const raw = await fetch(`/api/user/launcher-prompts/${slug}`, {
+        method: "PUT",
+        headers: mutationHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
+        body: JSON.stringify({ prompt_template }),
+    });
+    if (!raw.ok) {
+        const err = await raw.json().catch(() => ({}));
+        const msg =
+            err && typeof err === "object" && "message" in err
+                ? String((err as { message: string }).message)
+                : "Failed to save workflow prompt.";
+        throw new Error(msg);
+    }
+}
+
+export async function deleteLauncherPrompt(slug: string): Promise<void> {
+    const raw = await fetch(`/api/user/launcher-prompts/${slug}`, {
+        method: "DELETE",
+        headers: mutationHeaders(),
+        credentials: "include",
+    });
+    if (!raw.ok) throw new Error("Failed to reset workflow prompt.");
+}
+
 export async function deleteAccount(): Promise<void> {
     const raw = await fetch(`/api/user/account`, {
         method: "DELETE",
