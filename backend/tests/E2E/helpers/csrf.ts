@@ -23,3 +23,12 @@ export async function postAuthJson(
     const headers = await csrfHeaders(request);
     return request.post(path, { headers, data });
 }
+
+export async function putAuthJson(
+    request: APIRequestContext,
+    path: string,
+    data: Record<string, unknown>,
+): Promise<import("@playwright/test").APIResponse> {
+    const headers = await csrfHeaders(request);
+    return request.put(path, { headers, data });
+}
