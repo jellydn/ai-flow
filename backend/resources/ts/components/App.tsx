@@ -300,7 +300,7 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, selectedProvider, apiKey, navigate]);
+    }, [url, selected, selectedProvider, apiKey, selectedCredentialId, navigate]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =

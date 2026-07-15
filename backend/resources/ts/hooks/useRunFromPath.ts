@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import type { Run } from "../types/api.ts";
-import { isRunDetailPath } from "../lib/appPaths.ts";
+import { getRunIdFromPath } from "../lib/appPaths.ts";
 import { fetchRun } from "../services/run.ts";
 
 type PathState = {
@@ -48,20 +48,13 @@ export function useRunFromPath() {
     const currentIdRef = useRef<string | null>(null);
 
     const navigate = useCallback((pathname: string) => {
-        if (!isRunDetailPath(pathname)) {
+        const id = getRunIdFromPath(pathname);
+        if (!id) {
             currentIdRef.current = null;
             dispatch({ type: "not-run-path" });
             return;
         }
 
-        const match = pathname.match(/^\/?runs\/([0-9a-f-]+)\/?$/i);
-        if (!match) {
-            currentIdRef.current = null;
-            dispatch({ type: "not-run-path" });
-            return;
-        }
-
-        const id = match[1];
         currentIdRef.current = id;
         dispatch({ type: "begin", id });
 

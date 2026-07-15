@@ -18,7 +18,9 @@ $launchersResponse = fn () => Launcher::query()->where('active', true)->get()->m
 Route::get('/launchers', $launchersResponse);
 Route::get('/flows', $launchersResponse);
 Route::get('/providers', [ProviderController::class, 'index']);
-Route::post('/runs', [RunController::class, 'store'])->middleware('throttle:runs');
+// Session (`web`) so signed-in browser users attach user_id and may use saved credentials.
+// Still public (no `auth`) for anonymous launches. CSRF applies; SPA sends X-XSRF-TOKEN.
+Route::post('/runs', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
 Route::get('/runs/recent', [RunController::class, 'recent']);
 Route::get('/runs/{run}', [RunController::class, 'show']);
 Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
@@ -36,6 +38,6 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::post('/provider-credentials/{credential}/make-default', [ProviderCredentialController::class, 'makeDefault']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
-Route::post('/executions', [RunController::class, 'store'])->middleware('throttle:runs');
+Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
 Route::get('/executions/{run}', [RunController::class, 'show']);
 Route::get('/executions/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');

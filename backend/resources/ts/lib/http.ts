@@ -18,7 +18,11 @@ export function mutationHeaders(extra: Record<string, string> = {}): Record<stri
     };
     const cookieToken = getCookie("XSRF-TOKEN");
     if (cookieToken) {
-        headers["X-XSRF-TOKEN"] = decodeURIComponent(cookieToken);
+        try {
+            headers["X-XSRF-TOKEN"] = decodeURIComponent(cookieToken);
+        } catch {
+            headers["X-XSRF-TOKEN"] = cookieToken;
+        }
     } else {
         const metaToken = getCsrfTokenFromMeta();
         if (metaToken) {
