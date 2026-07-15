@@ -178,6 +178,7 @@ If TLS is not configured yet, verify the same endpoints over HTTP.
 | Worker restart loop, `database.sqlite` does not exist | `DB_CONNECTION` still `sqlite`; `DATABASE_URL` not mapped to `DB_URL` | Set `DB_CONNECTION=pgsql`, `DB_URL` from `DATABASE_URL`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database` |
 | HTTP **500** / “Production PostgreSQL must use TLS” | Missing `DB_SSLMODE` in production | `dokku config:set ai-flow DB_SSLMODE=require` (required by `AppServiceProvider` for web requests) |
 | HTTPS page blank / browser blocks assets | Vite tags used `http://` (mixed content) behind Dokku TLS | Set `ASSET_URL=https://<your-host>` and deploy with `trustProxies` + `URL::forceScheme('https')` in app bootstrap |
+| `deploy lock in place` / pre-receive hook declined | Overlapping `git push dokku` (multiple PR deploy workflows) | Wait for the in-flight deploy to finish, or on the server: `dokku apps:unlock ai-flow` only if no deploy is actually running. PR deploys use a single GitHub Actions concurrency group (`deploy-staging-ai-flow`) so only one staging deploy runs at a time. |
 | Runs stay `queued` | No worker | `dokku ps:scale ai-flow web=1 worker=1` and check `dokku ps:report ai-flow` |
 | 404 on `/api/*` | Wrong web root or missing `.htaccess` / nginx config | Confirm Dockerfile document root is `public/` and redeploy |
 

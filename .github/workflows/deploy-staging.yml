@@ -5,9 +5,11 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
 
+# One Dokku app (ai-flow) accepts a single deploy at a time. Per-PR groups allowed
+# concurrent git pushes and left deploy locks when runs overlapped.
 concurrency:
-  group: deploy-staging-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
+  group: deploy-staging-ai-flow
+  cancel-in-progress: false
 
 jobs:
   deploy:
