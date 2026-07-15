@@ -60,6 +60,7 @@ COPY docker/supervisor/supervisord.conf /etc/supervisor/supervisord.conf
 
 RUN composer dump-autoload --classmap-authoritative --no-dev \
     && php artisan package:discover --ansi \
+    && php artisan filament:assets \
     && mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/logs \
     && chown -R www-data:www-data bootstrap/cache storage \
     && chmod +x docker/bin/release-migrate.sh \
