@@ -2,11 +2,23 @@
   "healthchecks": {
     "web": [
       {
+        "type": "startup",
+        "name": "laravel-up",
+        "description": "Laravel /up health endpoint on nginx port 80",
         "path": "/up",
         "port": 80,
         "scheme": "http",
+        "attempts": 3,
         "timeout": 5,
-        "wait_after_deploy": 5
+        "wait": 5
+      }
+    ],
+    "worker": [
+      {
+        "type": "startup",
+        "name": "queue-worker-uptime",
+        "description": "Queue worker process has stayed up after deploy",
+        "uptime": 10
       }
     ]
   }

@@ -21,6 +21,9 @@ interface LaunchAreaProps {
     /** Selected saved credential ID (null = use one-time key / server key). */
     selectedCredentialId?: string | null;
     setSelectedCredentialId?: (id: string | null) => void;
+    /** Show step 3 label when the user is signed in (provider / own key). */
+    showSignedInStep?: boolean;
+    onManageApiKeys?: () => void;
 }
 
 export function LaunchArea({
@@ -33,19 +36,44 @@ export function LaunchArea({
     credentials = [],
     selectedCredentialId = null,
     setSelectedCredentialId,
+    showSignedInStep = false,
+    onManageApiKeys,
 }: LaunchAreaProps) {
     const hasSavedCredentials = credentials.length > 0;
     const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
+    let providerBadge = "Optional";
+    if (hasSavedCredentials) {
+        providerBadge = "Saved keys";
+    } else if (showSignedInStep) {
+        providerBadge = "Your key or server";
+    }
 
     return (
         <>
-            <div className="provider-section">
+            {showSignedInStep && (
+                <div className="step-label workflow-label" id="provider-step">
+                    <span>3</span> Choose AI provider &amp; key
+                </div>
+            )}
+            {showSignedInStep && (
+                <p className="launch-signed-in-hint">
+                    {hasSavedCredentials
+                        ? "Pick a saved key below, or switch to a one-time / server key."
+                        : "No saved keys yet — paste a one-time key or use the server key."}{" "}
+                    {onManageApiKeys && (
+                        <button type="button" className="auth-link" onClick={onManageApiKeys}>
+                            Manage API keys
+                        </button>
+                    )}
+                </p>
+            )}
+            <div className="provider-section" id="provider">
                 <div className="provider-heading">
-                    <strong>AI Provider</strong>
-                    <span>Optional</span>
+                    <strong>{hasSavedCredentials ? "Your API key" : "AI Provider"}</strong>
+                    <span>{providerBadge}</span>
                 </div>
                 {hasSavedCredentials && (
-                    <div className="provider-fields">
+                    <div className="provider-fields provider-fields-single">
                         <label>
                             <span>Saved key</span>
                             <select
@@ -72,7 +100,9 @@ export function LaunchArea({
                                 <option value="">Use one-time key / server key</option>
                                 {credentials.map((cred) => (
                                     <option key={cred.id} value={cred.id}>
-                                        {cred.label} ({cred.provider})
+                                        {cred.label} ({cred.provider}
+                                        {cred.is_default ? ", default" : ""})
+                                        {cred.masked_key ? ` · ${cred.masked_key}` : ""}
                                     </option>
                                 ))}
                             </select>
@@ -113,7 +143,9 @@ export function LaunchArea({
                 <p>
                     {usingSavedCredential
                         ? "Using your saved encrypted API key. It is decrypted only for this execution."
-                        : "Use your own API key to execute this workflow. It is used only for this execution."}
+                        : hasSavedCredentials
+                          ? "One-time or server key for this run only. Choose a saved key above to use a stored key."
+                          : "Use your own API key to execute this workflow. It is used only for this execution."}
                 </p>
             </div>
 

@@ -156,7 +156,7 @@ Use `git push dokku <local-branch>:main` if Dokku’s deploy branch is `main` bu
 
 Dokku starts one web process automatically on the first deploy. The explicit scale command also starts the queue worker required to execute AI runs.
 
-`app.json` defines healthchecks (`/up` on port 80) for both the `web` and `worker` process types so Dokku can verify container health and perform zero-downtime deploys.
+`app.json` defines Dokku healthchecks: **web** — HTTP `startup` probe on `/up` (port 80); **worker** — `startup` uptime probe. Each check must include a `type` field (`startup`); omitting it causes Dokku to warn about a missing type on deploy.
 
 ## Verify
 

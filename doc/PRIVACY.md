@@ -4,14 +4,15 @@
 
 | Data | Stored? | Encrypted? | Purpose |
 |------|---------|------------|---------|
-| Email address | Yes | No | Authentication via magic-link sign-in |
+| Email address | Yes | No | Sign-in (password or magic link) |
+| Password (optional) | Yes | No (bcrypt hash) | Password sign-in only; not stored for magic-link-only users |
 | User name (optional) | Yes | No | Display in dashboard |
 | Saved provider API keys | Yes | **Yes** (AES-256 via `APP_KEY`) | BYOK — use your own AI provider key |
 | Saved provider base URLs | Yes | **Yes** | Optional custom endpoint for OpenAI-compatible providers |
 | AI run inputs (GitHub URL) | Yes | No | Run execution and history |
 | AI run outputs (structured reports) | Yes | No | Run results and history |
 | Execution metadata (provider, model, timestamps) | Yes | No | Run history display and filtering |
-| Authentication tokens (magic links) | Yes (hashed, 15-min expiry) | Hashed | Single-use sign-in verification |
+| Authentication tokens (magic links) | Yes (hashed, 15-min expiry) | Hashed | Single-use email-link sign-in verification |
 | Session cookies | Yes (HTTP-only, same-site) | N/A | Authentication session maintenance |
 
 ## What is encrypted

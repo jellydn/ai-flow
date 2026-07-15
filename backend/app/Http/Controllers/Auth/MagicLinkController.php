@@ -88,8 +88,10 @@ class MagicLinkController extends Controller
 
         $user->update(['last_login_at' => now()]);
 
+        $frontend = rtrim((string) config('app.frontend_url', ''), '/');
+
         return redirect()->intended(
-            config('app.frontend_url', '/dashboard')
+            $frontend !== '' ? $frontend.'/user' : '/user'
         );
     }
 

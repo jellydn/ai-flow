@@ -1,5 +1,5 @@
-import { get, post } from "../lib/http.ts";
-import { assertString, assertObject, assertArray } from "./run.ts";
+import { get, mutationHeaders, post } from "../lib/http.ts";
+import { assertArray, assertIntegerId, assertObject, assertString } from "./run.ts";
 
 export interface User {
     id: number;
@@ -25,7 +25,7 @@ export interface ProviderCredential {
 export function decodeUser(value: unknown): User {
     const data = assertObject(value);
     return {
-        id: Number(assertString(data.id, "id")),
+        id: assertIntegerId(data.id, "id"),
         name: data.name && typeof data.name === "string" ? data.name : null,
         email: assertString(data.email, "email"),
         email_verified_at:
@@ -64,6 +64,23 @@ export function decodeCredential(value: unknown): ProviderCredential {
 
 export async function requestMagicLink(email: string): Promise<void> {
     await post("/auth/magic-link", { email });
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<User> {
+    const body = await post("/auth/login", { email, password });
+    const data = assertObject(body);
+    return decodeUser(data.data ?? body);
+}
+
+export async function registerWithPassword(payload: {
+    email: string;
+    password: string;
+    password_confirmation: string;
+    name?: string;
+}): Promise<User> {
+    const body = await post("/auth/register", payload);
+    const data = assertObject(body);
+    return decodeUser(data.data ?? body);
 }
 
 export async function logout(): Promise<void> {
@@ -108,7 +125,8 @@ export async function verifyCredential(id: string): Promise<{ valid: boolean; me
 export async function deleteCredential(id: string): Promise<void> {
     const raw = await fetch(`/api/user/provider-credentials/${id}`, {
         method: "DELETE",
-        headers: { Accept: "application/json" },
+        headers: mutationHeaders(),
+        credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete credential.");
 }
@@ -126,7 +144,8 @@ export async function retryRun(id: string): Promise<{ id: string; status: string
 export async function deleteRun(id: string): Promise<void> {
     const raw = await fetch(`/api/user/runs/${id}`, {
         method: "DELETE",
-        headers: { Accept: "application/json" },
+        headers: mutationHeaders(),
+        credentials: "include",
     });
     if (!raw.ok) throw new Error("Failed to delete run.");
 }
@@ -134,10 +153,8 @@ export async function deleteRun(id: string): Promise<void> {
 export async function deleteAccount(): Promise<void> {
     const raw = await fetch(`/api/user/account`, {
         method: "DELETE",
-        headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-        },
+        headers: mutationHeaders({ "Content-Type": "application/json" }),
+        credentials: "include",
         body: JSON.stringify({ confirm: true }),
     });
     if (!raw.ok) throw new Error("Failed to delete account.");

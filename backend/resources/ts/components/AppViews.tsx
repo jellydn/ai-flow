@@ -1,3 +1,4 @@
+import { isUserAccountPath } from "../lib/appPaths.ts";
 import type { User } from "../services/auth.ts";
 import type { RunResult } from "../types/api.ts";
 import type { ViewState } from "./appUiState.ts";
@@ -18,6 +19,7 @@ interface AuthState {
 interface AuthActions {
     setShowSignIn: (v: boolean) => void;
     setCheckEmail: (v: string) => void;
+    onAuthenticated: (user: User) => void;
     onLogout: () => void;
 }
 
@@ -59,23 +61,38 @@ export function AppViews({
     onNavigate,
 }: AppViewsProps) {
     const { user, checked, checkEmail, showSignIn, deepLinkLoading } = authState;
-    const { setShowSignIn, setCheckEmail, onLogout } = authActions;
+    const { setShowSignIn, setCheckEmail, onAuthenticated, onLogout } = authActions;
+
+    const onUserRoute = isUserAccountPath(window.location.pathname);
+    const showDashboard = Boolean(user && checked && onUserRoute && !deepLinkLoading);
+    const showHome =
+        view.type === "home" &&
+        !deepLinkLoading &&
+        !showSignIn &&
+        !checkEmail &&
+        checked &&
+        !onUserRoute;
 
     return (
         <>
             {checkEmail && (
-                <div className="auth-page">
+                <main className="auth-page">
                     <div className="auth-card">
+                        <p className="auth-kicker">Account</p>
                         <h2>Check your email</h2>
-                        <p>
-                            A sign-in link was sent to <strong>{checkEmail}</strong>. Click the link
-                            in the email to continue.
+                        <p className="auth-check-message" role="status" aria-live="polite">
+                            A sign-in link was sent to <strong>{checkEmail}</strong>. Open the email
+                            and click the link to continue.
                         </p>
-                        <button type="button" onClick={() => setCheckEmail("")}>
-                            Back
+                        <button
+                            type="button"
+                            className="auth-card-back"
+                            onClick={() => setCheckEmail("")}
+                        >
+                            Back to sign in
                         </button>
                     </div>
-                </div>
+                </main>
             )}
 
             {!checked && !checkEmail && (
@@ -92,11 +109,30 @@ export function AppViews({
                         setShowSignIn(false);
                         setCheckEmail(email);
                     }}
+                    onAuthenticated={(signedIn) => {
+                        setShowSignIn(false);
+                        onAuthenticated(signedIn);
+                    }}
                 />
             )}
 
-            {user && !deepLinkLoading && view.type === "home" && checked && (
-                <Dashboard user={user} navigate={onNavigate} onLogout={onLogout} />
+            {showDashboard && <Dashboard user={user!} navigate={onNavigate} onLogout={onLogout} />}
+
+            {onUserRoute && checked && !user && !showSignIn && !checkEmail && (
+                <main className="auth-page">
+                    <div className="auth-card">
+                        <p className="auth-kicker">Account</p>
+                        <h2>Sign in to continue</h2>
+                        <p>Open your account dashboard, run history, and saved API keys.</p>
+                        <button
+                            type="button"
+                            className="auth-card-back"
+                            onClick={() => setShowSignIn(true)}
+                        >
+                            Sign in
+                        </button>
+                    </div>
+                </main>
             )}
 
             {deepLinkLoading && (
@@ -108,12 +144,7 @@ export function AppViews({
                 </main>
             )}
 
-            {!user &&
-                view.type === "home" &&
-                !deepLinkLoading &&
-                !showSignIn &&
-                !checkEmail &&
-                checked && <Home {...homeProps} />}
+            {showHome && <Home {...homeProps} />}
 
             {(view.type === "demo-running" || view.type === "live-running") && (
                 <Running

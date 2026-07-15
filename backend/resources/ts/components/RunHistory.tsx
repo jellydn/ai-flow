@@ -90,7 +90,19 @@ export function RunHistory({ navigate }: RunHistoryProps) {
             {loading ? (
                 <p>Loading runs…</p>
             ) : runs.length === 0 ? (
-                <p className="empty-state">No runs yet. Launch a workflow from the home page.</p>
+                <div className="empty-state">
+                    <p>
+                        No runs in your history yet. Workflows launched while signed in appear here
+                        (anonymous launches on the home page are not listed).
+                    </p>
+                    <button
+                        type="button"
+                        className="launch-button"
+                        onClick={() => goto("/", navigate)}
+                    >
+                        Go to home and launch
+                    </button>
+                </div>
             ) : (
                 <ul className="run-list">
                     {runs.map((run) => (

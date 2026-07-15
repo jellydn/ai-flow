@@ -9,9 +9,17 @@ interface HeaderProps {
     reset: () => void;
     user: User | null;
     onAuthClick: () => void;
+    onLaunchClick?: () => void;
 }
 
-export function Header({ mobileOpen, setMobileOpen, reset, user, onAuthClick }: HeaderProps) {
+export function Header({
+    mobileOpen,
+    setMobileOpen,
+    reset,
+    user,
+    onAuthClick,
+    onLaunchClick,
+}: HeaderProps) {
     return (
         <header className="topbar">
             <button type="button" className="logo-button" onClick={reset} aria-label="AI Flow home">
@@ -22,6 +30,10 @@ export function Header({ mobileOpen, setMobileOpen, reset, user, onAuthClick }: 
                     type="button"
                     onClick={() => {
                         setMobileOpen(false);
+                        if (user && onLaunchClick) {
+                            onLaunchClick();
+                            return;
+                        }
                         reset();
                         scrollToSelector("#workflows");
                     }}
@@ -45,7 +57,15 @@ export function Header({ mobileOpen, setMobileOpen, reset, user, onAuthClick }: 
             <div className="header-end">
                 <div className="header-actions">
                     {user ? (
-                        <button type="button" className="header-cta" onClick={onAuthClick}>
+                        <button
+                            type="button"
+                            className="header-cta"
+                            onClick={() => {
+                                setMobileOpen(false);
+                                onAuthClick();
+                            }}
+                            title="Account and run history"
+                        >
                             {user.email}
                         </button>
                     ) : (

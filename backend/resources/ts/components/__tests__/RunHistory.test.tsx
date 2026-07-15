@@ -58,7 +58,9 @@ describe("RunHistory", () => {
     it("shows empty state when there are no runs", async () => {
         renderComponent();
         const runHistory = document.querySelector(".run-history") as HTMLElement;
-        expect(await within(runHistory).findByText(/No runs yet/)).toBeInTheDocument();
+        expect(
+            await within(runHistory).findByText(/No runs in your history yet/),
+        ).toBeInTheDocument();
     });
 
     it("shows error when fetch fails", async () => {

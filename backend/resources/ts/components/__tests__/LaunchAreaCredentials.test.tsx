@@ -57,7 +57,8 @@ describe("LaunchArea — saved-credential picker", () => {
         );
         expect(screen.getByLabelText("Saved API credential")).toBeInTheDocument();
         expect(screen.getByText("Use one-time key / server key")).toBeInTheDocument();
-        expect(screen.getByText(/My OpenAI key/)).toBeInTheDocument();
+        expect(screen.getByText(/My OpenAI key \(openai\)/)).toBeInTheDocument();
+        expect(screen.getByText(/sk-\.\.\.abc/)).toBeInTheDocument();
     });
 
     it("renders one-time key/provider inputs by default (no saved credential selected)", () => {
@@ -84,6 +85,7 @@ describe("LaunchArea — saved-credential picker", () => {
                 setSelectedCredentialId={vi.fn()}
             />,
         );
+        expect(screen.getByLabelText("Saved API credential")).toBeInTheDocument();
         expect(screen.queryByLabelText("AI provider")).not.toBeInTheDocument();
         expect(screen.queryByPlaceholderText(/Leave blank/)).not.toBeInTheDocument();
     });
@@ -239,9 +241,7 @@ describe("LaunchArea — saved-credential picker", () => {
                 setSelectedCredentialId={vi.fn()}
             />,
         );
-        expect(
-            screen.getByText(/Use your own API key to execute this workflow/),
-        ).toBeInTheDocument();
+        expect(screen.getByText(/One-time or server key for this run only/)).toBeInTheDocument();
     });
 
     it("renders one-time key privacy message when no credentials exist", () => {

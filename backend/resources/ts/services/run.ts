@@ -29,6 +29,17 @@ export function assertString(value: unknown, field: string): string {
     return value;
 }
 
+/** Laravel JSON often encodes integer primary keys as numbers, not strings. */
+export function assertIntegerId(value: unknown, field: string): number {
+    if (typeof value === "number" && Number.isInteger(value)) {
+        return value;
+    }
+    if (typeof value === "string" && value !== "" && Number.isInteger(Number(value))) {
+        return Number(value);
+    }
+    throw new Error(`Expected ${field} to be an integer id.`);
+}
+
 function assertStringOrNull(value: unknown, field: string): string | null {
     if (value === null || value === undefined) {
         return null;
@@ -125,6 +136,7 @@ export function decodeRun(value: unknown): Run {
         error: assertStringOrNull(data.error, "error"),
         started_at: assertStringOrNull(data.started_at, "started_at"),
         completed_at: assertStringOrNull(data.completed_at, "completed_at"),
+        created_at: assertStringOrNull(data.created_at, "created_at") ?? undefined,
     };
 }
 

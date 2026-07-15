@@ -24,6 +24,7 @@ import {
     type ViewState,
     uiStateFromRun,
 } from "./appUiState.ts";
+import { isUserAccountPath } from "../lib/appPaths.ts";
 import { goto } from "../lib/navigate.ts";
 import { AppViews } from "./AppViews.tsx";
 import { Footer } from "./Footer.tsx";
@@ -83,8 +84,30 @@ export function App() {
             return;
         }
         fetchCredentials()
-            .then(setCredentials)
-            .catch(() => setCredentials([]));
+            .then((creds) => {
+                setCredentials(creds);
+                // Prefer an already-chosen key if it still exists; otherwise default/first.
+                setSelectedCredentialId((current) => {
+                    if (current && creds.some((c) => c.id === current)) {
+                        return current;
+                    }
+                    const preferred = creds.find((c) => c.is_default) ?? creds[0];
+                    if (
+                        preferred &&
+                        (preferred.provider === "openai" ||
+                            preferred.provider === "openrouter" ||
+                            preferred.provider === "anthropic" ||
+                            preferred.provider === "gemini")
+                    ) {
+                        setSelectedProvider(preferred.provider);
+                    }
+                    return preferred?.id ?? null;
+                });
+            })
+            .catch(() => {
+                setCredentials([]);
+                setSelectedCredentialId(null);
+            });
     }, [user]);
 
     useEffect(() => {
@@ -93,6 +116,15 @@ export function App() {
             .catch(() => setUser(null))
             .finally(() => setAuthChecked(true));
     }, []);
+
+    useEffect(() => {
+        if (!authChecked || user) {
+            return;
+        }
+        if (isUserAccountPath(window.location.pathname)) {
+            setShowSignIn(true);
+        }
+    }, [authChecked, user]);
 
     const {
         runId: pathRunId,
@@ -268,7 +300,7 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, selectedProvider, apiKey, navigate]);
+    }, [url, selected, selectedProvider, apiKey, selectedCredentialId, navigate]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =
@@ -298,6 +330,12 @@ export function App() {
         selectedCredentialId,
         setSelectedCredentialId,
         navigate,
+        user,
+        onManageApiKeys: user
+            ? () => {
+                  goto("/user", navigate);
+              }
+            : undefined,
     };
 
     return (
@@ -310,9 +348,21 @@ export function App() {
                 onAuthClick={() => {
                     if (user) {
                         setShowSignIn(false);
+                        goto("/user", navigate);
                     } else {
                         setShowSignIn(!showSignIn);
                     }
+                }}
+                onLaunchClick={() => {
+                    goto("/", navigate);
+                    window.scrollTo({ top: 0, behavior: "smooth" });
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            document
+                                .querySelector("#launcher")
+                                ?.scrollIntoView({ behavior: "smooth" });
+                        });
+                    });
                 }}
             />
 
@@ -327,9 +377,15 @@ export function App() {
                 authActions={{
                     setShowSignIn,
                     setCheckEmail,
+                    onAuthenticated: (signedIn) => {
+                        setUser(signedIn);
+                        setShowSignIn(false);
+                        goto("/user", navigate);
+                    },
                     onLogout: async () => {
                         await apiLogout();
                         setUser(null);
+                        goto("/", navigate);
                     },
                 }}
                 view={view}

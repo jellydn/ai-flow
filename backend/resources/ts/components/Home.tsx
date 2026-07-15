@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import type { Launcher } from "../types/api.ts";
 import type { RunProviderId } from "../services/run.ts";
-import type { ProviderCredential } from "../services/auth.ts";
+import type { ProviderCredential, User } from "../services/auth.ts";
 import { launcherMetaBySlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
@@ -62,6 +62,8 @@ export interface HomeProps {
     selectedCredentialId?: string | null;
     setSelectedCredentialId?: (id: string | null) => void;
     navigate: (pathname: string) => void;
+    user?: User | null;
+    onManageApiKeys?: () => void;
 }
 
 export function Home({
@@ -82,7 +84,10 @@ export function Home({
     selectedCredentialId,
     setSelectedCredentialId,
     navigate,
+    user,
+    onManageApiKeys,
 }: HomeProps) {
+    const signedIn = Boolean(user);
     return (
         <main>
             <section className="hero">
@@ -133,6 +138,8 @@ export function Home({
                         credentials={credentials}
                         selectedCredentialId={selectedCredentialId}
                         setSelectedCredentialId={setSelectedCredentialId}
+                        showSignedInStep={signedIn}
+                        onManageApiKeys={onManageApiKeys}
                     />
                 </div>
 

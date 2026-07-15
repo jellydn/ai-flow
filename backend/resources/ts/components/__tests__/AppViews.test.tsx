@@ -45,10 +45,30 @@ vi.mock("../Running.tsx", () => ({
 }));
 
 vi.mock("../SignIn.tsx", () => ({
-    SignIn: ({ onRequested }: { onRequested: (email: string) => void }) => (
+    SignIn: ({
+        onRequested,
+        onAuthenticated,
+    }: {
+        onRequested: (email: string) => void;
+        onAuthenticated: (user: { email: string }) => void;
+    }) => (
         <div data-testid="sign-in">
             <button type="button" onClick={() => onRequested("a@b.com")}>
                 Send link
+            </button>
+            <button
+                type="button"
+                onClick={() =>
+                    onAuthenticated({
+                        id: 1,
+                        email: "pw@b.com",
+                        name: null,
+                        email_verified_at: null,
+                        last_login_at: null,
+                    } as import("../../services/auth.ts").User)
+                }
+            >
+                Password sign-in
             </button>
         </div>
     ),
@@ -65,11 +85,23 @@ const baseAuthState = {
 // Use explicit generic types so vi.fn() matches AuthActions function signatures.
 let setShowSignIn: ReturnType<typeof vi.fn<(v: boolean) => void>>;
 let setCheckEmail: ReturnType<typeof vi.fn<(v: string) => void>>;
+let onAuthenticated: ReturnType<
+    typeof vi.fn<
+        (user: {
+            id: number;
+            email: string;
+            name: string | null;
+            email_verified_at: string | null;
+            last_login_at: string | null;
+        }) => void
+    >
+>;
 let onLogout: ReturnType<typeof vi.fn<() => void>>;
 
 beforeEach(() => {
     setShowSignIn = vi.fn();
     setCheckEmail = vi.fn();
+    onAuthenticated = vi.fn();
     onLogout = vi.fn();
 });
 
@@ -110,7 +142,7 @@ function renderAppViews(overrides: Record<string, unknown> = {}) {
     return render(
         <AppViews
             authState={mergedAuthState}
-            authActions={{ setShowSignIn, setCheckEmail, onLogout }}
+            authActions={{ setShowSignIn, setCheckEmail, onAuthenticated, onLogout }}
             view={(overrides.view ?? { type: "home" }) as never}
             homeProps={baseHomeProps}
             runningData={(overrides.runningData as typeof baseRunningData) ?? baseRunningData}
@@ -140,7 +172,7 @@ describe("AppViews", () => {
 
     it("clears checkEmail when Back is clicked", async () => {
         renderAppViews({ authState: { checked: true, checkEmail: "a@b.com" } });
-        await userEvent.setup().click(screen.getByRole("button", { name: "Back" }));
+        await userEvent.setup().click(screen.getByRole("button", { name: "Back to sign in" }));
         expect(setCheckEmail).toHaveBeenCalledWith("");
     });
 
@@ -156,12 +188,32 @@ describe("AppViews", () => {
         expect(setCheckEmail).toHaveBeenCalledWith("a@b.com");
     });
 
+    it("calls onAuthenticated when password sign-in succeeds", async () => {
+        renderAppViews({ authState: { checked: true, showSignIn: true } });
+        await userEvent.setup().click(screen.getByRole("button", { name: "Password sign-in" }));
+        expect(setShowSignIn).toHaveBeenCalledWith(false);
+        expect(onAuthenticated).toHaveBeenCalledWith(
+            expect.objectContaining({ email: "pw@b.com" }),
+        );
+    });
+
     it("renders Home for unauthenticated user with home view", () => {
         renderAppViews({ authState: { user: null, checked: true }, view: { type: "home" } });
         expect(screen.getByTestId("home")).toBeInTheDocument();
     });
 
-    it("renders Dashboard for authenticated user with home view", () => {
+    it("renders Home for authenticated user on / (launch surface)", () => {
+        window.history.replaceState({}, "", "/");
+        renderAppViews({
+            authState: { user: { email: "a@b.com" }, checked: true },
+            view: { type: "home" },
+        });
+        expect(screen.getByTestId("home")).toBeInTheDocument();
+        expect(screen.queryByTestId("dashboard")).not.toBeInTheDocument();
+    });
+
+    it("renders Dashboard for authenticated user on /user", () => {
+        window.history.replaceState({}, "", "/user");
         renderAppViews({
             authState: { user: { email: "a@b.com" }, checked: true },
             view: { type: "home" },

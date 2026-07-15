@@ -13,4 +13,5 @@ touch database/database.sqlite
 php artisan migrate --force --seed
 
 npm run build
-exec env QUEUE_CONNECTION=sync php artisan serve --port="${PORT}" --no-reload
+# Sync queue + array mail so magic-link E2E does not need Resend or a worker.
+exec env QUEUE_CONNECTION=sync MAIL_MAILER=array php artisan serve --host=localhost --port="${PORT}" --no-reload

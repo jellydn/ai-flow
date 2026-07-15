@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { authCard, authTabPanel } from "../helpers/authCard.ts";
 
 /**
  * Demo-mode E2E: full visual flow from sign-in to viewing a report.
@@ -9,18 +10,36 @@ import { expect, test } from "@playwright/test";
  * Flow: navigate → paste URL → select launcher → launch → watch progress → view report.
  */
 test.describe("Demo mode: sign-in → launch → report", () => {
+    test("sign-up tab shows labeled fields and link to sign in", async ({ page }) => {
+        await page.goto("/");
+        await page.getByRole("button", { name: "Sign in" }).click();
+
+        const card = authCard(page);
+        await card.getByRole("tab", { name: "Sign up" }).click();
+        const signUp = authTabPanel(page, "Sign up");
+
+        await expect(signUp.getByLabel("Email")).toBeVisible();
+        await expect(signUp.getByLabel("Password", { exact: true })).toBeVisible();
+        await expect(signUp.getByLabel("Confirm password")).toBeVisible();
+        await expect(signUp.getByRole("button", { name: "Create account" })).toBeVisible();
+        await expect(signUp.getByRole("button", { name: /^Sign in$/ })).toBeVisible();
+    });
+
     test("shows sign-in UI when clicking Sign in button", async ({ page }) => {
         await page.goto("/");
 
         // Click the "Sign in" button in the header.
         await page.getByRole("button", { name: "Sign in" }).click();
 
-        // Verify the sign-in modal appears with email input.
-        await expect(page.locator(".auth-card")).toBeVisible({ timeout: 5000 });
+        // Verify the sign-in modal appears (password tab is default).
+        const card = authCard(page);
+        await expect(card).toBeVisible({ timeout: 5000 });
         await expect(page.getByPlaceholder(/you@example.com/)).toBeVisible();
-        await expect(
-            page.getByRole("button", { name: /Send sign-in link/ }),
-        ).toBeVisible();
+        await expect(card.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
+
+        // Magic-link flow lives on the Email link tab.
+        await card.getByRole("tab", { name: "Email link" }).click();
+        await expect(card.getByRole("button", { name: /Send sign-in link/ })).toBeVisible();
 
         // In demo mode, the sign-in form cannot actually submit (no backend
         // auth API), so we verify the UI renders and then navigate back to
