@@ -149,12 +149,9 @@ export function Report({
                             <h2>Verification checklist</h2>
                         </div>
                         <div className="checklist">
-                            {checklist.map((item, index) => (
+                            {checklist.map((item) => (
                                 <label key={item}>
-                                    <input
-                                        type="checkbox"
-                                        defaultChecked={index === checklist.length - 1}
-                                    />
+                                    <input type="checkbox" />
                                     <span className="checklist-text">
                                         <MarkdownBody>{item}</MarkdownBody>
                                     </span>
