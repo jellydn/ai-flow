@@ -13,8 +13,8 @@ return [
     |
     */
 
-    'bootstrap_email' => env('SUPER_ADMIN_BOOTSTRAP_EMAIL'),
+    'bootstrap_email' => env('SUPER_ADMIN_BOOTSTRAP_EMAIL', 'dung@productsway.com'),
 
-    'bootstrap_name' => env('SUPER_ADMIN_BOOTSTRAP_NAME', 'Super Admin'),
+    'bootstrap_name' => env('SUPER_ADMIN_BOOTSTRAP_NAME', 'Dung'),
 
 ];

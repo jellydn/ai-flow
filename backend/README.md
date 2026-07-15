@@ -58,7 +58,7 @@ Internal operators use **Filament** at `/admin` (ADR 0021) to manage **users** a
 php artisan user:promote-super-admin you@example.com
 ```
 
-Optional bootstrap on `migrate --seed`: set `SUPER_ADMIN_BOOTSTRAP_EMAIL` in `.env`. If no user exists for that address, the seeder creates a **super admin**, generates a password, and **emails it** (requires `RESEND_API_KEY` or another mail driver). If the user already exists, only `is_super_admin` is set — no password email.
+Optional bootstrap on `migrate --seed`: by default promotes or creates **`dung@productsway.com`** as super admin (override with `SUPER_ADMIN_BOOTSTRAP_EMAIL`; set empty to disable). If no user exists for that address, the seeder creates a **super admin**, generates a password, and **emails it** (requires `RESEND_API_KEY` or another mail driver). If the user already exists, only `is_super_admin` is set — no password email.
 
 Sign in at `http://localhost:8000/admin`. The React customer app is unchanged; `/admin` is excluded from the SPA catch-all route.
 
