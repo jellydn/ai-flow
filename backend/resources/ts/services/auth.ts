@@ -168,7 +168,7 @@ export function decodeLauncherPromptEntry(value: unknown): LauncherPromptEntry {
             "default_prompt_template",
         ),
         override_prompt_template:
-            data.override_prompt_template && typeof data.override_prompt_template === "string"
+            typeof data.override_prompt_template === "string"
                 ? data.override_prompt_template
                 : null,
         uses_override: Boolean(data.uses_override),

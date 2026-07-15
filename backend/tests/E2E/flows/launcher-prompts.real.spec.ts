@@ -60,6 +60,7 @@ test.describe("Launcher prompts (real backend)", () => {
         await card.getByRole("button", { name: "Save" }).click();
         await expect(card.locator(".workflow-prompt-badge")).toBeVisible({ timeout: 10_000 });
 
+        page.once("dialog", (dialog) => dialog.accept());
         await card.getByRole("button", { name: "Reset to default" }).click();
         await expect(card.locator(".workflow-prompt-badge")).toHaveCount(0, { timeout: 10_000 });
     });
@@ -95,6 +96,7 @@ test.describe("Launcher prompts (real backend)", () => {
         const runRes = await postAuthJson(request, "/api/runs", {
             launcher: "explain-repository",
             source_url: "https://github.com/laravel/framework",
+            provider: { id: "openai", api_key: "sk-e2e-placeholder-not-for-real-openai" },
         });
         expect(runRes.status()).toBe(202);
         const runBody = (await runRes.json()) as { id: string; status: string };

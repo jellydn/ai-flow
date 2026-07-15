@@ -59,6 +59,13 @@ export function WorkflowPromptsSection() {
     };
 
     const handleReset = async (slug: string) => {
+        if (
+            !confirm(
+                "Reset this workflow prompt to the platform default? Your custom text will be removed.",
+            )
+        ) {
+            return;
+        }
         setSavingSlug(slug);
         setError("");
         try {
