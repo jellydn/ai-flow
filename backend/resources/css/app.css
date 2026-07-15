@@ -1838,6 +1838,161 @@ footer > span {
   color: #a32c2c;
 }
 
+/* workflow prompts (provider settings) */
+.workflow-prompts {
+  margin-top: 36px;
+  padding-top: 28px;
+  border-top: 1px solid #ebe8e0;
+}
+.workflow-prompts-header {
+  margin-bottom: 12px;
+}
+.workflow-prompts-loading {
+  margin-top: 28px;
+  color: #8c8981;
+  font-size: 12px;
+}
+.workflow-prompts-hint {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  background: #faf8f3;
+  border: 1px solid #ebe8e0;
+  border-radius: 8px;
+  color: #8c8981;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.workflow-prompts-error {
+  margin-bottom: 16px;
+}
+.workflow-prompts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.workflow-prompt-card {
+  margin: 0;
+}
+.workflow-prompt-form {
+  margin: 0;
+}
+.workflow-prompt-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.workflow-prompt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.workflow-prompt-title {
+  margin: 0;
+}
+.workflow-prompt-badge {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: var(--tone-blue-bg);
+  color: var(--tone-blue-text);
+}
+.workflow-prompt-card .workflow-prompt-fieldset {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 20px 22px;
+  transition: 0.15s;
+}
+.workflow-prompt-card:hover .workflow-prompt-fieldset {
+  border-color: #bcb7ab;
+  box-shadow: 0 4px 14px rgba(30, 28, 24, 0.05);
+}
+.workflow-prompt-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #8c8981;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.workflow-prompt-textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 14px;
+  border: 1px solid #d6d3ca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  outline: 0;
+  transition: 0.2s;
+}
+.workflow-prompt-textarea:focus-visible {
+  border-color: var(--orange);
+  box-shadow: var(--shadow-focus);
+}
+.workflow-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  align-items: center;
+}
+.workflow-prompt-save {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--tertiary-action);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  box-shadow: 0 4px 14px rgba(242, 99, 52, 0.2);
+  transition: 0.2s;
+}
+.workflow-prompt-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--tertiary-action-hover);
+}
+.workflow-prompt-save:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+.workflow-prompt-reset {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6f6c64;
+  transition: 0.15s;
+}
+.workflow-prompt-reset:hover:not(:disabled) {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
+.workflow-prompt-reset:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .privacy-note {
   margin-top: 28px;
   padding: 14px 18px;

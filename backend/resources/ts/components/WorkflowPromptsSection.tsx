@@ -83,52 +83,79 @@ export function WorkflowPromptsSection() {
         return <p className="workflow-prompts-loading">Loading workflow prompts…</p>;
     }
 
+    const hintId = "workflow-prompts-hint";
+
     return (
         <section className="workflow-prompts" aria-labelledby="workflow-prompts-heading">
-            <div className="settings-header">
+            <div className="settings-header workflow-prompts-header">
                 <h3 id="workflow-prompts-heading">Workflow prompts</h3>
             </div>
-            <p className="workflow-prompts-hint">
+            <p id={hintId} className="workflow-prompts-hint">
                 Customize instructions for each launcher. Your text is saved when you run a workflow
                 and stays on that run even if you change it later.
             </p>
-            {error ? <p className="settings-error">{error}</p> : null}
+            {error ? (
+                <p className="auth-error workflow-prompts-error" role="alert">
+                    {error}
+                </p>
+            ) : null}
             <ul className="workflow-prompts-list">
-                {entries.map((entry) => (
-                    <li key={entry.slug} className="workflow-prompt-card">
-                        <h4>{entry.name}</h4>
-                        {entry.uses_override ? (
-                            <span className="workflow-prompt-badge">Custom</span>
-                        ) : null}
-                        <form onSubmit={(e) => handleSave(e, entry.slug)}>
-                            <textarea
-                                rows={6}
-                                value={drafts[entry.slug] ?? ""}
-                                onChange={(ev) =>
-                                    setDrafts((prev) => ({
-                                        ...prev,
-                                        [entry.slug]: ev.target.value,
-                                    }))
-                                }
-                                aria-label={`Prompt for ${entry.name}`}
-                            />
-                            <div className="workflow-prompt-actions">
-                                <button type="submit" disabled={savingSlug === entry.slug}>
-                                    {savingSlug === entry.slug ? "Saving…" : "Save"}
-                                </button>
-                                {entry.uses_override ? (
-                                    <button
-                                        type="button"
-                                        disabled={savingSlug === entry.slug}
-                                        onClick={() => handleReset(entry.slug)}
-                                    >
-                                        Reset to default
-                                    </button>
-                                ) : null}
-                            </div>
-                        </form>
-                    </li>
-                ))}
+                {entries.map((entry) => {
+                    const fieldId = `workflow-prompt-${entry.slug}`;
+                    return (
+                        <li key={entry.slug} className="workflow-prompt-card">
+                            <form
+                                className="workflow-prompt-form"
+                                onSubmit={(e) => handleSave(e, entry.slug)}
+                            >
+                                <fieldset className="workflow-prompt-fieldset">
+                                    <legend className="workflow-prompt-legend">
+                                        <span className="workflow-prompt-title">{entry.name}</span>
+                                        {entry.uses_override ? (
+                                            <span className="workflow-prompt-badge">Custom</span>
+                                        ) : null}
+                                    </legend>
+                                    <label className="workflow-prompt-label" htmlFor={fieldId}>
+                                        Instructions sent to the AI for this workflow
+                                    </label>
+                                    <textarea
+                                        id={fieldId}
+                                        name={`prompt_${entry.slug}`}
+                                        className="workflow-prompt-textarea"
+                                        rows={6}
+                                        value={drafts[entry.slug] ?? ""}
+                                        onChange={(ev) =>
+                                            setDrafts((prev) => ({
+                                                ...prev,
+                                                [entry.slug]: ev.target.value,
+                                            }))
+                                        }
+                                        aria-describedby={hintId}
+                                    />
+                                    <div className="workflow-prompt-actions">
+                                        <button
+                                            type="submit"
+                                            className="workflow-prompt-save"
+                                            disabled={savingSlug === entry.slug}
+                                        >
+                                            {savingSlug === entry.slug ? "Saving…" : "Save"}
+                                        </button>
+                                        {entry.uses_override ? (
+                                            <button
+                                                type="button"
+                                                className="workflow-prompt-reset"
+                                                disabled={savingSlug === entry.slug}
+                                                onClick={() => handleReset(entry.slug)}
+                                            >
+                                                Reset to default
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                </fieldset>
+                            </form>
+                        </li>
+                    );
+                })}
             </ul>
         </section>
     );
