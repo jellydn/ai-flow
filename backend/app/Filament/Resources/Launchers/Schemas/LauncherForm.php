@@ -54,9 +54,9 @@ class LauncherForm
                         }
 
                         $decoded = json_decode($state, true);
-                        if (! is_array($decoded)) {
+                        if (json_last_error() !== JSON_ERROR_NONE || ! is_array($decoded)) {
                             throw ValidationException::withMessages([
-                                'output_schema' => 'Output schema must be valid JSON.',
+                                'output_schema' => 'Output schema must be a valid JSON object.',
                             ]);
                         }
 

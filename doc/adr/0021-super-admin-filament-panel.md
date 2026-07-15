@@ -19,7 +19,7 @@ We evaluated Laravel admin options: **Filament** (free, TALL/Livewire, separate 
 3. **Filament resources**
    - **User**: list/view; toggle `is_super_admin` (restricted to super admins); no arbitrary password editing in v1 unless required.
    - **Launcher** (workflow template): edit `name`, `description`, `prompt_template`, `active`, and `output_schema` (JSON, validated as JSON on save). **`slug` is read-only** after create (API and URLs depend on it).
-4. Bootstrap access via **`php artisan user:promote-super-admin {email}`** (or equivalent). Document in `backend/README.md`.
+4. Bootstrap access via **`php artisan user:promote-super-admin {email}`** and optional **`SUPER_ADMIN_BOOTSTRAP_EMAIL`** on `migrate --seed` (creates user + emails one-time password when new). Document in `backend/README.md`.
 5. Keep the React SPA unchanged for customers; admin is a separate server-rendered surface (optional Filament `spa()` for in-panel navigation only).
 
 Out of scope for initial delivery: impersonation, admin management of per-user `launcher_prompt_overrides`, run moderation resource, and automatic “re-sync launcher from PHP class” (remain `db:seed` / code deploy).

@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use App\Mail\SuperAdminBootstrapMail;
 use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -32,15 +32,22 @@ class SuperAdminBootstrapSeeder extends Seeder
         $plainPassword = Str::password(16);
 
         $user = User::query()->create([
-            'name' => config('super_admin.bootstrap_name'),
+            'name' => (string) config('super_admin.bootstrap_name'),
             'email' => $email,
-            'password' => Hash::make($plainPassword),
+            'password' => $plainPassword,
             'email_verified_at' => now(),
             'is_super_admin' => true,
         ]);
 
         $adminUrl = rtrim((string) config('app.url'), '/').'/admin';
 
-        Mail::to($user->email)->send(new SuperAdminBootstrapMail($user, $plainPassword, $adminUrl));
+        try {
+            Mail::to($user->email)->send(new SuperAdminBootstrapMail($user, $plainPassword, $adminUrl));
+        } catch (\Throwable $e) {
+            Log::warning('Super admin bootstrap mail failed', [
+                'email' => $email,
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 }
