@@ -26,6 +26,7 @@ class Run extends Model
         'status',
         'progress',
         'input',
+        'prompt_snapshot',
         'source_context',
         'result',
         'error',
