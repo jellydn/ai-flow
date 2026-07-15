@@ -706,6 +706,12 @@ em {
   letter-spacing: 0.08em;
   color: var(--tone-purple-text);
 }
+.trending-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
 .trending-card button {
   display: flex;
   align-items: center;
