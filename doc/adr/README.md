@@ -20,6 +20,7 @@
 | [0017](0017-multi-provider-registry.md) | Multi-provider registry | Accepted |
 | [0018](0018-run-ownership-and-visibility.md) | Run ownership and visibility | Accepted |
 | [0019](0019-email-password-authentication.md) | Email/password authentication (alongside magic link) | Accepted |
+| [0020](0020-per-user-launcher-prompt-overrides.md) | Per-user launcher prompt overrides with run snapshot | Accepted |
 
 **Frontend / Amp prototype:** 0001–0006
 **Laravel API (`backend/`):** 0007–0019 — see [`backend/README.md`](../../backend/README.md)
