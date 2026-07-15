@@ -680,6 +680,13 @@ em {
   line-height: 1.6;
   margin: 0;
 }
+.recent-empty {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
 .recent-table {
   border: 1px solid var(--line);
   background: #fff;

@@ -74,7 +74,7 @@ The UI is in `resources/ts/` and built with Vite. `resources/views/app.blade.php
 
 The same-origin API client lives in `resources/ts/services/run.ts` (with HTTP helpers in `resources/ts/lib/http.ts` and streaming hooks in `resources/ts/hooks/`). It calls `/api/health`, `/api/launchers`, `/api/runs`, and `/api/runs/{uuid}/stream` (`/api/flows` and `/api/executions` are aliases for backward compatibility).
 
-Set `VITE_DEMO_MODE=true` in `.env` (and restart Vite if it is already running) to run **simulated** workflow progress and demo reports in the browser. Demo mode does not call `POST /api/runs` or require a queue worker; it uses the static launcher catalog in `resources/ts/data/launcherMeta.ts`. Share URLs such as `/runs/{uuid}` still load real runs from `GET /api/runs/{uuid}` when the API is available.
+Launches call `POST /api/runs` and need a queue worker (or `QUEUE_CONNECTION=sync` for local inline jobs). Share URLs load completed runs from `GET /api/runs/{uuid}`.
 
 ## Database
 
@@ -182,7 +182,7 @@ The app can also be deployed to the Dokku VPS at `docklight-staging.itman.fyi` (
 
 `php artisan test` covers endpoint validation/queueing/rate limiting, URL parsing, and job execution with mocked GitHub and AI providers.
 
-Frontend: `npm run test` runs Vitest + React Testing Library component tests. E2E: `npm run test:e2e:demo` runs Playwright against the demo-mode Vite dev server (no backend required).
+Frontend: `npm run test` runs Vitest + React Testing Library component tests. E2E: `npm run test:e2e` runs Playwright against a local Laravel server (`scripts/e2e/serve-real.sh`, `QUEUE_CONNECTION=sync`). Set `OPENAI_API_KEY` for full run-to-report flows.
 
 ## Architecture
 

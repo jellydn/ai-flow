@@ -3,7 +3,6 @@ import type { Run } from "../types/api.ts";
 
 export type ViewState =
     | { type: "home" }
-    | { type: "demo-running"; step: number }
     | { type: "live-running"; runId: string; run: Run | null }
     | { type: "report"; run: Run | null }
     | { type: "failed"; run: Run };

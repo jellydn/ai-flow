@@ -146,7 +146,7 @@ export function AppViews({
 
             {showHome && <Home {...homeProps} />}
 
-            {(view.type === "demo-running" || view.type === "live-running") && (
+            {view.type === "live-running" && (
                 <Running
                     title={runningData.title}
                     repo={runningData.repo}

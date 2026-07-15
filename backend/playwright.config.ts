@@ -5,15 +5,12 @@ const rootDir = fileURLToPath(new URL(".", import.meta.url));
 const PORT = 8000;
 const baseURL = `http://localhost:${PORT}`;
 
-const webServerProfile = process.env.PLAYWRIGHT_WEB_SERVER ?? "demo";
+const webServerProfile = process.env.PLAYWRIGHT_WEB_SERVER ?? "real";
 const webServer =
     webServerProfile === "none"
         ? undefined
         : {
-              command:
-                  webServerProfile === "real"
-                      ? "bash scripts/e2e/serve-real.sh"
-                      : "bash scripts/e2e/serve-demo.sh",
+              command: "bash scripts/e2e/serve-real.sh",
               port: PORT,
               reuseExistingServer: !process.env.CI,
               cwd: rootDir,
@@ -37,7 +34,7 @@ export default defineConfig({
 
     projects: [
         {
-            name: "demo",
+            name: "e2e",
             testMatch: "**/*.spec.ts",
             testIgnore: "**/*.real.spec.ts",
             use: { ...devices["Desktop Chrome"] },

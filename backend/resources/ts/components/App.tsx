@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { demoSteps, launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
+import { launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
 import { logger } from "../lib/logger.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
@@ -30,10 +30,6 @@ import { AppViews } from "./AppViews.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
 import type { HomeProps } from "./Home.tsx";
-
-const DEMO_MODE = import.meta.env.VITE_DEMO_MODE === "true";
-const DEMO_COMPLETE_DELAY_MS = 650;
-const DEMO_STEP_DELAY_MS = 780;
 
 type UiAction =
     | { type: "patch"; patch: Partial<AppUiState> }
@@ -166,11 +162,6 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        if (DEMO_MODE) {
-            setLaunchers(staticLaunchers);
-            return;
-        }
-
         getLaunchers()
             .then(setLaunchers)
             .catch((e) => {
@@ -182,28 +173,6 @@ export function App() {
                 });
             });
     }, []);
-
-    const demoRunningStep = view.type === "demo-running" ? view.step : undefined;
-
-    useEffect(() => {
-        if (demoRunningStep === undefined) {
-            return;
-        }
-        if (demoRunningStep >= demoSteps.length) {
-            const done = setTimeout(
-                () => dispatch({ type: "set-view", view: { type: "report", run: null } }),
-                DEMO_COMPLETE_DELAY_MS,
-            );
-            return () => clearTimeout(done);
-        }
-        const timer = setTimeout(() => {
-            dispatch({
-                type: "set-view",
-                view: { type: "demo-running", step: demoRunningStep + 1 },
-            });
-        }, DEMO_STEP_DELAY_MS);
-        return () => clearTimeout(timer);
-    }, [demoRunningStep]);
 
     useEffect(() => {
         if (!pathReady || !pathRunId) {
@@ -230,13 +199,7 @@ export function App() {
             return;
         }
 
-        if (
-            pathReady &&
-            pathRunId === null &&
-            view.type !== "home" &&
-            view.type !== "demo-running" &&
-            view.type !== "report"
-        ) {
+        if (pathReady && pathRunId === null && view.type !== "home" && view.type !== "report") {
             dispatch({ type: "set-view", view: { type: "home" } });
         }
     }, [subscriptionRun, liveRunId, pathRunId, pathReady, view.type]);
@@ -263,12 +226,6 @@ export function App() {
         }
 
         dispatch({ type: "patch", patch: { error: "" } });
-
-        if (DEMO_MODE) {
-            dispatch({ type: "set-view", view: { type: "demo-running", step: 0 } });
-            window.scrollTo({ top: 0, behavior: "smooth" });
-            return;
-        }
 
         setIsLaunching(true);
         try {
@@ -393,8 +350,8 @@ export function App() {
                 runningData={{
                     title: runningTitle,
                     repo: runningRepo,
-                    steps: view.type === "demo-running" ? demoSteps : liveSteps,
-                    currentStep: view.type === "demo-running" ? view.step : liveCurrentStep,
+                    steps: liveSteps,
+                    currentStep: liveCurrentStep,
                 }}
                 reportData={{
                     runId: view.type === "report" ? (view.run?.id ?? null) : null,

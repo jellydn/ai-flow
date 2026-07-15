@@ -1,6 +1,5 @@
 import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from "lucide-react";
-import type { Finding, RunResult } from "../types/api.ts";
-import { demoFindings } from "../data/launcherMeta.ts";
+import type { RunResult } from "../types/api.ts";
 import { shareRunUrl } from "../services/run.ts";
 import { MarkdownBody } from "./MarkdownBody.tsx";
 
@@ -23,24 +22,30 @@ export function Report({
     runId,
     result,
 }: ReportProps) {
-    const isDemo = !runId && !result;
-    const findings: Finding[] = isDemo ? demoFindings : (result?.findings ?? []);
-    const summary = isDemo
-        ? "This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging."
-        : (result?.summary ?? "");
-    const risk = isDemo ? "medium" : (result?.risk ?? "medium");
-    const checklist = isDemo
-        ? [
-              "Add authorization policy check before deleting tools",
-              "Replace usage counter update with atomic increment",
-              "Add feature tests for combined filters",
-              "Run the full test suite before merge",
-          ]
-        : (result?.verification_steps ?? []);
+    if (!result) {
+        return (
+            <main className="running-page">
+                <div className="error-fallback">
+                    <h1>Report unavailable</h1>
+                    <p>This run has no structured result to display.</p>
+                    <button type="button" onClick={reset}>
+                        ← New launch
+                    </button>
+                </div>
+            </main>
+        );
+    }
+
+    const findings = result.findings ?? [];
+    const summary = result.summary ?? "";
+    const risk = result.risk ?? "medium";
+    const checklist = result.verification_steps ?? [];
 
     const copy = async () => {
-        const link = runId ? shareRunUrl(runId) : `${window.location.origin}/runs/demo`;
-        await navigator.clipboard?.writeText(link);
+        if (!runId) {
+            return;
+        }
+        await navigator.clipboard?.writeText(shareRunUrl(runId));
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
     };
@@ -52,10 +57,12 @@ export function Report({
                     ← New launch
                 </button>
                 <div className="share-actions">
-                    <button type="button" onClick={copy}>
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                        {copied ? "Copied" : "Copy link"}
-                    </button>
+                    {runId ? (
+                        <button type="button" onClick={copy}>
+                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                            {copied ? "Copied" : "Copy link"}
+                        </button>
+                    ) : null}
                 </div>
             </div>
 

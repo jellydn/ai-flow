@@ -24,7 +24,7 @@ vi.mock("../Home.tsx", () => ({
 
 vi.mock("../Report.tsx", () => ({
     Report: ({ runId }: { runId: string | null }) => (
-        <div data-testid="report">Report — {runId ?? "demo"}</div>
+        <div data-testid="report">Report — {runId ?? "none"}</div>
     ),
 }));
 
@@ -231,11 +231,6 @@ describe("AppViews", () => {
         renderAppViews({ view: { type: "live-running", runId: "run-1", run: null } });
         expect(screen.getByTestId("running")).toBeInTheDocument();
         expect(screen.getByText(/Workflow/)).toBeInTheDocument();
-    });
-
-    it("renders Running for demo-running view", () => {
-        renderAppViews({ view: { type: "demo-running", step: 1 } });
-        expect(screen.getByTestId("running")).toBeInTheDocument();
     });
 
     it("renders Report for report view with runId", () => {

@@ -7,7 +7,7 @@ import {
     ShieldCheck,
     Stethoscope,
 } from "lucide-react";
-import type { Finding, Launcher, ProgressStep } from "../types/api.ts";
+import type { Launcher } from "../types/api.ts";
 
 export interface LauncherMeta {
     slug: string | null;
@@ -94,55 +94,6 @@ export const staticLaunchers: Launcher[] = launcherMeta
         input_type: "",
     }));
 
-export interface RecentRun {
-    repo: string;
-    run: string;
-    workflow: string;
-    risk: string;
-    findings: number;
-    time: string;
-}
-
-export const recentRuns: RecentRun[] = [
-    {
-        repo: "jellydn/my-ai-tools",
-        run: "Pull request #42",
-        workflow: "PR Review",
-        risk: "Medium",
-        findings: 5,
-        time: "34s",
-    },
-    {
-        repo: "laravel/framework",
-        run: "Repository",
-        workflow: "Laravel Doctor",
-        risk: "Low",
-        findings: 3,
-        time: "52s",
-    },
-    {
-        repo: "calcom/cal.com",
-        run: "Issue #20418",
-        workflow: "Issue Plan",
-        risk: "—",
-        findings: 8,
-        time: "29s",
-    },
-];
-
-export function workflowTitleToSlug(title: string): string {
-    switch (title) {
-        case "PR Review":
-            return "review-pr";
-        case "Laravel Doctor":
-            return "laravel-doctor";
-        case "Issue Plan":
-            return "plan-issue";
-        default:
-            return "review-pr";
-    }
-}
-
 export function quickLabel(slug: string, title: string): string {
     switch (slug) {
         case "review-pr":
@@ -157,37 +108,3 @@ export function quickLabel(slug: string, title: string): string {
             return title;
     }
 }
-
-export const demoSteps: ProgressStep[] = [
-    { title: "Reading GitHub metadata", detail: "Pull request #42 · 12 files changed" },
-    { title: "Loading source context", detail: "2,840 lines analyzed" },
-    { title: "Running AI analysis", detail: "Reviewing logic, security, and test coverage" },
-    { title: "Validating response", detail: "Checking findings and citations" },
-    { title: "Generating report", detail: "Formatting your shareable result" },
-];
-
-export const demoFindings: Finding[] = [
-    {
-        severity: "high",
-        title: "Missing authorization check on tool deletion",
-        description:
-            "The destroy action loads a tool by ID but does not verify that it belongs to the authenticated user. A user could delete another user’s tool by changing the route parameter.",
-        recommendation:
-            "Add a policy check with $this->authorize('delete', $tool) before deletion.",
-    },
-    {
-        severity: "medium",
-        title: "Race condition when updating usage counters",
-        description:
-            "The read-modify-write sequence is not atomic. Concurrent requests can overwrite each other and undercount usage.",
-        recommendation: "Use Eloquent’s atomic increment() method inside the existing transaction.",
-    },
-    {
-        severity: "low",
-        title: "New filtering behavior has no test coverage",
-        description:
-            "The new category and status filters are user-facing but are not covered by feature tests.",
-        recommendation:
-            "Add cases for combined filters, empty results, and invalid category values.",
-    },
-];

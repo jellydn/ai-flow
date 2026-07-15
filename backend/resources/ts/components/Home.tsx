@@ -143,19 +143,11 @@ export function Home({
                     />
                 </div>
 
-                <div className="hero-proof">
-                    <div className="avatar-stack">
-                        <span>JD</span>
-                        <span>MK</span>
-                        <span>AL</span>
-                        <span>+2k</span>
-                    </div>
-                    <p>
-                        <strong>Built for focused developers</strong>
-                        <br />
-                        Less prompting. More shipping.
-                    </p>
-                </div>
+                <p className="hero-proof">
+                    <strong>Built for focused developers</strong>
+                    <br />
+                    Less prompting. More shipping.
+                </p>
             </section>
 
             <section className="workflow-section" id="workflows">

@@ -2,9 +2,7 @@ import { ArrowRight, Clock3, GitFork } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { RecentRunSummary } from "../services/run.ts";
 import { fetchRecentRuns } from "../services/run.ts";
-import { recentRuns, workflowTitleToSlug } from "../data/launcherMeta.ts";
 import { goto } from "../lib/navigate.ts";
-import { scrollToSelector } from "../lib/scroll.ts";
 import { TrendingCard } from "./TrendingCard.tsx";
 
 function formatDuration(seconds: number | null): string {
@@ -25,14 +23,14 @@ interface RecentRunsSectionProps {
 
 export function RecentRunsSection({ setUrl, setSelected, navigate }: RecentRunsSectionProps) {
     const [realRuns, setRealRuns] = useState<RecentRunSummary[]>([]);
+    const [loaded, setLoaded] = useState(false);
 
     useEffect(() => {
         fetchRecentRuns()
             .then(setRealRuns)
-            .catch(() => setRealRuns([]));
+            .catch(() => setRealRuns([]))
+            .finally(() => setLoaded(true));
     }, []);
-
-    const hasRealRuns = realRuns.length > 0;
 
     return (
         <section className="recent-section">
@@ -51,67 +49,42 @@ export function RecentRunsSection({ setUrl, setSelected, navigate }: RecentRunsS
             <TrendingCard setUrl={setUrl} setSelected={setSelected} />
 
             <div className="recent-table">
-                {hasRealRuns
-                    ? realRuns.map((run) => (
-                          <a
-                              key={run.id}
-                              href={`/runs/${run.id}`}
-                              onClick={(e) => {
-                                  e.preventDefault();
-                                  goto(`/runs/${run.id}`, navigate);
-                              }}
-                          >
-                              <span className="run-repo">
-                                  <GitFork size={17} />
-                                  <strong>{run.repo ?? "github.com"}</strong>
-                                  <small>{run.type}</small>
-                              </span>
-                              <span className="run-workflow">
-                                  {run.launcher_name ?? run.launcher_slug ?? "Workflow"}
-                              </span>
-                              <span className={`run-risk ${run.risk.toLowerCase()}`}>
-                                  {formatRisk(run.risk)}
-                              </span>
-                              <span className="run-findings">
-                                  {run.findings_count}{" "}
-                                  {run.has_verification_steps ? "steps" : "findings"}
-                              </span>
-                              <span className="run-time">
-                                  <Clock3 size={13} /> {formatDuration(run.duration_seconds)}
-                              </span>
-                              <ArrowRight size={16} />
-                          </a>
-                      ))
-                    : recentRuns.map((run) => (
-                          <button
-                              type="button"
-                              key={run.repo}
-                              onClick={() => {
-                                  setUrl(`https://github.com/${run.repo}/pull/42`);
-                                  setSelected(workflowTitleToSlug(run.workflow));
-                                  scrollToSelector("#launcher");
-                              }}
-                          >
-                              <span className="run-repo">
-                                  <GitFork size={17} />
-                                  <strong>{run.repo}</strong>
-                                  <small>{run.run}</small>
-                              </span>
-                              <span className="run-workflow">{run.workflow}</span>
-                              <span className={`run-risk ${run.risk.toLowerCase()}`}>
-                                  {run.risk}
-                              </span>
-                              <span className="run-findings">
-                                  {run.findings}{" "}
-                                  {run.workflow === "Issue Plan" ? "steps" : "findings"}
-                              </span>
-                              <span className="run-time">
-                                  <Clock3 size={13} /> {run.time}
-                              </span>
-                              <ArrowRight size={16} />
-                          </button>
-                      ))}
+                {realRuns.map((run) => (
+                    <a
+                        key={run.id}
+                        href={`/runs/${run.id}`}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            goto(`/runs/${run.id}`, navigate);
+                        }}
+                    >
+                        <span className="run-repo">
+                            <GitFork size={17} />
+                            <strong>{run.repo ?? "github.com"}</strong>
+                            <small>{run.type}</small>
+                        </span>
+                        <span className="run-workflow">
+                            {run.launcher_name ?? run.launcher_slug ?? "Workflow"}
+                        </span>
+                        <span className={`run-risk ${run.risk.toLowerCase()}`}>
+                            {formatRisk(run.risk)}
+                        </span>
+                        <span className="run-findings">
+                            {run.findings_count} {run.has_verification_steps ? "steps" : "findings"}
+                        </span>
+                        <span className="run-time">
+                            <Clock3 size={13} /> {formatDuration(run.duration_seconds)}
+                        </span>
+                        <ArrowRight size={16} />
+                    </a>
+                ))}
             </div>
+
+            {loaded && realRuns.length === 0 ? (
+                <p className="recent-empty">
+                    No public runs yet. Launch a workflow above — completed runs appear here.
+                </p>
+            ) : null}
         </section>
     );
 }
