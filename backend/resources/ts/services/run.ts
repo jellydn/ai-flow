@@ -203,6 +203,26 @@ export async function fetchRecentRuns(): Promise<RecentRunSummary[]> {
     return items.map(decodeRecentRun);
 }
 
+export interface TrendingRepositorySummary {
+    repo: string;
+    url: string;
+}
+
+function decodeTrendingRepository(value: unknown): TrendingRepositorySummary {
+    const data = assertObject(value);
+    return {
+        repo: assertString(data.repo, "repo"),
+        url: assertString(data.url, "url"),
+    };
+}
+
+export async function fetchTrendingRepositories(): Promise<TrendingRepositorySummary[]> {
+    const body = await get("/api/trending-repositories");
+    const payload = assertObject(body);
+    const items = assertArray(payload.data ?? body, "data");
+    return items.map(decodeTrendingRepository);
+}
+
 export async function fetchRun(id: string): Promise<Run> {
     const body = await get(`/api/runs/${encodeURIComponent(id)}`);
     const payload =
