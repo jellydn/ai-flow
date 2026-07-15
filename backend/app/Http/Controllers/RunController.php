@@ -117,6 +117,12 @@ class RunController extends Controller
     {
         $this->authorize('view', $run);
 
+        // Release the session lock before the long-lived SSE loop so other
+        // same-user requests (status polls, account APIs) are not blocked.
+        if (request()->hasSession()) {
+            request()->session()->save();
+        }
+
         return response()->eventStream(function () use ($run) {
             yield from $this->streamer->stream($run);
         }, ['X-Accel-Buffering' => 'no', 'Cache-Control' => 'no-cache']);

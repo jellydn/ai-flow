@@ -18,12 +18,15 @@ $launchersResponse = fn () => Launcher::query()->where('active', true)->get()->m
 Route::get('/launchers', $launchersResponse);
 Route::get('/flows', $launchersResponse);
 Route::get('/providers', [ProviderController::class, 'index']);
-// Session (`web`) so signed-in browser users attach user_id and may use saved credentials.
-// Still public (no `auth`) for anonymous launches. CSRF applies; SPA sends X-XSRF-TOKEN.
+// Session (`web`) so the SPA cookie session is visible:
+// - POST: attach user_id + allow provider_credential_id ownership checks
+// - GET show/stream: owner can authorize('view') on private (user-owned) runs
+// Still public (no `auth`) for anonymous create/view of public runs.
+// CSRF applies to mutating methods only; SPA sends X-XSRF-TOKEN on POST.
 Route::post('/runs', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
 Route::get('/runs/recent', [RunController::class, 'recent']);
-Route::get('/runs/{run}', [RunController::class, 'show']);
-Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
+Route::get('/runs/{run}', [RunController::class, 'show'])->middleware('web');
+Route::get('/runs/{run}/stream', [RunController::class, 'stream'])->middleware(['web', 'throttle:runs-stream']);
 Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::get('/', fn () => new UserResource(request()->user()));
     Route::get('/runs', [RunHistoryController::class, 'index']);
@@ -39,5 +42,5 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
-Route::get('/executions/{run}', [RunController::class, 'show']);
-Route::get('/executions/{run}/stream', [RunController::class, 'stream'])->middleware('throttle:runs-stream');
+Route::get('/executions/{run}', [RunController::class, 'show'])->middleware('web');
+Route::get('/executions/{run}/stream', [RunController::class, 'stream'])->middleware(['web', 'throttle:runs-stream']);
