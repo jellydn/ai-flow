@@ -16,25 +16,25 @@
 - Impact: Users who launch a workflow then sign in lose access to their run history.
 - Fix approach: Add a `claim_runs` endpoint that associates anonymous runs (by IP or cookie) with the newly authenticated user.
 
-**Missing `completed_at` index for recent runs endpoint:**
-- Issue: `RunController::recent()` queries `where('status', 'completed')->whereNull('user_id')->whereNotNull('result')->orderByDesc('completed_at')->limit(6)`. The `runs` table has indexes on `status` and `created_at`, but **no index on `completed_at`**. As the runs table grows, this query will require a full table scan or filesort.
-- Files: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/`
-- Impact: Slow query on the public home page as run volume increases.
-- Fix approach: Add a migration creating a composite index on `(status, user_id, completed_at)` to cover both the `recent()` and `RunHistoryController::index()` query patterns.
+**Missing `completed_at` index for recent runs endpoint (fixed):**
+- Issue: `RunController::recent()` queries `where('status', 'completed')->whereNull('user_id')->whereNotNull('result')->orderByDesc('completed_at')->limit(6)`. The `runs` table had indexes on `status` and `created_at`, but no index on `completed_at`.
+- Files: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/2026_07_15_000001_add_recent_runs_index_to_runs_table.php`
+- Status: ✅ Fixed — composite index `runs_status_user_completed_at_index` on `(status, user_id, completed_at)`.
+- Impact: None for typical volumes; home-page recent runs query is indexed.
 
-**Home.tsx growing large (403 lines):**
-- Issue: `Home.tsx` is 403 lines with the trending card, real-runs fetch, fallback logic, and all section JSX inline. The `recent-section` alone is ~70 lines with a ternary branching between real and static runs.
+**Home.tsx size (watch):**
+- Issue: `Home.tsx` still bundles trending, recent runs, and launch sections in one file (~287 lines at current HEAD; was larger when this map was first written).
 - Files: `backend/resources/ts/components/Home.tsx`
-- Impact: Unrelated UI changes conflict easily; hard to unit-test the recent-runs section in isolation.
-- Fix approach: Extract `RecentRunsSection` and `TrendingCard` as sub-components, receiving `realRuns`, `navigate`, `setUrl`, `setSelected` as props.
+- Impact: Unrelated UI changes can still conflict; recent-runs block is harder to test in isolation.
+- Fix approach: Extract `RecentRunsSection` and `TrendingCard` when touching home layout again.
 
 ## Security
 
-**Latent SSRF risk via stored `base_url`:**
-- Issue: `StoreProviderCredentialRequest` accepts a user-supplied `base_url` (`'nullable', 'url', 'max:2048'`) and `ProviderCredentialController::store` encrypts and stores it. The `url` rule validates format but does NOT block localhost, private IPs, or cloud metadata endpoints (e.g. `169.254.169.254`). Currently the stored `base_url` is NOT passed to provider constructors (`AiProviderRegistry::get()` only accepts `providerId` and `apiKey`), so the risk is latent — but it will become exploitable if the stored `base_url` is wired into provider instantiation.
-- Files: `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Controllers/ProviderCredentialController.php`, `backend/app/Support/AiProviderRegistry.php`
-- Impact: If stored `base_url` is used for provider construction, the server could be used for SSRF attacks.
-- Fix approach: Implement URL validation (block localhost, private IPs, cloud metadata endpoints) in `StoreProviderCredentialRequest` before allowing user-supplied base URLs to reach provider constructors. ADR-0016 mentions `encrypted_base_url` storage but does not address SSRF — this should be documented when wiring stored `base_url` into provider construction.
+**Latent SSRF risk via stored `base_url` (mitigated):**
+- Issue: User-supplied `base_url` on provider credentials could target localhost, private IPs, or cloud metadata if later used for outbound HTTP from workers.
+- Files: `backend/app/Rules/PublicHttpUrl.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Requests/UpdateProviderCredentialRequest.php`, `backend/tests/Feature/ProviderCredentialBaseUrlValidationTest.php`
+- Status: ✅ Mitigated — `PublicHttpUrl` validation blocks non-public hosts and private/reserved IPs on create and update. Stored `base_url` is still not wired into `AiProviderRegistry::get()`; re-validate when that lands.
+- Impact: Credentials cannot be saved with obvious SSRF targets; remaining risk is DNS rebinding if providers fetch stored URLs without additional hardening.
 
 **No rate limiting on credential verification (fixed):**
 - Issue: `POST /api/user/provider-credentials/{id}/verify` had no rate limit, allowing excessive outbound API calls.
@@ -117,3 +117,5 @@ No known bugs at current HEAD.
 - ✅ **E2E test depends on specific demo finding text** — Replaced `toContainText("Missing authorization check")` with structural `toBeVisible()` + `not.toBeEmpty()` on `finding-severity` and `finding-title` test IDs.
 - ✅ **Silent catches in `useRunSubscription.ts` and `App.tsx`** — Replaced with `logger.warn()` calls via consola logger integration.
 - ✅ **Silent catches in `SignIn.tsx`, `ProviderSettings.tsx`, `RunHistory.tsx`** — All 3 remaining `catch {}` blocks replaced with `logger.warn()` calls, completing the frontend logging coverage.
+- ✅ **Missing `completed_at` index for recent runs** — Composite index on `(status, user_id, completed_at)`.
+- ✅ **Latent SSRF via credential `base_url`** — `PublicHttpUrl` rule on store/update provider credentials.
