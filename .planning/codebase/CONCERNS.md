@@ -1,121 +1,224 @@
-# Concerns
+# Codebase Concerns
 
-**Analysis Date:** 2026-07-14
+**Analysis Date:** 2026-07-15
 
 ## Tech Debt
 
-**Redundant `config('services.openai.providers')` array (fixed):**
-- Issue: The `providers` array in `config/services.php` duplicated `AiProviderRegistry::PROVIDERS`, creating two sources of truth for provider IDs.
-- Files: `backend/config/services.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`
-- Status: ✅ Fixed — `StoreProviderCredentialRequest` now injects `AiProviderRegistry` and uses `$registry->ids()` for validation; the `providers` array was removed from `config/services.php`.
-- Impact: None — `AiProviderRegistry` is now the single source of truth.
-
 **No claim flow for anonymous runs:**
-- Issue: Anonymous users can create runs (no auth required for `POST /api/runs`), but there's no mechanism to claim those runs after signing in. `RunController::store` sets `user_id` to `$request->user()?->id`, which is `null` for anonymous users. Runs created before auth are permanently anonymous.
-- Files: `backend/app/Http/Controllers/RunController.php`, `backend/app/Models/Run.php`
-- Impact: Users who launch a workflow then sign in lose access to their run history.
-- Fix approach: Add a `claim_runs` endpoint that associates anonymous runs (by IP or cookie) with the newly authenticated user.
+- Issue: Anonymous users can create runs (`POST /api/runs` is public). `RunController::store` sets `user_id` to `$request->user()?->id` (null when unsigned). Runs started before sign-in stay anonymous and never appear in run history.
+- Files: `backend/app/Http/Controllers/RunController.php`, `backend/app/Models/Run.php`, `backend/resources/ts/components/RunHistory.tsx`
+- Impact: Users who launch then authenticate lose history linkage for that session’s runs.
+- Fix approach: Claim endpoint (cookie/session token or signed run IDs) to attach anonymous runs to the authenticated user.
+
+**Stored `encrypted_base_url` not applied at runtime:**
+- Issue: Provider credentials persist optional `encrypted_base_url` after validation, but `ExecuteLauncherJob` / `AiProviderRegistry::get()` only inject API keys. Adapters read `config('services.openai.base_url')` and `openrouter_base_url`, not per-credential URLs.
+- Files: `backend/app/Models/ProviderCredential.php`, `backend/app/Jobs/ExecuteLauncherJob.php`, `backend/app/Support/AiProviderRegistry.php`, `backend/app/Services/OpenAIProvider.php`, `backend/app/Services/OpenRouterProvider.php`
+- Impact: UI/storage suggests custom endpoints work; BYOK users pointing at compatible proxies cannot use saved base URLs yet.
+- Fix approach: Decrypt base URL in the job (same lifetime rules as API key), pass into provider constructors, and add integration tests.
 
 **Missing `completed_at` index for recent runs endpoint (fixed):**
-- Issue: `RunController::recent()` queries `where('status', 'completed')->whereNull('user_id')->whereNotNull('result')->orderByDesc('completed_at')->limit(6)`. The `runs` table had indexes on `status` and `created_at`, but no index on `completed_at`.
+- Issue: `RunController::recent()` queries completed public runs ordered by `completed_at`. The `runs` table had indexes on `status` and `created_at`, but no index on `completed_at`.
 - Files: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/2026_07_15_000001_add_recent_runs_index_to_runs_table.php`
 - Status: ✅ Fixed — composite index `runs_status_user_completed_at_index` on `(status, user_id, completed_at)`.
-- Impact: None for typical volumes; home-page recent runs query is indexed.
+- Impact: Home-page recent runs query is indexed for typical volumes.
 
 **Home.tsx size (watch):**
-- Issue: `Home.tsx` still bundles trending, recent runs, and launch sections in one file (~287 lines at current HEAD; was larger when this map was first written).
+- Issue: `Home.tsx` bundles trending, recent runs, and launch UX (~287 lines).
 - Files: `backend/resources/ts/components/Home.tsx`
-- Impact: Unrelated UI changes can still conflict; recent-runs block is harder to test in isolation.
-- Fix approach: Extract `RecentRunsSection` and `TrendingCard` when touching home layout again.
+- Impact: Higher merge conflict risk; harder to unit-test recent-runs block in isolation.
+- Fix approach: Extract `RecentRunsSection` and `TrendingCard` when next touching home layout.
 
-## Security
+**Legacy API field aliases:**
+- Issue: `StoreRunRequest` still accepts `flow_id` and `input.url` alongside `launcher` / `source_url`.
+- Files: `backend/app/Http/Requests/StoreRunRequest.php`, `backend/routes/api.php` (`/executions`, `/flows` aliases)
+- Impact: Two naming schemes to document and test indefinitely unless deprecated with sunset.
+- Fix approach: Deprecation headers or docs; remove aliases once clients migrate.
 
 **Latent SSRF risk via stored `base_url` (mitigated):**
 - Issue: User-supplied `base_url` on provider credentials could target localhost, private IPs, or cloud metadata if later used for outbound HTTP from workers.
 - Files: `backend/app/Rules/PublicHttpUrl.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Requests/UpdateProviderCredentialRequest.php`, `backend/tests/Feature/ProviderCredentialBaseUrlValidationTest.php`
-- Status: ✅ Mitigated — `PublicHttpUrl` validation blocks non-public hosts and private/reserved IPs on create and update. Stored `base_url` is still not wired into `AiProviderRegistry::get()`; re-validate when that lands.
+- Status: ✅ Mitigated — `PublicHttpUrl` on create/update. Stored `base_url` is still not wired into `AiProviderRegistry::get()`; re-validate when that lands.
 - Impact: Credentials cannot be saved with obvious SSRF targets; remaining risk is DNS rebinding if providers fetch stored URLs without additional hardening.
 
-**No rate limiting on credential verification (fixed):**
-- Issue: `POST /api/user/provider-credentials/{id}/verify` had no rate limit, allowing excessive outbound API calls.
-- Files: `backend/routes/api.php`, `backend/app/Providers/AppServiceProvider.php`
-- Status: ✅ Fixed — Added `throttle:credentials` rate limiter (10/min/user) in `AppServiceProvider` and applied to the verify route.
-- Impact: None — credential verification is now rate-limited.
+## Known Bugs
 
-## Performance
+No confirmed production bugs at current `main` (post PR #57).
 
-**SSE polling resource usage:**
-- Issue: `RunStreamer` polls the database every second for up to 55 seconds per SSE connection. With 30 concurrent streams (rate limit), that's 30 DB queries/second.
-- Files: `backend/app/Services/RunStreamer.php`
-- Impact: Database load scales linearly with concurrent SSE connections.
-- Fix approach: Consider Redis pub/sub or WebSocket for production scale; the current DB-polling approach is fine for MVP but may need optimization.
+## Security Considerations
 
-**GitHub context caching is in-memory for tests, database for production:**
-- Issue: `GitHubService::context()` caches for 10 minutes using the default cache store. In production with `CACHE_STORE=database`, this works but adds DB queries. In production with high traffic, the cache miss path fetches from GitHub REST API synchronously in the queue worker.
+**Credential `base_url` SSRF (mitigated at validation):**
+- Risk: Malicious base URLs could target metadata or internal networks if workers fetch them.
+- Files: `backend/app/Rules/PublicHttpUrl.php`, `backend/app/Http/Requests/StoreProviderCredentialRequest.php`, `backend/app/Http/Requests/UpdateProviderCredentialRequest.php`, `backend/tests/Feature/ProviderCredentialBaseUrlValidationTest.php`
+- Current mitigation: `PublicHttpUrl` on create/update — HTTP/HTTPS only, blocks localhost/metadata hostnames, private/reserved IPs, and DNS A/AAAA to non-public IPs when resolution succeeds.
+- Recommendations: Re-validate at outbound fetch time when credential `base_url` is wired into providers; consider blocking link-local and tightening DNS rebinding (TOCTOU between validation and fetch).
+
+**Run input URLs (GitHub-only):**
+- Risk: Open redirect or non-GitHub targets in workers.
+- Files: `backend/app/Http/Requests/StoreRunRequest.php` (`regex` for `github.com`), `backend/app/Services/GitHubService.php` (HTTPS + host allowlist)
+- Current mitigation: Validation + parse-time checks in `GitHubService::parse()`.
+- Recommendations: Keep GitHub fetches in the queue worker only; never add synchronous GitHub/AI calls on HTTP request cycle.
+
+**Credential encryption uses `APP_KEY`:**
+- Risk: `APP_KEY` rotation or leak affects all stored credentials; ADR mentions separate key not implemented.
+- Files: `backend/app/Security/CredentialCipher.php`, `doc/adr/0016-stored-encrypted-byok-credentials.md`
+- Current mitigation: `Crypt::encryptString`, hidden columns, decrypt only in job verify path and `resolveApiKey()`.
+- Recommendations: Implement or formally defer `CREDENTIAL_ENCRYPTION_KEY`; document rotation runbook.
+
+**Anonymous run visibility:**
+- Risk: Anyone with a run UUID can view public (`user_id` null) runs per policy; share links are capability URLs.
+- Files: `backend/routes/api.php`, run policies / `authorize('view')`
+- Recommendations: Optional signed share tokens or expiring links for sensitive deployments.
+
+## Performance Bottlenecks
+
+**SSE connection churn:**
+- Problem: `RunStreamer` runs up to ~55s per connection; clients reconnect via `useRunSubscription` after terminal events or errors. Rate limit `runs-stream` is 30/min/IP.
+- Files: `backend/app/Services/RunStreamer.php`, `backend/app/Http/Controllers/RunController.php`, `backend/resources/ts/hooks/useRunSubscription.ts`, `backend/DOKKU_DEPLOY.md` (proxy-buffering off, 75s read timeout)
+- Cause: Long-poll SSE model + 1s poll interval when cache version unchanged still wakes the loop; cache miss path hits DB each version bump.
+- Improvement path: Redis pub/sub or shorter client reconnect strategy; scale DB/cache for concurrent streams.
+
+**Database polling in `RunStreamer`:**
+- Problem: When cache version is null (e.g. array driver), every loop iteration calls `fetchSnapshot()` → `refresh()` on `runs`.
+- Files: `backend/app/Services/RunStreamer.php`, `backend/app/Listeners/CacheRunProgressedVersion.php`
+- Cause: Fallback path for tests; production should use database/redis cache store.
+- Improvement path: Ensure `CACHE_STORE` is not `array` in production; monitor query rate per active SSE.
+
+**GitHub context cache:**
+- Problem: `Cache::remember` 10 minutes; with `CACHE_STORE=database`, cache adds DB reads/writes; cache miss triggers full GitHub REST fetch in the worker.
 - Files: `backend/app/Services/GitHubService.php`
-- Impact: First request for a URL is slow (GitHub API fetch); subsequent requests are cached.
-- Fix approach: Consider Redis cache for production; current approach is adequate for MVP.
+- Cause: No Redis by default in docs; cold URLs are slow.
+- Improvement path: Redis/Memcached in production; optional warming for popular repos.
 
-**Frontend bundle size:**
-- Issue: The Vite build bundles all React components into a single chunk. No code splitting or lazy loading. No `React.lazy()` usage found and no `manualChunks` in `vite.config.ts`.
-- Files: `backend/vite.config.ts`, `backend/resources/ts/app.tsx`
-- Impact: Initial page load includes all components (Dashboard, RunHistory, ProviderSettings) even if the user is anonymous.
-- Fix approach: Add `React.lazy()` for authenticated-only views (Dashboard, ProviderSettings, RunHistory).
+**Run history search:**
+- Problem: `RunHistoryController` uses `source_url LIKE %search%` without dedicated index.
+- Files: `backend/app/Http/Controllers/RunHistoryController.php`
+- Cause: Pattern leading wildcard prevents simple B-tree use.
+- Improvement path: Trigram/GIN on Postgres or restrict search to prefix/exact repo slug.
 
-## Bugs
-
-No known bugs at current HEAD.
+**Frontend single bundle:**
+- Problem: No `React.lazy()` or Vite `manualChunks`; authenticated views ship on first paint.
+- Files: `backend/vite.config.ts`, `backend/resources/ts/app.tsx`, large shells `App.tsx` (~413 lines), `SignIn.tsx` (~447 lines)
+- Improvement path: Lazy-load dashboard, provider settings, run history.
 
 ## Fragile Areas
 
-**Squash-merge + stacked PR rebasing:**
-- Issue: When using `gh stack` with squash merges, each lower PR squash-merge changes the commit hash, causing all upstack branches to conflict on files that were in the squash-merged PR.
-- Files: N/A (process issue)
-- Impact: Time-consuming rebase conflicts when merging stacked PRs via squash.
-- Fix approach: Use regular merge commits for stacked PRs, or merge all PRs in the stack at once via `gh stack merge`.
+**Stacked PR / squash-merge workflow:**
+- Files: N/A (process)
+- Why fragile: Squash-merge rewrites SHAs; upstack branches conflict on shared files.
+- Safe modification: Prefer merge commits for stacks or merge stack atomically.
+- Test coverage: N/A
 
 **`ProviderCredential::forceCreate()` in tests:**
-- Issue: Tests use `forceCreate()` to bypass mass-assignment protection on `user_id`. If the `$fillable` array is changed to include `user_id`, tests would silently switch to `create()` behavior.
 - Files: `backend/tests/Feature/SavedCredentialLaunchTest.php`, `backend/tests/Feature/AccountDeletionTest.php`
-- Impact: Tests are slightly fragile against model changes.
-- Fix approach: Acceptable for test code; document the pattern.
+- Why fragile: Bypasses mass assignment for `user_id`; model `$fillable` changes could alter behavior silently.
+- Safe modification: Keep `user_id` out of `$fillable`; use factories with explicit ownership helpers.
+- Test coverage: Adequate for current flows.
 
-## Documentation
+**AI JSON schema validation:**
+- Files: `backend/app/Services/RunExecutor.php`, launcher `outputSchema` in `BaseLauncher`
+- Why fragile: Provider drift or truncated JSON fails runs after GitHub work completed.
+- Safe modification: Extend schema tests per launcher; log validation failures without leaking keys.
+- Test coverage: Feature tests mock AI; limited live-provider contract tests.
 
-**`AGENTS.md` references outdated remote names (fixed):**
-- Issue: `AGENTS.md` previously stated "`origin` may point at Amp git; `github` remote is `jellydn/ai-flow`". The stale Amp sync note has been removed and the Gotchas section now correctly states `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
-- Files: `AGENTS.md`
-- Status: ✅ Fixed (already resolved in current `main`)
-- Impact: None — documentation is now accurate.
+## Scaling Limits
 
-**ADR-0016 mentions `CREDENTIAL_ENCRYPTION_KEY` env var:**
-- Issue: ADR-0016 (`doc/adr/0016-stored-encrypted-byok-credentials.md`) documents a future `CREDENTIAL_ENCRYPTION_KEY` env var for dedicated credential encryption, but this is not implemented — credentials use `APP_KEY` via Laravel `Crypt`.
+**Queue workers:**
+- Current capacity: Single worker process type in Dokku Procfile; job timeout 120s, 2 tries.
+- Limit: Throughput = workers × (1 / median job duration); GitHub + LLM bound.
+- Scaling path: Horizontal queue workers; monitor `jobs` table depth; avoid `QUEUE_CONNECTION=sync` in production.
+
+**SSE + PHP-FPM:**
+- Current capacity: ~30 stream attempts/min/IP; each holds a worker up to ~55s.
+- Limit: FPM pool exhaustion under many concurrent users watching runs.
+- Scaling path: Dedicated SSE service or edge-friendly streaming; increase pool size and timeouts coherently with nginx.
+
+**IP rate limits on runs:**
+- Current capacity: `runs` 5/hr/IP for create.
+- Limit: Shared NAT blocks legitimate users.
+- Scaling path: Authenticated higher limits; CAPTCHA or account-based quotas.
+
+## Dependencies at Risk
+
+**`turso/libsql-laravel` vs Laravel 13:**
+- Risk: Not supported on Laravel 13; local SQLite only for dev.
+- Impact: Cannot adopt Turso without framework upgrade path or alternate driver.
+- Migration plan: Managed Postgres/MySQL (documented in `AGENTS.md`, `backend/README.md`).
+
+**Pinned AI provider HTTP APIs:**
+- Risk: OpenAI/Anthropic/Gemini/OpenRouter API shape changes break adapters.
+- Impact: All launchers fail until adapters updated.
+- Migration plan: Contract tests with recorded fixtures; registry isolates provider classes.
+
+## Missing Critical Features
+
+**No token/cost metadata on runs:**
+- Problem: No `tokens_used` / cost columns; usage not persisted from provider responses.
+- Blocks: Cost dashboards, per-user billing, abuse detection.
+
+**No completion notifications:**
+- Problem: No email/webhook on terminal status.
+- Blocks: Fire-and-forget workflows without keeping the tab open.
+
+**No anonymous-run claim:**
+- Problem: See tech debt above.
+- Blocks: Coherent post-login history for casual try-then-sign-up flows.
+
+## Test Coverage Gaps
+
+**Per-credential `base_url` execution:**
+- What's not tested: End-to-end job using decrypted custom base URL (field unused in runtime).
+- Files: `backend/tests/Feature/ExecuteLauncherJobTest.php` (server config URL only)
+- Risk: SSRF hardening validated at HTTP layer but bypass if fetch logic ships without tests.
+- Priority: High when wiring runtime base URL.
+
+**`PublicHttpUrl` DNS edge cases:**
+- What's not tested: NXDOMAIN pass-through, IPv6-only resolution failures, rebinding races.
+- Files: `backend/tests/Feature/ProviderCredentialBaseUrlValidationTest.php`
+- Risk: Rare bypass or false rejects.
+- Priority: Medium
+
+**Frontend SSE fallback:**
+- What's not tested: Systematic Playwright coverage for EventSource failure → polling path.
+- Files: `backend/resources/ts/hooks/useRunSubscription.ts`, E2E mostly demo/real auth flow.
+- Risk: Regressions in browsers with strict SSE policies.
+- Priority: Medium
+
+**Large UI components:**
+- What's not tested: `SignIn.tsx` / `Home.tsx` have partial RTL coverage; not exhaustive.
+- Files: `backend/resources/ts/components/__tests__/`
+- Risk: Auth and launch regressions.
+- Priority: Medium
+
+## Documentation Gaps
+
+**`CREDENTIAL_ENCRYPTION_KEY` in ADR-0016:**
+- Issue: Documented as future enhancement; implementation uses `APP_KEY` only.
 - Files: `doc/adr/0016-stored-encrypted-byok-credentials.md`
-- Impact: Gap between documentation and implementation.
-- Fix approach: Either implement the dedicated key or update the ADR to note it's deferred.
+- Fix: Update ADR status note or implement dedicated key.
 
-## Missing Features
+**Deploy docs split:**
+- Issue: No repo-root `DEPLOY.md`; operators must read `backend/DOKKU_DEPLOY.md` and `backend/CLOUD_DEPLOY.md`.
+- Impact: Easy to miss SSE nginx settings or `DB_URL` vs Dokku `DATABASE_URL` mapping.
 
-**No token/cost metadata tracking:**
-- Issue: AI provider responses include token usage and cost metadata, but these are not captured or stored. The `runs` table has no `tokens_used` or `cost` column.
-- Files: `backend/app/Services/RunExecutor.php`, `backend/app/Models/Run.php`
-- Impact: No visibility into API costs or token consumption.
-- Fix approach: Add `tokens_used` (int) and `cost_estimate` (decimal) columns to `runs`; parse from provider response and store on completion.
+**No `autoresearch.jsonl` / `autoresearch.ideas.md` in repo:**
+- Impact: Automated concern mining from those files not applicable; rely on code scan and ADRs.
 
-**No webhook/notification on run completion:**
-- Issue: Users must keep the browser open to see run results. There's no email notification or webhook when a run completes.
-- Files: N/A
-- Impact: Users miss results for long-running workflows.
-- Fix approach: Add optional email notification on completion (reuse Resend); or add a webhook URL field to the run creation request.
+## Codebase Scan Notes
+
+- **TODO / FIXME / HACK:** None found in `backend/` PHP/TS/TSX (2026-07-15 scan).
+- **PR #57 (merged):** `PublicHttpUrl`, credential validation, composite index `runs_status_user_completed_at_index`, `ProviderCredentialBaseUrlValidationTest`.
 
 ## Previously Fixed (for reference)
 
-- ✅ **Redundant `config('services.openai.providers')` array** — `AiProviderRegistry` is now the single source of truth; config array removed.
-- ✅ **No rate limiting on credential verification** — Added `throttle:credentials` (10/min/user).
-- ✅ **Demo report view reset** — `useEffect` in `App.tsx` now excludes `"report"` from the reset condition.
-- ✅ **AGENTS.md references outdated remote names** — Stale Amp sync note removed; `origin` = `github.com/jellydn/ai-flow` documented.
-- ✅ **E2E test depends on specific demo finding text** — Replaced `toContainText("Missing authorization check")` with structural `toBeVisible()` + `not.toBeEmpty()` on `finding-severity` and `finding-title` test IDs.
-- ✅ **Silent catches in `useRunSubscription.ts` and `App.tsx`** — Replaced with `logger.warn()` calls via consola logger integration.
-- ✅ **Silent catches in `SignIn.tsx`, `ProviderSettings.tsx`, `RunHistory.tsx`** — All 3 remaining `catch {}` blocks replaced with `logger.warn()` calls, completing the frontend logging coverage.
+- ✅ **Redundant `config('services.openai.providers')` array** — `AiProviderRegistry` single source of truth.
+- ✅ **No rate limiting on credential verification** — `throttle:credentials` (10/min/user).
+- ✅ **Demo report view reset** — `useEffect` in `App.tsx` excludes `"report"` from reset.
+- ✅ **AGENTS.md remote naming** — `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging.
+- ✅ **E2E brittle demo finding text** — Structural test IDs on findings.
+- ✅ **Silent `catch {}` on frontend** — `logger.warn()` across subscription, auth, settings, history.
 - ✅ **Missing `completed_at` index for recent runs** — Composite index on `(status, user_id, completed_at)`.
-- ✅ **Latent SSRF via credential `base_url`** — `PublicHttpUrl` rule on store/update provider credentials.
+- ✅ **Latent SSRF via credential `base_url`** — `PublicHttpUrl` on store/update.
+
+---
+
+*Concerns audit: 2026-07-15*
