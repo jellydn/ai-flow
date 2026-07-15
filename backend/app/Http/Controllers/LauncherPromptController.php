@@ -6,12 +6,13 @@ use App\Http\Requests\UpsertLauncherPromptRequest;
 use App\Models\Launcher;
 use App\Models\LauncherPromptOverride;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class LauncherPromptController extends Controller
 {
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        $user = request()->user();
+        $user = $request->user();
 
         $launchers = Launcher::query()
             ->where('active', true)
@@ -56,7 +57,7 @@ class LauncherPromptController extends Controller
         return response()->json(['message' => 'Workflow prompt saved.']);
     }
 
-    public function destroy(string $slug): JsonResponse
+    public function destroy(Request $request, string $slug): JsonResponse
     {
         $launcher = Launcher::query()
             ->where('slug', $slug)
@@ -64,7 +65,7 @@ class LauncherPromptController extends Controller
             ->firstOrFail();
 
         LauncherPromptOverride::query()
-            ->where('user_id', request()->user()->id)
+            ->where('user_id', $request->user()->id)
             ->where('launcher_id', $launcher->id)
             ->delete();
 

@@ -34,7 +34,7 @@ class RunExecutor implements RunExecutorInterface
             $context = $this->github->context($run->source_url);
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
-            $basePrompt = $run->prompt_snapshot ?? $run->launcher->prompt_template;
+            $basePrompt = $run->prompt_snapshot ?? $run->launcher?->prompt_template ?? '';
             $prompt = $basePrompt."\nGitHub context:\n".$this->encoder->encode($context);
             $result = $ai->generate($prompt, $run->launcher->output_schema);
             $this->validator->validate($result, $run->launcher->output_schema);
