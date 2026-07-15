@@ -49,6 +49,23 @@ php artisan test
 ./vendor/bin/pint --test
 ```
 
+## Super admin (`/admin`)
+
+Internal operators use **Filament** at `/admin` (ADR 0021) to manage **users** and **workflow templates** (`launchers`). Access requires `users.is_super_admin = true`.
+
+```bash
+# After migrate, promote an existing account (same email/password as SPA sign-in)
+php artisan user:promote-super-admin you@example.com
+```
+
+Sign in at `http://localhost:8000/admin`. The React customer app is unchanged; `/admin` is excluded from the SPA catch-all route.
+
+Filament frontend assets are not committed; after `composer install` run:
+
+```bash
+php artisan filament:assets
+```
+
 ## Frontend
 
 The UI is in `resources/ts/` and built with Vite. `resources/views/app.blade.php` is the SPA shell, and `routes/web.php` provides a fallback so `/runs/{uuid}` and other client-side routes resolve correctly. Laravel Vite loads the built assets from `public/build`.
