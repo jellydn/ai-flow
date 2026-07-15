@@ -35,7 +35,6 @@ class LaunchersTable
             ])
             ->recordActions([
                 EditAction::make(),
-            ])
-            ->toolbarActions([]);
+            ]);
     }
 }

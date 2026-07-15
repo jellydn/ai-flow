@@ -25,7 +25,8 @@ class UserForm
                     ->required(fn (string $operation): bool => $operation === 'create'),
                 Toggle::make('is_super_admin')
                     ->label('Super admin')
-                    ->helperText('Can access the /admin control panel.'),
+                    ->helperText('Can access the /admin control panel.')
+                    ->disabled(fn ($record): bool => $record !== null && (int) $record->getKey() === (int) auth()->id()),
                 DateTimePicker::make('email_verified_at')
                     ->disabled(),
                 DateTimePicker::make('last_login_at')

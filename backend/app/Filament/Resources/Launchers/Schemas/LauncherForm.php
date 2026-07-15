@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Launchers\Schemas;
 
-use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -18,7 +17,7 @@ class LauncherForm
                 TextInput::make('slug')
                     ->required()
                     ->disabled(fn (string $operation): bool => $operation === 'edit')
-                    ->dehydrated()
+                    ->dehydrated(fn (string $operation): bool => $operation === 'create')
                     ->helperText('Immutable after create — API and URLs depend on this value.'),
                 TextInput::make('name')
                     ->required(),
@@ -34,10 +33,11 @@ class LauncherForm
                     ->required()
                     ->rows(12)
                     ->columnSpanFull(),
-                CodeEditor::make('output_schema')
+                Textarea::make('output_schema')
                     ->label('Output schema (JSON)')
                     ->required()
-                    ->json()
+                    ->rules(['json'])
+                    ->rows(12)
                     ->columnSpanFull()
                     ->formatStateUsing(function ($state): string {
                         if (is_array($state)) {
