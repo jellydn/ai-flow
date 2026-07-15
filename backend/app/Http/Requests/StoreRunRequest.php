@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Services\LaunchAiKeyResolver;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreRunRequest extends FormRequest
 {
@@ -47,5 +49,26 @@ class StoreRunRequest extends FormRequest
         return [
             'provider_credential_id.exists' => 'The selected credential does not belong to your account.',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $resolver = app(LaunchAiKeyResolver::class);
+            $providerId = $this->input('provider.id');
+            $oneTimeKey = $this->input('provider.api_key');
+            $credentialId = $this->input('provider_credential_id');
+
+            if (! $resolver->hasUsableKey($providerId, $oneTimeKey, $credentialId)) {
+                $validator->errors()->add(
+                    'provider.api_key',
+                    'No AI provider API key is available. Paste a key, select a saved key (sign in), or configure OPENAI_API_KEY on the server.',
+                );
+            }
+        });
     }
 }

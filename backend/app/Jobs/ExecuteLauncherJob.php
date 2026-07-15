@@ -6,7 +6,7 @@ use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\ProviderCredential;
 use App\Models\Run;
-use App\Security\CredentialCipher;
+use App\Services\LaunchAiKeyResolver;
 use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -44,7 +44,20 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
                 return;
             }
 
-            $ai = $registry->get($providerId, $this->resolveApiKey($providerId));
+            $resolver = app(LaunchAiKeyResolver::class);
+            $apiKey = $resolver->resolve($providerId, $this->apiKey, $this->providerCredentialId);
+
+            if ($apiKey === null || $apiKey === '') {
+                $this->failRun($run, 'No AI provider API key is available. Paste a key on launch, choose a saved key in API Keys, or configure OPENAI_API_KEY on the server.');
+
+                return;
+            }
+
+            $ai = $registry->get($providerId, $apiKey);
+
+            if ($this->providerCredentialId !== null) {
+                ProviderCredential::where('id', $this->providerCredentialId)->update(['last_used_at' => now()]);
+            }
         } catch (Throwable $e) {
             $this->failRun($run, 'Run failed unexpectedly.', $e);
 
@@ -52,39 +65,6 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         }
 
         $executor->execute($run, $ai);
-    }
-
-    /**
-     * Resolve the API key for the given provider.
-     *
-     * Priority: one-time key > saved credential (decrypted) > server config.
-     * The decrypted key lives only in memory for the duration of the job
-     * and is never persisted, logged, or serialized.
-     */
-    private function resolveApiKey(string $providerId): ?string
-    {
-        if ($this->apiKey !== null) {
-            return $this->apiKey;
-        }
-
-        // If a saved credential was selected, decrypt its key now.
-        if ($this->providerCredentialId !== null) {
-            $credential = ProviderCredential::find($this->providerCredentialId);
-
-            if ($credential) {
-                $key = $credential->decryptApiKey(app(CredentialCipher::class));
-                $credential->update(['last_used_at' => now()]);
-
-                return $key;
-            }
-        }
-
-        return match ($providerId) {
-            'openrouter' => config('services.openai.openrouter_key') ?: config('services.openai.key'),
-            'anthropic' => config('services.anthropic.key'),
-            'gemini' => config('services.gemini.key'),
-            default => config('services.openai.key'),
-        };
     }
 
     private function failRun(Run $run, string $message, ?Throwable $e = null): void
