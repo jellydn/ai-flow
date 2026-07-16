@@ -2,7 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Services\LaunchAiKeyResolver;
 use App\Services\LaunchParameters;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
@@ -71,7 +70,6 @@ class StoreRunRequest extends FormRequest
                 return;
             }
 
-            $resolver = app(LaunchAiKeyResolver::class);
             $registry = app(AiProviderRegistry::class);
 
             $params = LaunchParameters::resolve(
@@ -80,7 +78,6 @@ class StoreRunRequest extends FormRequest
                 providerCredentialId: $this->input('provider_credential_id'),
                 requestedModel: $this->input('provider.model') ?: $this->input('model'),
                 registry: $registry,
-                keyResolver: $resolver,
             );
 
             if ($params->hasCredentialKeyConflict()) {

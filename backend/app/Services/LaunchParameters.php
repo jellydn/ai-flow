@@ -29,7 +29,7 @@ class LaunchParameters
         public readonly string $effectiveProvider,
         public readonly string $resolvedModel,
         public readonly ?string $rawProviderId,
-        private readonly LaunchAiKeyResolver $keyResolver,
+        private readonly AiProviderRegistry $registry,
     ) {}
 
     /**
@@ -41,7 +41,6 @@ class LaunchParameters
         ?string $providerCredentialId,
         ?string $requestedModel,
         AiProviderRegistry $registry,
-        LaunchAiKeyResolver $keyResolver,
         bool $allowCustom = false,
     ): self {
         $credential = $providerCredentialId ? ProviderCredential::find($providerCredentialId) : null;
@@ -73,7 +72,7 @@ class LaunchParameters
             effectiveProvider: $effectiveProvider,
             resolvedModel: $model,
             rawProviderId: $rawProviderId,
-            keyResolver: $keyResolver,
+            registry: $registry,
         );
     }
 
@@ -82,7 +81,7 @@ class LaunchParameters
      */
     public function hasUsableKey(): bool
     {
-        return $this->keyResolver->hasUsableKey(
+        return $this->registry->hasUsableKey(
             $this->effectiveProvider,
             $this->oneTimeApiKey,
             $this->providerCredentialId,

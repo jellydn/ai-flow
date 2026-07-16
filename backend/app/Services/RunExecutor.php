@@ -3,13 +3,12 @@
 namespace App\Services;
 
 use App\Contracts\AIProviderInterface;
-use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
 use RuntimeException;
 use Throwable;
 
-class RunExecutor implements RunExecutorInterface
+class RunExecutor
 {
     public function __construct(
         private GitHubService $github,

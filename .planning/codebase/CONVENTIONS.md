@@ -11,7 +11,7 @@
 ### HTTP Layer
 - **Form requests** for validation: `StoreRunRequest`, `StoreProviderCredentialRequest`, etc.
   - Validation rules in `rules()`, custom logic in `withValidator(Validator $validator)` using `$validator->after()`
-  - `LaunchParameters::resolve()` for provider/model/key resolution
+  - `LaunchParameters::resolve()` for provider/model resolution; key resolution delegated to `AiProviderRegistry::resolveApiKey()` (canonical source for provider→config mapping)
   - `prepareForValidation()` for input normalization (aliases, guest defaults)
 - **API resources** for JSON serialization: `RunResource`, `UserResource`, `ProviderCredentialResource`
   - Use `$this->when()` for conditional fields
@@ -29,9 +29,10 @@
 
 ### Services
 - Located in `app/Services/`, not `app/Services/` (no sub-namespace by domain)
-- Contract + container binding for swappable services
+- Contract + container binding for swappable services (multiple implementations); single-implementation interfaces are speculative generality — type-hint the concrete class directly and let Laravel auto-resolve it
 - `BaseAIProvider` uses template method pattern — concrete adapters declare hooks, base owns lifecycle
-- `LaunchParameters` is a value object (readonly properties, static factory)
+- `LaunchParameters` is a value object (readonly properties, static factory, delegates key checks to `AiProviderRegistry`)
+- Thin helper classes that are always used together with a single consumer should be merged into that consumer (e.g., `GitHubContextFetcher` + `GitHubContextAssembler` → `GitHubService`); split them only when they gain independent callers
 - `ContextBudget` is a constants-only class (no instantiation needed)
 - `RecentRunSummary` is a transformer (static `from(Run): array`)
 
@@ -119,5 +120,6 @@
 - ❌ Storing API keys on run records — keys are transient, only credential IDs stored
 - ❌ Logging API keys — `Log::error()` context must not contain key material
 - ❌ Direct `app()->make()` for provider resolution — use `AiProviderRegistry`
-- ❌ Duplicating provider/model/key resolution — use `LaunchParameters`
+- ❌ Duplicating provider/model resolution — use `LaunchParameters::resolve()`
+- ❌ Duplicating key resolution — use `AiProviderRegistry::resolveApiKey()`
 - ❌ Duplicating failure transition logic — use `Run::markFailed()`

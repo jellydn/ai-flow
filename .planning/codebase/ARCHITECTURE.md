@@ -89,7 +89,7 @@ RunController::store() → LaunchParameters::resolve(allowCustom: auth)
 ### Run Lifecycle
 
 ```
-queued → processing → completed
+queued → running → completed
                     → failed
 ```
 

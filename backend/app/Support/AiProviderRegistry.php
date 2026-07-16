@@ -3,6 +3,8 @@
 namespace App\Support;
 
 use App\Contracts\AIProviderInterface;
+use App\Models\ProviderCredential;
+use App\Security\CredentialCipher;
 use App\Services\AnthropicProvider;
 use App\Services\GeminiProvider;
 use App\Services\OpenAIProvider;
@@ -18,6 +20,10 @@ use InvalidArgumentException;
  */
 class AiProviderRegistry
 {
+    public function __construct(
+        private CredentialCipher $cipher,
+    ) {}
+
     public const DEFAULT_PROVIDER = 'openai';
 
     public const GUEST_PROVIDER = 'openrouter';
@@ -123,6 +129,45 @@ class AiProviderRegistry
 
         // Delegate to the adapter — single source of truth (ADR-0022).
         return (new (self::PROVIDERS[$providerId])(null))->defaultModel();
+    }
+
+    /**
+     * Resolve the API key for a launch.
+     *
+     * Priority: one-time key > saved credential > server config.
+     */
+    public function resolveApiKey(?string $providerId, ?string $oneTimeApiKey, ?string $providerCredentialId): ?string
+    {
+        if ($oneTimeApiKey !== null && $oneTimeApiKey !== '') {
+            return $oneTimeApiKey;
+        }
+
+        if ($providerCredentialId !== null) {
+            $credential = ProviderCredential::find($providerCredentialId);
+
+            if ($credential) {
+                return $credential->decryptApiKey($this->cipher);
+            }
+        }
+
+        $providerId = $providerId ?? 'openai';
+
+        return match ($providerId) {
+            'openrouter' => config('services.openai.openrouter_key'),
+            'anthropic' => config('services.anthropic.key'),
+            'gemini' => config('services.gemini.key'),
+            default => config('services.openai.key'),
+        };
+    }
+
+    /**
+     * Whether a usable API key is available.
+     */
+    public function hasUsableKey(?string $providerId, ?string $oneTimeApiKey, ?string $providerCredentialId): bool
+    {
+        $key = $this->resolveApiKey($providerId, $oneTimeApiKey, $providerCredentialId);
+
+        return is_string($key) && $key !== '';
     }
 
     public function resolveModel(

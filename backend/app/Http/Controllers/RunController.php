@@ -8,7 +8,6 @@ use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
 use App\Services\GitHubService;
-use App\Services\LaunchAiKeyResolver;
 use App\Services\LauncherPromptResolver;
 use App\Services\LaunchParameters;
 use App\Services\RecentRunSummary;
@@ -16,6 +15,7 @@ use App\Services\RunStreamer;
 use App\Support\AiProviderRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
+use InvalidArgumentException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RunController extends Controller
@@ -24,7 +24,6 @@ class RunController extends Controller
         private RunStreamer $streamer,
         private LauncherPromptResolver $promptResolver,
         private AiProviderRegistry $providerRegistry,
-        private LaunchAiKeyResolver $keyResolver,
         private GitHubService $gitHubService,
     ) {}
 
@@ -39,11 +38,20 @@ class RunController extends Controller
             providerCredentialId: $request->validated('provider_credential_id'),
             requestedModel: $request->validated('provider.model') ?? $request->validated('model'),
             registry: $this->providerRegistry,
-            keyResolver: $this->keyResolver,
             allowCustom: $request->user() !== null,
         );
 
         $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());
+
+        $repoSlug = null;
+        $repoType = null;
+        try {
+            $ref = $this->gitHubService->parse($request->validated('source_url'));
+            $repoSlug = "{$ref->owner}/{$ref->repo}";
+            $repoType = $ref->type;
+        } catch (InvalidArgumentException) {
+            // Invalid URL — repo metadata stays null.
+        }
 
         $run = $launcher->runs()->create([
             'user_id' => $request->user()?->id,
@@ -51,6 +59,8 @@ class RunController extends Controller
             'provider' => $params->effectiveProvider,
             'model' => $params->resolvedModel,
             'source_url' => $input['source_url'],
+            'repo_slug' => $repoSlug,
+            'repo_type' => $repoType,
             'input' => $input,
             'prompt_snapshot' => $promptSnapshot,
             'status' => 'queued',
@@ -83,7 +93,7 @@ class RunController extends Controller
             ->limit(6)
             ->get();
 
-        $summary = $runs->map(fn (Run $run): array => RecentRunSummary::from($run, $this->gitHubService))->values();
+        $summary = $runs->map(fn (Run $run): array => RecentRunSummary::from($run))->values();
 
         return response()->json(['data' => $summary]);
     }

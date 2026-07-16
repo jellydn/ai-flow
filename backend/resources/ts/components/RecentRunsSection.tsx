@@ -60,7 +60,7 @@ export function RecentRunsSection({ setUrl, setSelected, navigate }: RecentRunsS
                     >
                         <span className="run-repo">
                             <GitFork size={17} />
-                            <strong>{run.repo ?? "github.com"}</strong>
+                            <strong>{run.repo ?? "—"}</strong>
                             <small>{run.type}</small>
                         </span>
                         <span className="run-workflow">

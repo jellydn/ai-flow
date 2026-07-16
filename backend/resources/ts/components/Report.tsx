@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from "lucide-react";
-import type { RunResult } from "../types/api.ts";
+import type { Finding, RunResult } from "../types/api.ts";
 import { shareRunUrl } from "../services/run.ts";
 import { MarkdownBody } from "./MarkdownBody.tsx";
 
@@ -52,6 +53,21 @@ export function Report({
               : model
                 ? model
                 : null;
+
+    const [copiedPromptIndex, setCopiedPromptIndex] = useState<number | null>(null);
+
+    const copyPrompt = async (finding: Finding, index: number) => {
+        const prompt = [
+            `Fix the following issue (${finding.severity} severity): ${finding.title}`,
+            "",
+            `Description: ${finding.description}`,
+            "",
+            `Recommended fix: ${finding.recommendation}`,
+        ].join("\n");
+        await navigator.clipboard?.writeText(prompt);
+        setCopiedPromptIndex(index);
+        setTimeout(() => setCopiedPromptIndex(null), 1800);
+    };
 
     const copy = async () => {
         if (!runId) {
@@ -164,6 +180,18 @@ export function Report({
                                         </strong>
                                         <MarkdownBody>{finding.recommendation}</MarkdownBody>
                                     </div>
+                                    <button
+                                        type="button"
+                                        className="copy-prompt-button"
+                                        onClick={() => copyPrompt(finding, index)}
+                                    >
+                                        {copiedPromptIndex === index ? (
+                                            <Check size={14} />
+                                        ) : (
+                                            <Copy size={14} />
+                                        )}
+                                        {copiedPromptIndex === index ? "Copied" : "Copy prompt"}
+                                    </button>
                                 </div>
                             ))}
                         </div>

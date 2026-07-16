@@ -73,5 +73,6 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 ## Gotchas
 
 - Git remotes: `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
+- After rebasing a feature branch onto `main`, use `git push --force-with-lease` (never `--force`) to update the remote. The PR will automatically track the new commits.
 - New launcher = PHP class + `DatabaseSeeder` entry + feature test; shared `outputSchema` in `BaseLauncher`.
 - Laravel 13 + DB: `turso/libsql-laravel` doesn't support Laravel 13 yet; production uses managed Postgres/MySQL, not SQLite.

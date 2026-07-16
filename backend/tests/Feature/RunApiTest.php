@@ -234,6 +234,8 @@ class RunApiTest extends TestCase
         $completed = Run::create([
             'launcher_id' => $launcher->id,
             'source_url' => 'https://github.com/jellydn/my-ai-tools/pull/42',
+            'repo_slug' => 'jellydn/my-ai-tools',
+            'repo_type' => 'pull_request',
             'input' => ['source_url' => 'https://github.com/jellydn/my-ai-tools/pull/42'],
             'status' => 'completed',
             'progress' => ['Done'],
