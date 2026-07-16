@@ -16,6 +16,18 @@ class RecentRunSummary
     public static function from(Run $run): array
     {
         $repo = $run->repo_slug;
+        if ($repo === null) {
+            // Fallback for runs created before repo_slug was added to the model.
+            $path = trim((string) parse_url($run->source_url, PHP_URL_PATH), '/');
+            $parts = explode('/', $path);
+            $repo = count($parts) >= 2 ? "{$parts[0]}/{$parts[1]}" : null;
+        }
+        if ($repo === null) {
+            // Fallback for runs created before repo_slug was added to the model.
+            $path = trim((string) parse_url($run->source_url, PHP_URL_PATH), '/');
+            $parts = explode('/', $path);
+            $repo = count($parts) >= 2 ? "{$parts[0]}/{$parts[1]}" : null;
+        }
         $type = match ($run->repo_type) {
             'pull_request' => 'Pull request',
             'issue' => 'Issue',
