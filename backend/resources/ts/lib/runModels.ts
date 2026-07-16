@@ -17,7 +17,7 @@ export function pickModelForProvider(
     if (models.length === 0) {
         return current;
     }
-    if (credentialDefault && models.includes(credentialDefault)) {
+    if (credentialDefault) {
         return credentialDefault;
     }
     if (current && models.includes(current)) {

@@ -321,6 +321,7 @@ const launchAreaDefaults = {
     setApiKey: vi.fn(),
     launch: vi.fn(),
     isLaunching: false,
+    showSignedInStep: true,
 };
 
 describe("LaunchArea", () => {

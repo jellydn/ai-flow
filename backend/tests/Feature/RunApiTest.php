@@ -34,14 +34,15 @@ class RunApiTest extends TestCase
             ->assertJsonPath('0.id', 'review-pr');
     }
 
-    public function test_run_rejects_unknown_model_for_provider(): void
+    public function test_authenticated_run_rejects_invalid_custom_model_name(): void
     {
         Queue::fake();
+        $user = User::factory()->create();
 
-        $this->postJson('/api/runs', [
+        $this->actingAs($user)->postJson('/api/runs', [
             'launcher' => 'explain-repository',
             'source_url' => 'https://github.com/laravel/framework',
-            'provider' => ['id' => 'openai', 'model' => 'not-a-real-model'],
+            'provider' => ['id' => 'openai', 'model' => 'invalid model!'],
         ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors('provider.model');
@@ -50,6 +51,43 @@ class RunApiTest extends TestCase
     }
 
     public function test_run_persists_requested_model(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => 'openai', 'model' => 'gpt-4o'],
+        ])->assertStatus(202);
+
+        $this->assertDatabaseHas('runs', [
+            'id' => $response->json('id'),
+            'provider' => 'openai',
+            'model' => 'gpt-4o',
+        ]);
+    }
+
+    public function test_authenticated_run_accepts_custom_model_name(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+
+        $response = $this->actingAs($user)->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => 'openrouter', 'model' => 'deepseek/deepseek-r1:free'],
+        ])->assertStatus(202);
+
+        $this->assertDatabaseHas('runs', [
+            'id' => $response->json('id'),
+            'provider' => 'openrouter',
+            'model' => 'deepseek/deepseek-r1:free',
+            'user_id' => $user->id,
+        ]);
+    }
+
+    public function test_anonymous_run_is_forced_to_openrouter_free(): void
     {
         Queue::fake();
 
@@ -61,8 +99,9 @@ class RunApiTest extends TestCase
 
         $this->assertDatabaseHas('runs', [
             'id' => $response->json('id'),
-            'provider' => 'openai',
-            'model' => 'gpt-4o',
+            'provider' => 'openrouter',
+            'model' => 'openrouter/free',
+            'user_id' => null,
         ]);
     }
 
@@ -102,9 +141,10 @@ class RunApiTest extends TestCase
     public function test_execution_accepts_byop_contract_without_persisting_or_returning_key(): void
     {
         Queue::fake();
+        $user = User::factory()->create();
         $apiKey = 'sk-user-secret-value';
 
-        $response = $this->postJson('/api/executions', [
+        $response = $this->actingAs($user)->postJson('/api/executions', [
             'flow_id' => 'laravel-doctor',
             'input' => ['url' => 'https://github.com/laravel/laravel'],
             'provider' => ['id' => 'openai', 'api_key' => $apiKey],
@@ -117,15 +157,21 @@ class RunApiTest extends TestCase
         Queue::assertPushed(ExecuteLauncherJob::class);
     }
 
-    public function test_execution_rejects_unsupported_provider(): void
+    public function test_anonymous_execution_ignores_unsupported_provider(): void
     {
         Queue::fake();
 
-        $this->postJson('/api/executions', [
+        $response = $this->postJson('/api/executions', [
             'flow_id' => 'laravel-doctor',
             'input' => ['url' => 'https://github.com/laravel/laravel'],
             'provider' => ['id' => 'groq', 'api_key' => 'secret'],
-        ])->assertUnprocessable()->assertJsonValidationErrors('provider.id');
+        ])->assertStatus(202);
+
+        $this->assertDatabaseHas('runs', [
+            'id' => $response->json('id'),
+            'provider' => 'openrouter',
+            'model' => 'openrouter/free',
+        ]);
     }
 
     public function test_execution_accepts_openrouter_provider(): void
@@ -141,7 +187,7 @@ class RunApiTest extends TestCase
         Queue::assertPushed(ExecuteLauncherJob::class);
     }
 
-    public function test_run_passes_null_provider_when_provider_id_omitted(): void
+    public function test_anonymous_run_dispatches_with_guest_provider_when_provider_id_omitted(): void
     {
         Queue::fake();
 
@@ -158,7 +204,7 @@ class RunApiTest extends TestCase
             $provider = (new \ReflectionProperty(ExecuteLauncherJob::class, 'provider'));
             $provider->setAccessible(true);
 
-            return $provider->getValue($job) === null;
+            return $provider->getValue($job) === 'openrouter';
         });
     }
 

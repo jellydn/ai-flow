@@ -32,6 +32,7 @@ const baseProps = {
     setApiKey: vi.fn(),
     launch: vi.fn(),
     isLaunching: false,
+    showSignedInStep: true,
 };
 
 function makeCredential(overrides: Partial<ProviderCredential> = {}): ProviderCredential {
@@ -61,6 +62,28 @@ describe("LaunchArea — saved-credential picker", () => {
     it("does not render saved-key dropdown when no credentials exist", () => {
         render(<LaunchArea {...baseProps} credentials={[]} />);
         expect(screen.queryByLabelText("Saved API credential")).not.toBeInTheDocument();
+    });
+
+    it("fixes guests to the OpenRouter free model and hides provider key controls", () => {
+        render(<LaunchArea {...baseProps} showSignedInStep={false} />);
+
+        expect(screen.getByLabelText("AI model")).toHaveValue("openrouter/free");
+        expect(screen.getByLabelText("AI model")).toHaveAttribute("readonly");
+        expect(screen.queryByLabelText("AI provider")).not.toBeInTheDocument();
+        expect(screen.queryByPlaceholderText(/Leave blank/)).not.toBeInTheDocument();
+        expect(screen.getByText(/Sign in to choose a provider or model/)).toBeInTheDocument();
+    });
+
+    it("lets signed-in users enter a custom model name", async () => {
+        const setModel = vi.fn();
+        render(<LaunchArea {...baseProps} setModel={setModel} />);
+
+        const input = screen.getByLabelText("AI model");
+        await userEvent.setup().clear(input);
+        await userEvent.setup().type(input, "openai/gpt-5.1");
+
+        expect(setModel).toHaveBeenCalled();
+        expect(input).toHaveAttribute("list", "models-openai");
     });
 
     it("renders saved-key dropdown when credentials exist", () => {

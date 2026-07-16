@@ -33,7 +33,7 @@ class LaunchAiKeyResolver
         $providerId = $providerId ?? 'openai';
 
         return match ($providerId) {
-            'openrouter' => config('services.openai.openrouter_key') ?: config('services.openai.key'),
+            'openrouter' => config('services.openai.openrouter_key'),
             'anthropic' => config('services.anthropic.key'),
             'gemini' => config('services.gemini.key'),
             default => config('services.openai.key'),

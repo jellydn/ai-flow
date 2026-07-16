@@ -10,6 +10,8 @@ const runProviders: { id: RunProviderId; name: string }[] = [
     { id: "gemini", name: "Google Gemini" },
 ];
 
+const guestModel = "openrouter/free";
+
 interface LaunchAreaProps {
     provider: RunProviderId;
     setProvider: (provider: RunProviderId) => void;
@@ -49,6 +51,7 @@ export function LaunchArea({
     const hasSavedCredentials = credentials.length > 0;
     const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
     const modelOptions = providerCatalog.find((entry) => entry.id === provider)?.models ?? [];
+    const modelListId = `models-${provider}`;
     let providerBadge = "Optional";
     if (hasSavedCredentials) {
         providerBadge = "Saved keys";
@@ -77,10 +80,24 @@ export function LaunchArea({
             )}
             <div className="provider-section" id="provider">
                 <div className="provider-heading">
-                    <strong>{hasSavedCredentials ? "Your API key" : "AI Provider"}</strong>
-                    <span>{providerBadge}</span>
+                    <strong>
+                        {showSignedInStep
+                            ? hasSavedCredentials
+                                ? "Your API key"
+                                : "AI Provider"
+                            : "Free AI model"}
+                    </strong>
+                    <span>{showSignedInStep ? providerBadge : "No sign-in required"}</span>
                 </div>
-                {hasSavedCredentials && (
+                {!showSignedInStep && (
+                    <div className="provider-fields provider-fields-single">
+                        <label>
+                            <span>Model</span>
+                            <input value={guestModel} aria-label="AI model" readOnly />
+                        </label>
+                    </div>
+                )}
+                {showSignedInStep && hasSavedCredentials && (
                     <div className="provider-fields provider-fields-single">
                         <label>
                             <span>Saved key</span>
@@ -103,10 +120,7 @@ export function LaunchArea({
                                             const models =
                                                 providerCatalog.find((p) => p.id === cred.provider)
                                                     ?.models ?? [];
-                                            if (
-                                                cred.default_model &&
-                                                models.includes(cred.default_model)
-                                            ) {
+                                            if (cred.default_model) {
                                                 setModel(cred.default_model);
                                             } else if (models[0]) {
                                                 setModel(models[0]);
@@ -128,25 +142,31 @@ export function LaunchArea({
                         </label>
                     </div>
                 )}
-                {modelOptions.length > 0 && (
+                {showSignedInStep && (
                     <div className="provider-fields provider-fields-single">
                         <label>
                             <span>Model</span>
-                            <select
-                                value={modelOptions.includes(model) ? model : modelOptions[0]}
+                            <input
+                                type="text"
+                                value={model}
                                 onChange={(event) => setModel(event.target.value)}
+                                list={modelListId}
+                                placeholder="Select or enter a model name"
                                 aria-label="AI model"
-                            >
+                                autoComplete="off"
+                                spellCheck="false"
+                            />
+                            <datalist id={modelListId}>
                                 {modelOptions.map((item) => (
                                     <option key={item} value={item}>
                                         {item}
                                     </option>
                                 ))}
-                            </select>
+                            </datalist>
                         </label>
                     </div>
                 )}
-                {!usingSavedCredential && (
+                {showSignedInStep && !usingSavedCredential && (
                     <div className="provider-fields">
                         <label>
                             <span>Provider</span>
@@ -178,11 +198,13 @@ export function LaunchArea({
                     </div>
                 )}
                 <p>
-                    {usingSavedCredential
-                        ? "Using your saved encrypted API key. It is decrypted only for this execution."
-                        : hasSavedCredentials
-                          ? "One-time or server key for this run only. Choose a saved key above to use a stored key."
-                          : "Use your own API key to execute this workflow. It is used only for this execution."}
+                    {!showSignedInStep
+                        ? "Guest runs use OpenRouter's free model router. Sign in to choose a provider or model."
+                        : usingSavedCredential
+                          ? "Using your saved encrypted API key. It is decrypted only for this execution."
+                          : hasSavedCredentials
+                            ? "One-time or server key for this run only. Choose a saved key above to use a stored key."
+                            : "Use your own API key to execute this workflow. It is used only for this execution."}
                 </p>
             </div>
 

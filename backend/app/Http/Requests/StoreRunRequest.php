@@ -13,10 +13,20 @@ class StoreRunRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
-        $this->merge([
+        $input = [
             'launcher' => $this->input('launcher') ?: $this->input('flow_id'),
             'source_url' => $this->input('source_url') ?: $this->input('input.url'),
-        ]);
+        ];
+
+        if (! $this->user()) {
+            $input['provider'] = [
+                'id' => AiProviderRegistry::GUEST_PROVIDER,
+                'model' => AiProviderRegistry::GUEST_MODEL,
+            ];
+            $input['model'] = AiProviderRegistry::GUEST_MODEL;
+        }
+
+        $this->merge($input);
     }
 
     public function authorize(): bool
@@ -67,10 +77,19 @@ class StoreRunRequest extends FormRequest
             $oneTimeKey = $this->input('provider.api_key');
             $credentialId = $this->input('provider_credential_id');
 
+            if ($credentialId && $oneTimeKey) {
+                $validator->errors()->add(
+                    'provider.api_key',
+                    'Choose either a saved credential or a one-time API key, not both.',
+                );
+
+                return;
+            }
+
             if (! $resolver->hasUsableKey($providerId, $oneTimeKey, $credentialId)) {
                 $validator->errors()->add(
                     'provider.api_key',
-                    'No AI provider API key is available. Paste a key, select a saved key (sign in), or configure OPENAI_API_KEY on the server.',
+                    'No AI provider API key is available. Paste a key, select a saved key (sign in), or configure the provider key on the server.',
                 );
 
                 return;
@@ -87,12 +106,30 @@ class StoreRunRequest extends FormRequest
 
             $requestedModel = $this->input('provider.model') ?: $this->input('model');
 
-            if ($requestedModel !== null && $requestedModel !== '') {
+            if ($this->user() === null && $effectiveProvider !== AiProviderRegistry::GUEST_PROVIDER) {
+                $validator->errors()->add(
+                    'provider.id',
+                    'Sign in to choose a different AI provider.',
+                );
+            }
+
+            if ($this->user() === null && $requestedModel !== AiProviderRegistry::GUEST_MODEL) {
+                $validator->errors()->add(
+                    'provider.model',
+                    'Sign in to choose a different AI model.',
+                );
+            }
+
+            if ($this->user() !== null && $requestedModel !== null && $requestedModel !== '') {
                 $allowed = $registry->modelsFor($effectiveProvider);
-                if (! in_array($requestedModel, $allowed, true)) {
+                if (in_array($requestedModel, $allowed, true)) {
+                    return;
+                }
+
+                if (! preg_match('~^[A-Za-z0-9][A-Za-z0-9._:/-]*$~', $requestedModel)) {
                     $validator->errors()->add(
                         'provider.model',
-                        'The selected model is not available for this provider.',
+                        'The model name may only contain letters, numbers, dots, underscores, colons, slashes, and hyphens.',
                     );
                 }
             }
