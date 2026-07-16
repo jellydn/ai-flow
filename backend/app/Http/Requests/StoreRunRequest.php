@@ -101,20 +101,16 @@ class StoreRunRequest extends FormRequest
                 return;
             }
 
-            if ($params->isGuestProviderViolation($this->user() !== null)) {
+            if ($params->isGuestViolationFor($this->user() !== null)) {
                 $validator->errors()->add(
                     'provider.id',
                     'Sign in to choose a different AI provider.',
                 );
             }
 
-            if (! $params->isModelAllowed($registry, $this->user() !== null)) {
-                $validator->errors()->add(
-                    'provider.model',
-                    $this->user() !== null
-                        ? 'The model name may only contain letters, numbers, dots, underscores, colons, slashes, and hyphens.'
-                        : 'Sign in to choose a different AI model.',
-                );
+            $modelResult = $params->isModelAllowed($registry, $this->user() !== null);
+            if (! $modelResult['valid']) {
+                $validator->errors()->add('provider.model', $modelResult['error']);
             }
         });
     }

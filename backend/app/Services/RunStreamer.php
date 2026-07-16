@@ -82,6 +82,6 @@ class RunStreamer
 
     private function isTerminal(Run $run): bool
     {
-        return in_array($run->status, ['completed', 'failed'], true);
+        return in_array($run->status, Run::TERMINAL_STATUSES, true);
     }
 }

@@ -6,6 +6,8 @@ use Illuminate\Http\Client\PendingRequest;
 
 class AnthropicProvider extends BaseAIProvider
 {
+    private const MAX_TOKENS = 4096;
+
     public function id(): string
     {
         return 'anthropic';
@@ -48,7 +50,7 @@ class AnthropicProvider extends BaseAIProvider
     {
         return [
             'model' => $model,
-            'max_tokens' => 4096,
+            'max_tokens' => self::MAX_TOKENS,
             'system' => $this->systemMessage(),
             'messages' => [
                 ['role' => 'user', 'content' => $prompt],
@@ -66,12 +68,8 @@ class AnthropicProvider extends BaseAIProvider
         return 'https://api.anthropic.com/v1/models?limit=1';
     }
 
-    /**
-     * Anthropic relies on prompting alone (no json_schema enforcement),
-     * so append the explicit JSON-only instruction.
-     */
     protected function systemMessage(): string
     {
-        return 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.';
+        return $this->jsonOnlySystemMessage();
     }
 }

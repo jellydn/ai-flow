@@ -7,6 +7,7 @@ use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Services\GitHubService;
 use App\Services\LaunchAiKeyResolver;
 use App\Services\LauncherPromptResolver;
 use App\Services\LaunchParameters;
@@ -24,6 +25,7 @@ class RunController extends Controller
         private LauncherPromptResolver $promptResolver,
         private AiProviderRegistry $providerRegistry,
         private LaunchAiKeyResolver $keyResolver,
+        private GitHubService $gitHubService,
     ) {}
 
     public function store(StoreRunRequest $request): JsonResponse
@@ -57,7 +59,7 @@ class RunController extends Controller
 
         ExecuteLauncherJob::dispatch(
             $run->id,
-            $params->dispatchProvider,
+            $params->rawProviderId,
             $params->oneTimeApiKey,
             $params->providerCredentialId,
             $params->resolvedModel,
@@ -81,7 +83,7 @@ class RunController extends Controller
             ->limit(6)
             ->get();
 
-        $summary = $runs->map(fn (Run $run): array => RecentRunSummary::from($run))->values();
+        $summary = $runs->map(fn (Run $run): array => RecentRunSummary::from($run, $this->gitHubService))->values();
 
         return response()->json(['data' => $summary]);
     }

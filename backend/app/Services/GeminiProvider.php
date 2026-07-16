@@ -76,12 +76,8 @@ class GeminiProvider extends BaseAIProvider
             .urlencode((string) $this->resolvedKey).'&pageSize=1';
     }
 
-    /**
-     * Gemini relies on prompting alone (no json_schema enforcement),
-     * so append the explicit JSON-only instruction.
-     */
     protected function systemMessage(): string
     {
-        return 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.';
+        return $this->jsonOnlySystemMessage();
     }
 }
