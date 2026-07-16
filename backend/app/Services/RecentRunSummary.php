@@ -14,7 +14,7 @@ use InvalidArgumentException;
  */
 class RecentRunSummary
 {
-    public static function from(Run $run): array
+    public static function from(Run $run, GitHubService $gitHubService): array
     {
         $sourceUrl = $run->source_url ?? '';
 
@@ -22,7 +22,7 @@ class RecentRunSummary
         $type = 'Repository';
 
         try {
-            $ref = app(GitHubService::class)->parse($sourceUrl);
+            $ref = $gitHubService->parse($sourceUrl);
             $repo = "{$ref->owner}/{$ref->repo}";
             $type = match ($ref->type) {
                 'pull_request' => 'Pull request',

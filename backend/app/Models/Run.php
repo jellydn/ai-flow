@@ -13,7 +13,9 @@ class Run extends Model
 {
     use HasUuids;
 
-    public const STATUSES = ['queued', 'running', 'completed', 'failed'];
+    public const STATUSES = ['queued', 'processing', 'completed', 'failed'];
+
+    public const TERMINAL_STATUSES = ['completed', 'failed'];
 
     public $incrementing = false;
 

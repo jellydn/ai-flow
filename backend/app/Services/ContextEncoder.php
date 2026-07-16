@@ -4,6 +4,8 @@ namespace App\Services;
 
 class ContextEncoder
 {
+    private const REPO_KEYS = ['name', 'full_name', 'description', 'default_branch', 'languages'];
+
     // Budget constants live in ContextBudget — single source of truth.
 
     public function encode(array $context): string
@@ -39,7 +41,7 @@ class ContextEncoder
 
         return json_encode([
             'reference' => $bounded['reference'] ?? null,
-            'repository' => array_intersect_key($bounded['repository'] ?? [], array_flip(['name', 'full_name', 'description', 'default_branch', 'languages'])),
+            'repository' => array_intersect_key($bounded['repository'] ?? [], array_flip(self::REPO_KEYS)),
             'issue' => $bounded['issue'] ?? null,
             'pull_request' => $bounded['pull_request'] ?? null,
             'truncated' => true,

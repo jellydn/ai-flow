@@ -238,4 +238,13 @@ abstract class BaseAIProvider implements AIProviderInterface
     {
         return 'Return accurate JSON matching the supplied schema.';
     }
+
+    /**
+     * System message for providers that need an explicit JSON-only instruction
+     * (Anthropic, Gemini — no native json_schema enforcement).
+     */
+    protected function jsonOnlySystemMessage(): string
+    {
+        return 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.';
+    }
 }

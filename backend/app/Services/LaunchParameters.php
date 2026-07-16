@@ -28,7 +28,7 @@ class LaunchParameters
         public readonly ?string $requestedModel,
         public readonly string $effectiveProvider,
         public readonly string $resolvedModel,
-        public readonly ?string $dispatchProvider,
+        public readonly ?string $rawProviderId,
         private readonly LaunchAiKeyResolver $keyResolver,
     ) {}
 
@@ -50,7 +50,7 @@ class LaunchParameters
         $effectiveProvider = $credential ? $credential->provider : $providerId;
         $effectiveProvider = is_string($effectiveProvider) && $effectiveProvider !== ''
             ? $effectiveProvider
-            : 'openai';
+            : AiProviderRegistry::DEFAULT_PROVIDER;
 
         $model = $registry->resolveModel(
             $effectiveProvider,
@@ -59,11 +59,11 @@ class LaunchParameters
             allowCustom: $allowCustom,
         );
 
-        // The dispatch provider is what gets passed to the job — it preserves
+        // The raw provider ID is what gets passed to the job — it preserves
         // the original nullable behavior (credential provider when a credential
         // is selected, raw providerId otherwise, null when both are absent).
         // The job resolves null → 'openai' at execution time.
-        $dispatchProvider = $credential ? $credential->provider : $providerId;
+        $rawProviderId = $credential ? $credential->provider : $providerId;
 
         return new self(
             providerId: $providerId,
@@ -72,7 +72,7 @@ class LaunchParameters
             requestedModel: $requestedModel,
             effectiveProvider: $effectiveProvider,
             resolvedModel: $model,
-            dispatchProvider: $dispatchProvider,
+            rawProviderId: $rawProviderId,
             keyResolver: $keyResolver,
         );
     }
@@ -100,40 +100,42 @@ class LaunchParameters
     /**
      * Whether the requested model (if any) is allowed for the effective provider.
      *
-     * Authenticated users may use custom model names (validated by format);
-     * unauthenticated users are restricted to guest models only.
+     * Returns a structured result so error messages are owned here,
+     * not in the form request (single responsibility).
+     *
+     * @return array{valid: bool, error: ?string}
      */
-    public function isModelAllowed(AiProviderRegistry $registry, bool $isAuthenticated = false): bool
+    public function isModelAllowed(AiProviderRegistry $registry, bool $isAuthenticated = false): array
     {
         if ($this->requestedModel === null || $this->requestedModel === '') {
-            return true;
+            return ['valid' => true, 'error' => null];
         }
 
         // Guest users always pass with the designated guest model.
         if (! $isAuthenticated && $this->requestedModel === AiProviderRegistry::GUEST_MODEL) {
-            return true;
+            return ['valid' => true, 'error' => null];
         }
 
         if (! $isAuthenticated) {
-            return false;
+            return ['valid' => false, 'error' => 'Sign in to choose a different AI model.'];
         }
 
         if (in_array($this->requestedModel, $registry->modelsFor($this->effectiveProvider), true)) {
-            return true;
+            return ['valid' => true, 'error' => null];
         }
 
         // Authenticated users may pass a custom model name with valid format.
-        if ($isAuthenticated) {
-            return (bool) preg_match('~^[A-Za-z0-9][A-Za-z0-9._:/-]*$~', $this->requestedModel);
+        if ((bool) preg_match('~^[A-Za-z0-9][A-Za-z0-9._:/-]*$~', $this->requestedModel)) {
+            return ['valid' => true, 'error' => null];
         }
 
-        return false;
+        return ['valid' => false, 'error' => 'The model name may only contain letters, numbers, dots, underscores, colons, slashes, and hyphens.'];
     }
 
     /**
      * Whether unauthenticated users are trying to use a non-guest provider.
      */
-    public function isGuestProviderViolation(bool $isAuthenticated): bool
+    public function isGuestViolationFor(bool $isAuthenticated): bool
     {
         return ! $isAuthenticated && $this->effectiveProvider !== AiProviderRegistry::GUEST_PROVIDER;
     }

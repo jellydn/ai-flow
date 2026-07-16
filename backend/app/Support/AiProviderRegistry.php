@@ -18,6 +18,8 @@ use InvalidArgumentException;
  */
 class AiProviderRegistry
 {
+    public const DEFAULT_PROVIDER = 'openai';
+
     public const GUEST_PROVIDER = 'openrouter';
 
     public const GUEST_MODEL = 'openrouter/free';
@@ -63,6 +65,9 @@ class AiProviderRegistry
         return array_keys(self::PROVIDERS);
     }
 
+    /** @var list<array{id: string, name: string, models: list<string>}>|null */
+    private ?array $cachedList = null;
+
     /**
      * Get provider metadata (id, display name, models) for all providers.
      *
@@ -70,7 +75,7 @@ class AiProviderRegistry
      */
     public function list(): array
     {
-        return array_map(function (string $id): array {
+        return $this->cachedList ??= array_map(function (string $id): array {
             $provider = new (self::PROVIDERS[$id])(null);
 
             return [
