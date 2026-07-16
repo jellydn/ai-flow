@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Contracts\RunExecutorInterface;
 use App\Models\ProviderCredential;
 use App\Models\Run;
 use App\Services\LaunchAiKeyResolver;
+use App\Services\RunExecutor;
 use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -28,7 +28,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         private ?string $model = null,
     ) {}
 
-    public function handle(RunExecutorInterface $executor): void
+    public function handle(RunExecutor $executor): void
     {
         $run = Run::with('launcher')->findOrFail($this->runId);
 

@@ -3,7 +3,6 @@
 namespace Tests\Feature;
 
 use App\Contracts\AIProviderInterface;
-use App\Contracts\RunExecutorInterface;
 use App\Data\GitHubReference;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
@@ -34,7 +33,7 @@ class ExecuteLauncherJobTest extends TestCase
             'input' => ['source_url' => 'https://github.com/a/b'],
             'progress' => [],
         ]);
-        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor = Mockery::mock(RunExecutor::class);
         $executor->shouldNotReceive('execute');
 
         (new ExecuteLauncherJob($run->id, 'groq'))->handle($executor);
@@ -55,7 +54,7 @@ class ExecuteLauncherJobTest extends TestCase
             'input' => ['source_url' => 'https://github.com/a/b'],
             'progress' => [],
         ]);
-        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor = Mockery::mock(RunExecutor::class);
         $executor->shouldNotReceive('execute');
 
         (new ExecuteLauncherJob($run->id))->handle($executor);
@@ -70,7 +69,7 @@ class ExecuteLauncherJobTest extends TestCase
         $this->seed();
         config()->set('services.openai.key', 'server-test-key');
         $run = Run::create(['launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'), 'source_url' => 'https://github.com/a/b', 'input' => ['source_url' => 'https://github.com/a/b'], 'progress' => []]);
-        $executor = Mockery::mock(RunExecutorInterface::class);
+        $executor = Mockery::mock(RunExecutor::class);
         $executor->shouldReceive('execute')->once()->withArgs(fn (Run $executedRun, AIProviderInterface $executedAi): bool => $executedRun->is($run));
 
         (new ExecuteLauncherJob($run->id))->handle($executor);
