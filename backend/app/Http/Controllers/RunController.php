@@ -10,6 +10,7 @@ use App\Models\ProviderCredential;
 use App\Models\Run;
 use App\Services\LauncherPromptResolver;
 use App\Services\RunStreamer;
+use App\Support\AiProviderRegistry;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -19,6 +20,7 @@ class RunController extends Controller
     public function __construct(
         private RunStreamer $streamer,
         private LauncherPromptResolver $promptResolver,
+        private AiProviderRegistry $providerRegistry,
     ) {}
 
     public function store(StoreRunRequest $request): JsonResponse
@@ -28,13 +30,21 @@ class RunController extends Controller
 
         $providerId = $request->validated('provider.id');
         $providerCredentialId = $request->validated('provider_credential_id');
+        $requestedModel = $request->validated('provider.model') ?? $request->validated('model');
+
+        $credential = $providerCredentialId ? ProviderCredential::find($providerCredentialId) : null;
 
         // If a saved credential is selected, snapshot its provider onto the run.
         $provider = $providerId;
-        if ($providerCredentialId) {
-            $credential = ProviderCredential::find($providerCredentialId);
+        if ($credential) {
             $provider = $credential->provider;
         }
+
+        $model = $this->providerRegistry->resolveModel(
+            $provider ?? 'openai',
+            $requestedModel,
+            $credential?->default_model,
+        );
 
         $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());
 
@@ -42,6 +52,7 @@ class RunController extends Controller
             'user_id' => $request->user()?->id,
             'provider_credential_id' => $providerCredentialId,
             'provider' => $provider,
+            'model' => $model,
             'source_url' => $input['source_url'],
             'input' => $input,
             'prompt_snapshot' => $promptSnapshot,
@@ -54,6 +65,7 @@ class RunController extends Controller
             $provider,
             $request->validated('provider.api_key'),
             $providerCredentialId,
+            $model,
         );
 
         return response()->json(['id' => $run->id, 'status' => 'queued', 'message' => 'Workflow started'], 202);

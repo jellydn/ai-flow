@@ -54,7 +54,7 @@ class OpenAIProvider implements AIProviderInterface
         }
     }
 
-    public function generate(string $prompt, array $schema): array
+    public function generate(string $prompt, array $schema, ?string $model = null): array
     {
         $key = $this->apiKey ?: config('services.openai.key');
         if (! $key) {
@@ -63,7 +63,7 @@ class OpenAIProvider implements AIProviderInterface
 
         $baseUrl = rtrim(config('services.openai.base_url'), '/');
         $payload = [
-            'model' => config('services.openai.model', 'gpt-4o-mini'),
+            'model' => $model ?: config('services.openai.model', 'gpt-4o-mini'),
             'messages' => [
                 ['role' => 'system', 'content' => 'Return accurate JSON matching the supplied schema.'],
                 ['role' => 'user', 'content' => $prompt],

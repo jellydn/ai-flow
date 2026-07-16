@@ -34,6 +34,38 @@ class RunApiTest extends TestCase
             ->assertJsonPath('0.id', 'review-pr');
     }
 
+    public function test_run_rejects_unknown_model_for_provider(): void
+    {
+        Queue::fake();
+
+        $this->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => 'openai', 'model' => 'not-a-real-model'],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('provider.model');
+
+        Queue::assertNothingPushed();
+    }
+
+    public function test_run_persists_requested_model(): void
+    {
+        Queue::fake();
+
+        $response = $this->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider' => ['id' => 'openai', 'model' => 'gpt-4o'],
+        ])->assertStatus(202);
+
+        $this->assertDatabaseHas('runs', [
+            'id' => $response->json('id'),
+            'provider' => 'openai',
+            'model' => 'gpt-4o',
+        ]);
+    }
+
     public function test_run_is_validated_created_and_queued(): void
     {
         Queue::fake();
@@ -42,6 +74,8 @@ class RunApiTest extends TestCase
             ->assertJsonPath('status', 'queued')
             ->assertJsonPath('message', 'Workflow started');
         $this->assertDatabaseHas('runs', ['id' => $r->json('id')]);
+        $run = Run::find($r->json('id'));
+        $this->assertNotNull($run->model);
         Queue::assertPushed(ExecuteLauncherJob::class);
 
         $this->getJson('/api/runs/'.$r->json('id'))

@@ -35,7 +35,7 @@ CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) 
 
 ## Environment & AI providers
 
-- Required: `OPENAI_API_KEY`. Recommended: `GITHUB_TOKEN` (rate limits). Optional: `OPENAI_TIMEOUT`, `VITE_DEMO_MODE=true` (browser-only simulated runs, no backend worker).
+- Required: `OPENAI_API_KEY`. Recommended: `GITHUB_TOKEN` (rate limits). Optional: `OPENAI_TIMEOUT`.
 - Model resolution (`config/services.php`): `AI_MODEL` overrides `OPENAI_MODEL` (code default `gpt-4o-mini`; `.env.example` bumps to `gpt-5`). Per-adapter: `ANTHROPIC_MODEL` (`claude-sonnet-4-20250514`), `GEMINI_MODEL` (`gemini-2.0-flash`).
 - Multiple providers implement `AIProviderInterface` (`OpenAI`/`OpenRouter`/`Anthropic`/`Gemini`). Provider IDs are sourced from `AiProviderRegistry::ids()`, not a config array. Requests may carry `provider.id`; users manage keys via `provider-credentials` (never stored on runs, never logged). User-supplied HTTPS GitHub URLs only.
 - `QUEUE_CONNECTION=database` by default; never `sync` in production. Local DB: SQLite (`database/database.sqlite`). Production: durable Postgres/MySQL.
@@ -75,4 +75,3 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 - Git remotes: `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
 - New launcher = PHP class + `DatabaseSeeder` entry + feature test; shared `outputSchema` in `BaseLauncher`.
 - Laravel 13 + DB: `turso/libsql-laravel` doesn't support Laravel 13 yet; production uses managed Postgres/MySQL, not SQLite.
-- `VITE_DEMO_MODE=true` simulates runs client-side; remember to restart Vite after changing `.env`.

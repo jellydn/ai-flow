@@ -56,7 +56,7 @@ class AnthropicProvider implements AIProviderInterface
         }
     }
 
-    public function generate(string $prompt, array $schema): array
+    public function generate(string $prompt, array $schema, ?string $model = null): array
     {
         $key = $this->apiKey;
         if (! $key) {
@@ -77,7 +77,7 @@ class AnthropicProvider implements AIProviderInterface
                 ->timeout($timeout)
                 ->retry(2, 500, throw: false)
                 ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => config('services.anthropic.model', 'claude-sonnet-4-20250514'),
+                    'model' => $model ?: config('services.anthropic.model', 'claude-sonnet-4-20250514'),
                     'max_tokens' => 4096,
                     'system' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.',
                     'messages' => [

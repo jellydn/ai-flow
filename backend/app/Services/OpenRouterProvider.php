@@ -74,14 +74,14 @@ class OpenRouterProvider implements AIProviderInterface
         }
     }
 
-    public function generate(string $prompt, array $schema): array
+    public function generate(string $prompt, array $schema, ?string $model = null): array
     {
         $key = $this->apiKey ?: config('services.openai.openrouter_key');
         if (! $key) {
             throw new RuntimeException('The AI provider API key is not configured.');
         }
 
-        $model = config('services.openai.openrouter_model', 'openai/gpt-4o-mini');
+        $model = $model ?: config('services.openai.openrouter_model', 'openai/gpt-4o-mini');
         $timeout = (int) config('services.openai.timeout', 30);
         if ($timeout <= 0) {
             throw new RuntimeException('The AI provider timeout is not configured.');

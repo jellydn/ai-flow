@@ -24,7 +24,7 @@ vi.mock("../Home.tsx", () => ({
 
 vi.mock("../Report.tsx", () => ({
     Report: ({ runId }: { runId: string | null }) => (
-        <div data-testid="report">Report — {runId ?? "demo"}</div>
+        <div data-testid="report">Report — {runId ?? "none"}</div>
     ),
 }));
 
@@ -118,6 +118,9 @@ const baseHomeProps = {
     setApiKey: vi.fn(),
     selectedProvider: "openai" as RunProviderId,
     setSelectedProvider: vi.fn<(provider: RunProviderId) => void>(),
+    selectedModel: "gpt-4o-mini",
+    setSelectedModel: vi.fn(),
+    providerCatalog: [],
     launchers: [],
     navigate: vi.fn<(pathname: string) => void>(),
 };
@@ -132,6 +135,8 @@ const baseRunningData = {
 const baseReportData = {
     runId: null,
     result: null,
+    providerLabel: null,
+    model: null,
     copied: false,
     setCopied: vi.fn(),
 };
@@ -233,17 +238,14 @@ describe("AppViews", () => {
         expect(screen.getByText(/Workflow/)).toBeInTheDocument();
     });
 
-    it("renders Running for demo-running view", () => {
-        renderAppViews({ view: { type: "demo-running", step: 1 } });
-        expect(screen.getByTestId("running")).toBeInTheDocument();
-    });
-
     it("renders Report for report view with runId", () => {
         renderAppViews({
             view: { type: "report", run: { id: "run-1", result: { summary: "OK" } } },
             reportData: {
                 runId: "run-1",
                 result: { summary: "OK" },
+                providerLabel: "OpenAI",
+                model: "gpt-4o",
                 copied: false,
                 setCopied: vi.fn(),
             },

@@ -9,6 +9,7 @@ export interface Run {
     result: RunResult | null;
     error: string | null;
     provider?: string | null;
+    provider_label?: string | null;
     model?: string | null;
     started_at: string | null;
     completed_at: string | null;

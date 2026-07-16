@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\ProviderCredential;
 use App\Services\LaunchAiKeyResolver;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
@@ -33,6 +34,8 @@ class StoreRunRequest extends FormRequest
             'provider' => ['sometimes', 'array'],
             'provider.id' => ['nullable', 'string', Rule::in($registry->ids())],
             'provider.api_key' => ['nullable', 'string', 'max:512'],
+            'provider.model' => ['nullable', 'string', 'max:128'],
+            'model' => ['nullable', 'string', 'max:128'],
             'provider_credential_id' => [
                 'nullable',
                 'uuid',
@@ -59,6 +62,7 @@ class StoreRunRequest extends FormRequest
             }
 
             $resolver = app(LaunchAiKeyResolver::class);
+            $registry = app(AiProviderRegistry::class);
             $providerId = $this->input('provider.id');
             $oneTimeKey = $this->input('provider.api_key');
             $credentialId = $this->input('provider_credential_id');
@@ -68,6 +72,29 @@ class StoreRunRequest extends FormRequest
                     'provider.api_key',
                     'No AI provider API key is available. Paste a key, select a saved key (sign in), or configure OPENAI_API_KEY on the server.',
                 );
+
+                return;
+            }
+
+            $effectiveProvider = $providerId;
+            if ($credentialId) {
+                $credential = ProviderCredential::find($credentialId);
+                $effectiveProvider = $credential?->provider ?? $providerId;
+            }
+            $effectiveProvider = is_string($effectiveProvider) && $effectiveProvider !== ''
+                ? $effectiveProvider
+                : 'openai';
+
+            $requestedModel = $this->input('provider.model') ?: $this->input('model');
+
+            if ($requestedModel !== null && $requestedModel !== '') {
+                $allowed = $registry->modelsFor($effectiveProvider);
+                if (! in_array($requestedModel, $allowed, true)) {
+                    $validator->errors()->add(
+                        'provider.model',
+                        'The selected model is not available for this provider.',
+                    );
+                }
             }
         });
     }

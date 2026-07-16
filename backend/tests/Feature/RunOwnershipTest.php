@@ -113,14 +113,20 @@ class RunOwnershipTest extends TestCase
         $run = Run::create([
             'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
             'user_id' => null,
+            'provider' => 'openrouter',
+            'model' => 'openai/gpt-4o-mini',
             'source_url' => 'https://github.com/laravel/framework',
             'input' => ['source_url' => 'https://github.com/laravel/framework'],
-            'status' => 'queued',
+            'status' => 'completed',
             'progress' => [],
+            'result' => ['summary' => 'OK', 'risk' => 'low', 'findings' => [], 'verification_steps' => []],
         ]);
 
         $this->getJson('/api/runs/'.$run->id)
             ->assertOk()
-            ->assertJsonPath('data.id', $run->id);
+            ->assertJsonPath('data.id', $run->id)
+            ->assertJsonPath('data.provider', 'openrouter')
+            ->assertJsonPath('data.provider_label', 'OpenRouter')
+            ->assertJsonPath('data.model', 'openai/gpt-4o-mini');
     }
 }

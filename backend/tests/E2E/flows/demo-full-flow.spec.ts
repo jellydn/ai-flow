@@ -1,15 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { authCard, authTabPanel } from "../helpers/authCard.ts";
+import { postAuthJson } from "../helpers/csrf.ts";
 
 /**
- * Demo-mode E2E: full visual flow from sign-in to viewing a report.
- *
- * Prerequisite: demo web server (VITE_DEMO_MODE build + `php artisan serve`).
- * Playwright starts this automatically via `scripts/e2e/serve-demo.sh`.
- *
- * Flow: navigate → paste URL → select launcher → launch → watch progress → view report.
+ * UI E2E against the real Laravel app (`scripts/e2e/serve-real.sh`).
  */
-test.describe("Demo mode: sign-in → launch → report", () => {
+test.describe("Home and launcher UI", () => {
     test("sign-up tab shows labeled fields and link to sign in", async ({ page }) => {
         await page.goto("/");
         await page.getByRole("button", { name: "Sign in" }).click();
@@ -28,82 +24,68 @@ test.describe("Demo mode: sign-in → launch → report", () => {
     test("shows sign-in UI when clicking Sign in button", async ({ page }) => {
         await page.goto("/");
 
-        // Click the "Sign in" button in the header.
         await page.getByRole("button", { name: "Sign in" }).click();
 
-        // Verify the sign-in modal appears (password tab is default).
         const card = authCard(page);
         await expect(card).toBeVisible({ timeout: 5000 });
         await expect(page.getByPlaceholder(/you@example.com/)).toBeVisible();
         await expect(card.getByRole("button", { name: "Sign in", exact: true })).toBeVisible();
 
-        // Magic-link flow lives on the Email link tab.
         await card.getByRole("tab", { name: "Email link" }).click();
         await expect(card.getByRole("button", { name: /Send sign-in link/ })).toBeVisible();
 
-        // In demo mode, the sign-in form cannot actually submit (no backend
-        // auth API), so we verify the UI renders and then navigate back to
-        // the home page for subsequent tests.
         await page.goto("/");
-        // We land back on the home page.
         await expect(page.locator("h1")).toContainText("in flow");
     });
 
-    test("completes the full workflow from URL paste to report", async ({ page }) => {
-        // 1. Navigate to the app.
+    test("POST /api/runs accepts a valid launch when a provider key is configured", async ({
+        request,
+    }) => {
+        const health = await request.get("/api/health");
+        expect(health.status()).toBe(200);
+
+        const response = await postAuthJson(request, "/api/runs", {
+            launcher: "review-pr",
+            source_url: "https://github.com/laravel/framework/pull/1",
+        });
+
+        if (!process.env.OPENAI_API_KEY) {
+            expect(response.status()).toBe(422);
+            return;
+        }
+
+        expect(response.status()).toBe(202);
+        const body = await response.json();
+        expect(body).toMatchObject({ status: "queued" });
+        expect(typeof body.id).toBe("string");
+    });
+
+    test("launch starts a run and shows the running view", async ({ page }) => {
+        test.skip(
+            !process.env.OPENAI_API_KEY,
+            "Requires OPENAI_API_KEY (or server key) for POST /api/runs",
+        );
+
         await page.goto("/");
 
-        // 2. Verify the home page renders with launcher card.
         await expect(page.locator("h1")).toContainText("in flow");
         await expect(page.locator(".launcher-card")).toBeVisible();
 
-        // 3. Paste a GitHub URL.
         const urlInput = page.getByPlaceholder(/github.com/);
         await urlInput.fill("https://github.com/laravel/framework/pull/42");
-        await expect(urlInput).toHaveValue("https://github.com/laravel/framework/pull/42");
 
-        // 4. Select the "review-pr" launcher (should already be selected by default).
-        const activePill = page.locator(".quick-workflows button.active");
-        await expect(activePill).toBeVisible();
-
-        // 5. Launch the workflow (scoped to launcher-card to avoid
-        //    ambiguous matches with workflow-grid cards).
         await page
             .locator(".launcher-card")
             .getByRole("button", { name: /Launch workflow/ })
             .click();
 
-        // 6. Verify we transition to the running/demo-running view.
-        await expect(page.locator(".running-page")).toBeVisible({ timeout: 5000 });
-
-        // 7. Wait for all demo steps to complete (5 steps × ~780ms + 650ms delay ≈ 7s total).
-        // The running view disappears and the report view appears.
-        // The report renders demo findings (use test IDs for resilience
-        // against demo data content changes).
-        const findings = page.getByTestId("finding");
-        await expect(findings.first()).toBeVisible({
-            timeout: 15_000,
-        });
-
-        // 8. Verify the report shows structured findings with severity levels.
-        //    Assert non-empty text content (not just visibility) so empty
-        //    elements don't pass. No coupling to specific demo finding text.
-        const severity = page.getByTestId("finding-severity").first();
-        await expect(severity).toBeVisible();
-        await expect(severity).not.toBeEmpty();
-
-        const title = page.getByTestId("finding-title").first();
-        await expect(title).toBeVisible();
-        await expect(title).not.toBeEmpty();
-
-        // 9. Verify the share/copy button is present on the report page.
-        await expect(page.getByRole("button", { name: /Copy link/ })).toBeVisible();
+        await expect(page.locator(".running-page")).toBeVisible({ timeout: 10_000 });
+        await expect(page).toHaveURL(/\/runs\/[0-9a-f-]+/, { timeout: 10_000 });
     });
 
     test("shows validation error for invalid GitHub URL", async ({ page }) => {
         await page.goto("/");
 
-        // Type an invalid URL and try to launch (scoped to launcher-card).
         const urlInput = page.getByPlaceholder(/github.com/);
         await urlInput.fill("not-a-url");
         await page
@@ -111,7 +93,6 @@ test.describe("Demo mode: sign-in → launch → report", () => {
             .getByRole("button", { name: /Launch workflow/ })
             .click();
 
-        // Should show validation error, not transition to running.
         await expect(page.getByText(/valid.*GitHub/)).toBeVisible({ timeout: 3000 });
         await expect(page.locator(".running-page")).not.toBeVisible();
     });
@@ -130,11 +111,8 @@ test.describe("Demo mode: sign-in → launch → report", () => {
     test("can switch launchers via the quick-select pills", async ({ page }) => {
         await page.goto("/");
 
-        // Quick-select pills show "Review PR" (review-pr), "Plan fix" (plan-issue),
-        // "Explain" (explain-repository), "Laravel doctor" (laravel-doctor).
         await page.getByText("Plan fix").click();
 
-        // The selected pill should now be active.
         const activePill = page.locator(".quick-workflows button.active");
         await expect(activePill).toContainText("Plan fix");
     });

@@ -1,7 +1,7 @@
 import { Check, CheckCircle2, CircleDot, Copy, GitFork, Sparkles } from "lucide-react";
-import type { Finding, RunResult } from "../types/api.ts";
-import { demoFindings } from "../data/launcherMeta.ts";
+import type { RunResult } from "../types/api.ts";
 import { shareRunUrl } from "../services/run.ts";
+import { MarkdownBody } from "./MarkdownBody.tsx";
 
 interface ReportProps {
     launcherName: string;
@@ -11,6 +11,8 @@ interface ReportProps {
     reset: () => void;
     runId: string | null;
     result: RunResult | null;
+    providerLabel: string | null;
+    model: string | null;
 }
 
 export function Report({
@@ -21,25 +23,41 @@ export function Report({
     reset,
     runId,
     result,
+    providerLabel,
+    model,
 }: ReportProps) {
-    const isDemo = !runId && !result;
-    const findings: Finding[] = isDemo ? demoFindings : (result?.findings ?? []);
-    const summary = isDemo
-        ? "This pull request introduces useful filtering and organization features, but contains one authorization vulnerability that should be fixed before merging."
-        : (result?.summary ?? "");
-    const risk = isDemo ? "medium" : (result?.risk ?? "medium");
-    const checklist = isDemo
-        ? [
-              "Add authorization policy check before deleting tools",
-              "Replace usage counter update with atomic increment",
-              "Add feature tests for combined filters",
-              "Run the full test suite before merge",
-          ]
-        : (result?.verification_steps ?? []);
+    if (!result) {
+        return (
+            <main className="running-page">
+                <div className="error-fallback">
+                    <h1>Report unavailable</h1>
+                    <p>This run has no structured result to display.</p>
+                    <button type="button" onClick={reset}>
+                        ← New launch
+                    </button>
+                </div>
+            </main>
+        );
+    }
+
+    const findings = result.findings ?? [];
+    const summary = result.summary ?? "";
+    const risk = result.risk ?? "medium";
+    const checklist = result.verification_steps ?? [];
+    const aiAttribution =
+        providerLabel && model
+            ? `${providerLabel} · ${model}`
+            : providerLabel
+              ? providerLabel
+              : model
+                ? model
+                : null;
 
     const copy = async () => {
-        const link = runId ? shareRunUrl(runId) : `${window.location.origin}/runs/demo`;
-        await navigator.clipboard?.writeText(link);
+        if (!runId) {
+            return;
+        }
+        await navigator.clipboard?.writeText(shareRunUrl(runId));
         setCopied(true);
         setTimeout(() => setCopied(false), 1800);
     };
@@ -51,10 +69,12 @@ export function Report({
                     ← New launch
                 </button>
                 <div className="share-actions">
-                    <button type="button" onClick={copy}>
-                        {copied ? <Check size={16} /> : <Copy size={16} />}
-                        {copied ? "Copied" : "Copy link"}
-                    </button>
+                    {runId ? (
+                        <button type="button" onClick={copy}>
+                            {copied ? <Check size={16} /> : <Copy size={16} />}
+                            {copied ? "Copied" : "Copy link"}
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
@@ -66,6 +86,11 @@ export function Report({
                 <div className="repo-name">
                     <GitFork size={18} /> {repo || "repository"}
                 </div>
+                {aiAttribution ? (
+                    <p className="report-ai-provider">
+                        Generated with <strong>{aiAttribution}</strong>
+                    </p>
+                ) : null}
                 <div className="report-stats">
                     <div>
                         <span>Risk level</span>
@@ -93,6 +118,7 @@ export function Report({
                     <div className="ai-card">
                         <Sparkles size={18} />
                         <strong>AI-generated report</strong>
+                        {aiAttribution ? <p className="ai-card-provider">{aiAttribution}</p> : null}
                         <p>Always verify critical findings before merging.</p>
                     </div>
                 </aside>
@@ -103,7 +129,7 @@ export function Report({
                             <h2>Executive summary</h2>
                         </div>
                         <div className="summary-box">
-                            <p>{summary}</p>
+                            <MarkdownBody>{summary}</MarkdownBody>
                         </div>
                     </section>
                     <section id="findings">
@@ -131,12 +157,12 @@ export function Report({
                                         </span>
                                     </div>
                                     <h3 data-testid="finding-title">{finding.title}</h3>
-                                    <p>{finding.description}</p>
+                                    <MarkdownBody>{finding.description}</MarkdownBody>
                                     <div className="suggestion">
                                         <strong>
                                             <Sparkles size={14} /> Suggested fix
                                         </strong>
-                                        <p>{finding.recommendation}</p>
+                                        <MarkdownBody>{finding.recommendation}</MarkdownBody>
                                     </div>
                                 </div>
                             ))}
@@ -148,13 +174,12 @@ export function Report({
                             <h2>Verification checklist</h2>
                         </div>
                         <div className="checklist">
-                            {checklist.map((item, index) => (
+                            {checklist.map((item) => (
                                 <label key={item}>
-                                    <input
-                                        type="checkbox"
-                                        defaultChecked={index === checklist.length - 1}
-                                    />
-                                    <span>{item}</span>
+                                    <input type="checkbox" />
+                                    <span className="checklist-text">
+                                        <MarkdownBody>{item}</MarkdownBody>
+                                    </span>
                                 </label>
                             ))}
                         </div>

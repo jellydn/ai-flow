@@ -27,6 +27,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
         private ?string $provider = null,
         private ?string $apiKey = null,
         private ?string $providerCredentialId = null,
+        private ?string $model = null,
     ) {}
 
     public function handle(RunExecutorInterface $executor): void
@@ -55,6 +56,11 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
 
             $ai = $registry->get($providerId, $apiKey);
 
+            $model = $this->model ?? $run->model;
+            if ($model !== null && $model !== '' && $run->model !== $model) {
+                $run->update(['model' => $model]);
+            }
+
             if ($this->providerCredentialId !== null) {
                 ProviderCredential::where('id', $this->providerCredentialId)->update(['last_used_at' => now()]);
             }
@@ -64,7 +70,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             return;
         }
 
-        $executor->execute($run, $ai);
+        $executor->execute($run->fresh(), $ai);
     }
 
     private function failRun(Run $run, string $message, ?Throwable $e = null): void
