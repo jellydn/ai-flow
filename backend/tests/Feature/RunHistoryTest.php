@@ -179,7 +179,7 @@ class RunHistoryTest extends TestCase
             'source_url' => 'https://github.com/a/b', 'input' => [], 'status' => 'completed', 'progress' => [],
         ]);
 
-        foreach (['completed', 'failed', 'queued', 'processing'] as $status) {
+        foreach (['completed', 'failed', 'queued', 'running'] as $status) {
             $this->actingAs($user)
                 ->getJson('/api/user/runs?status='.$status)
                 ->assertOk();
