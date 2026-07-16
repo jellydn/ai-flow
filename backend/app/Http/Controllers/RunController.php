@@ -6,9 +6,11 @@ use App\Http\Requests\StoreRunRequest;
 use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
-use App\Models\ProviderCredential;
 use App\Models\Run;
+use App\Services\LaunchAiKeyResolver;
 use App\Services\LauncherPromptResolver;
+use App\Services\LaunchParameters;
+use App\Services\RecentRunSummary;
 use App\Services\RunStreamer;
 use App\Support\AiProviderRegistry;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +23,7 @@ class RunController extends Controller
         private RunStreamer $streamer,
         private LauncherPromptResolver $promptResolver,
         private AiProviderRegistry $providerRegistry,
+        private LaunchAiKeyResolver $keyResolver,
     ) {}
 
     public function store(StoreRunRequest $request): JsonResponse
@@ -28,22 +31,13 @@ class RunController extends Controller
         $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
         $input = ['source_url' => $request->validated('source_url')];
 
-        $providerId = $request->validated('provider.id');
-        $providerCredentialId = $request->validated('provider_credential_id');
-        $requestedModel = $request->validated('provider.model') ?? $request->validated('model');
-
-        $credential = $providerCredentialId ? ProviderCredential::find($providerCredentialId) : null;
-
-        // If a saved credential is selected, snapshot its provider onto the run.
-        $provider = $providerId;
-        if ($credential) {
-            $provider = $credential->provider;
-        }
-
-        $model = $this->providerRegistry->resolveModel(
-            $provider ?? 'openai',
-            $requestedModel,
-            $credential?->default_model,
+        $params = LaunchParameters::resolve(
+            providerId: $request->validated('provider.id'),
+            oneTimeApiKey: $request->validated('provider.api_key'),
+            providerCredentialId: $request->validated('provider_credential_id'),
+            requestedModel: $request->validated('provider.model') ?? $request->validated('model'),
+            registry: $this->providerRegistry,
+            keyResolver: $this->keyResolver,
             allowCustom: $request->user() !== null,
         );
 
@@ -51,9 +45,9 @@ class RunController extends Controller
 
         $run = $launcher->runs()->create([
             'user_id' => $request->user()?->id,
-            'provider_credential_id' => $providerCredentialId,
-            'provider' => $provider,
-            'model' => $model,
+            'provider_credential_id' => $params->providerCredentialId,
+            'provider' => $params->effectiveProvider,
+            'model' => $params->resolvedModel,
             'source_url' => $input['source_url'],
             'input' => $input,
             'prompt_snapshot' => $promptSnapshot,
@@ -63,10 +57,10 @@ class RunController extends Controller
 
         ExecuteLauncherJob::dispatch(
             $run->id,
-            $provider,
-            $request->validated('provider.api_key'),
-            $providerCredentialId,
-            $model,
+            $params->dispatchProvider,
+            $params->oneTimeApiKey,
+            $params->providerCredentialId,
+            $params->resolvedModel,
         );
 
         return response()->json(['id' => $run->id, 'status' => 'queued', 'message' => 'Workflow started'], 202);
@@ -87,39 +81,7 @@ class RunController extends Controller
             ->limit(6)
             ->get();
 
-        $summary = $runs->map(function (Run $run): array {
-            $sourceUrl = $run->source_url ?? '';
-            preg_match('#github\.com/([^/]+/[^/]+)#i', $sourceUrl, $m);
-            $repo = $m[1] ?? null;
-
-            $type = match (true) {
-                str_contains($sourceUrl, '/pull/') => 'Pull request',
-                str_contains($sourceUrl, '/issues/') => 'Issue',
-                default => 'Repository',
-            };
-
-            $result = $run->result ?? [];
-            $findings = isset($result['findings']) ? count($result['findings']) : 0;
-            $risk = $result['risk'] ?? '—';
-
-            $durationSeconds = null;
-            if ($run->started_at && $run->completed_at) {
-                $durationSeconds = (int) $run->started_at->diffInSeconds($run->completed_at);
-            }
-
-            return [
-                'id' => $run->id,
-                'repo' => $repo,
-                'type' => $type,
-                'launcher_slug' => $run->launcher?->slug,
-                'launcher_name' => $run->launcher?->name,
-                'risk' => $risk,
-                'findings_count' => $findings,
-                'has_verification_steps' => ! empty($result['verification_steps']),
-                'duration_seconds' => $durationSeconds,
-                'completed_at' => $run->completed_at?->toIso8601String(),
-            ];
-        })->values();
+        $summary = $runs->map(fn (Run $run): array => RecentRunSummary::from($run))->values();
 
         return response()->json(['data' => $summary]);
     }

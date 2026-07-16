@@ -3,7 +3,6 @@
 namespace App\Jobs;
 
 use App\Contracts\RunExecutorInterface;
-use App\Events\RunProgressed;
 use App\Models\ProviderCredential;
 use App\Models\Run;
 use App\Services\LaunchAiKeyResolver;
@@ -11,7 +10,6 @@ use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
@@ -40,7 +38,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             $registry = app(AiProviderRegistry::class);
 
             if (! $registry->has($providerId)) {
-                $this->failRun($run, 'Unsupported AI provider.');
+                $run->markFailed('Unsupported AI provider.', logContext: 'Launcher run failed during provider setup');
 
                 return;
             }
@@ -49,7 +47,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
             $apiKey = $resolver->resolve($providerId, $this->apiKey, $this->providerCredentialId);
 
             if ($apiKey === null || $apiKey === '') {
-                $this->failRun($run, 'No AI provider API key is available. Paste a key on launch, choose a saved key in API Keys, or configure OPENAI_API_KEY on the server.');
+                $run->markFailed('No AI provider API key is available. Paste a key on launch, choose a saved key in API Keys, or configure OPENAI_API_KEY on the server.', logContext: 'Launcher run failed during provider setup');
 
                 return;
             }
@@ -65,26 +63,11 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
                 ProviderCredential::where('id', $this->providerCredentialId)->update(['last_used_at' => now()]);
             }
         } catch (Throwable $e) {
-            $this->failRun($run, 'Run failed unexpectedly.', $e);
+            $run->markFailed('Run failed unexpectedly.', $e, 'Launcher run failed during provider setup');
 
             return;
         }
 
         $executor->execute($run->fresh(), $ai);
-    }
-
-    private function failRun(Run $run, string $message, ?Throwable $e = null): void
-    {
-        $run->update([
-            'status' => 'failed',
-            'error' => $message,
-            'source_context' => null,
-            'completed_at' => now(),
-        ]);
-        Log::error('Launcher run failed during provider setup', [
-            'run_id' => $run->id,
-            'exception' => $e ? get_class($e) : null,
-        ]);
-        RunProgressed::dispatch($run->fresh());
     }
 }

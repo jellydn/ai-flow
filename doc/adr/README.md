@@ -22,6 +22,7 @@
 | [0019](0019-email-password-authentication.md) | Email/password authentication (alongside magic link) | Accepted |
 | [0020](0020-per-user-launcher-prompt-overrides.md) | Per-user launcher prompt overrides with run snapshot | Accepted |
 | [0021](0021-super-admin-filament-panel.md) | Super admin control panel with Filament | Accepted |
+| [0022](0022-base-ai-provider-deepening.md) | `BaseAIProvider` deepening — shared HTTP lifecycle behind a template-method seam | Accepted |
 
 **Frontend / Amp prototype:** 0001–0006
 **Laravel API (`backend/`):** 0007–0019 — see [`backend/README.md`](../../backend/README.md)

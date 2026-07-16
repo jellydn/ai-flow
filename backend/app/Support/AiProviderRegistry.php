@@ -112,13 +112,12 @@ class AiProviderRegistry
 
     public function defaultModel(string $providerId): string
     {
-        return match ($providerId) {
-            'openai' => (string) config('services.openai.model', 'gpt-4o-mini'),
-            'openrouter' => (string) config('services.openai.openrouter_model', 'openai/gpt-4o-mini'),
-            'anthropic' => (string) config('services.anthropic.model', 'claude-sonnet-4-20250514'),
-            'gemini' => (string) config('services.gemini.model', 'gemini-2.0-flash'),
-            default => $this->modelsFor($providerId)[0] ?? 'gpt-4o-mini',
-        };
+        if (! isset(self::PROVIDERS[$providerId])) {
+            return $this->modelsFor($providerId)[0] ?? 'gpt-4o-mini';
+        }
+
+        // Delegate to the adapter — single source of truth (ADR-0022).
+        return (new (self::PROVIDERS[$providerId])(null))->defaultModel();
     }
 
     public function resolveModel(

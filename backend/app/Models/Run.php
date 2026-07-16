@@ -2,9 +2,12 @@
 
 namespace App\Models;
 
+use App\Events\RunProgressed;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class Run extends Model
 {
@@ -76,5 +79,30 @@ class Run extends Model
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;
+    }
+
+    /**
+     * Transition this run to the failed state.
+     *
+     * Single owner of the run-failure lifecycle: sets status, error,
+     * clears source_context, sets completed_at, logs the failure, and
+     * dispatches RunProgressed. Called by ExecuteLauncherJob,
+     * RunExecutor, and ReapStuckRuns.
+     */
+    public function markFailed(string $message, ?Throwable $e = null, string $logContext = 'Launcher run failed'): void
+    {
+        $this->update([
+            'status' => 'failed',
+            'error' => $message,
+            'source_context' => null,
+            'completed_at' => now(),
+        ]);
+
+        Log::error($logContext, [
+            'run_id' => $this->id,
+            'exception' => $e ? get_class($e) : null,
+        ]);
+
+        RunProgressed::dispatch($this->fresh());
     }
 }
