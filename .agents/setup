@@ -2,13 +2,13 @@
 set -euo pipefail
 
 # Laravel 13 + Symfony 8.1 require PHP ^8.4 (see backend/composer.json). Sury packages satisfy CI/agent sandboxes.
-if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(PHP_VERSION_ID >= 80400 ? 0 : 1);'; then
+if ! command -v php >/dev/null 2>&1 || ! php -r 'exit(PHP_VERSION_ID >= 80400 && extension_loaded("intl") ? 0 : 1);'; then
   sudo apt-get update
   sudo apt-get install -y ca-certificates curl gnupg lsb-release
   curl -fsSL https://packages.sury.org/php/apt.gpg | sudo gpg --dearmor --yes -o /usr/share/keyrings/deb.sury.org-php.gpg
   echo "deb [signed-by=/usr/share/keyrings/deb.sury.org-php.gpg] https://packages.sury.org/php/ $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/php.list >/dev/null
   sudo apt-get update
-  sudo apt-get install -y php8.4-cli php8.4-curl php8.4-mbstring php8.4-pgsql php8.4-sqlite3 php8.4-xml php8.4-zip unzip
+  sudo apt-get install -y php8.4-cli php8.4-curl php8.4-intl php8.4-mbstring php8.4-pgsql php8.4-sqlite3 php8.4-xml php8.4-zip unzip
   sudo update-alternatives --set php /usr/bin/php8.4 2>/dev/null || true
 fi
 
@@ -18,5 +18,13 @@ if ! command -v composer >/dev/null 2>&1; then
   rm /tmp/composer-setup.php
 fi
 
+if ! command -v node >/dev/null 2>&1 || ! node -e 'process.exit(Number(process.versions.node.split(".")[0]) >= 24 ? 0 : 1)'; then
+  curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  sudo ln -sf /usr/bin/node /usr/local/bin/node
+  sudo ln -sf /usr/bin/npm /usr/local/bin/npm
+  sudo ln -sf /usr/bin/npx /usr/local/bin/npx
+fi
+
 (cd backend && APP_ENV=local DB_CONNECTION=sqlite composer install --no-interaction --prefer-dist)
-npm ci
+(cd backend && npm ci)

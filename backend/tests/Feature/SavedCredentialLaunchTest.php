@@ -118,6 +118,29 @@ class SavedCredentialLaunchTest extends TestCase
             ->assertJsonValidationErrors('provider_credential_id');
     }
 
+    public function test_launch_rejects_saved_credential_with_one_time_key(): void
+    {
+        Queue::fake();
+        $user = User::factory()->create();
+        $cipher = new CredentialCipher;
+        $credential = ProviderCredential::forceCreate([
+            'user_id' => $user->id,
+            'provider' => 'openai',
+            'label' => 'My key',
+            'encrypted_api_key' => $cipher->encrypt('sk-saved'),
+        ]);
+
+        $this->actingAs($user)->postJson('/api/runs', [
+            'launcher' => 'explain-repository',
+            'source_url' => 'https://github.com/laravel/framework',
+            'provider_credential_id' => $credential->id,
+            'provider' => ['api_key' => 'sk-one-time'],
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('provider.api_key');
+
+        Queue::assertNothingPushed();
+    }
+
     public function test_launch_without_credential_still_works(): void
     {
         Queue::fake();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { launcherMetaBySlug, staticLaunchers } from "../data/launcherMeta.ts";
 import { logger } from "../lib/logger.ts";
 import { useRunFromPath } from "../hooks/useRunFromPath.ts";
@@ -65,12 +65,13 @@ export function App() {
     const [mobileOpen, setMobileOpen] = useState(false);
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState("");
-    const [selectedProvider, setSelectedProvider] = useState<RunProviderId>("openai");
-    const [selectedModel, setSelectedModel] = useState("");
+    const [selectedProvider, setSelectedProvider] = useState<RunProviderId>("openrouter");
+    const [selectedModel, setSelectedModel] = useState("openrouter/free");
     const [providerCatalog, setProviderCatalog] = useState<ProviderCatalogEntry[]>([]);
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
     const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
+    const modelEdited = useRef(false);
 
     const [user, setUser] = useState<User | null>(null);
     const [authChecked, setAuthChecked] = useState(false);
@@ -91,6 +92,9 @@ export function App() {
                     if (current && creds.some((c) => c.id === current)) {
                         return current;
                     }
+                    if (modelEdited.current) {
+                        return null;
+                    }
                     const preferred = creds.find((c) => c.is_default) ?? creds[0];
                     if (
                         preferred &&
@@ -100,6 +104,7 @@ export function App() {
                             preferred.provider === "gemini")
                     ) {
                         setSelectedProvider(preferred.provider);
+                        setSelectedModel(preferred.default_model ?? "");
                     }
                     return preferred?.id ?? null;
                 });
@@ -121,10 +126,22 @@ export function App() {
         if (!authChecked || user) {
             return;
         }
+        modelEdited.current = false;
+        setSelectedProvider("openrouter");
+        setSelectedModel("openrouter/free");
         if (isUserAccountPath(window.location.pathname)) {
             setShowSignIn(true);
         }
     }, [authChecked, user]);
+
+    useEffect(() => {
+        if (!user) {
+            return;
+        }
+        modelEdited.current = false;
+        setSelectedProvider("openai");
+        setSelectedModel("");
+    }, [user?.id]);
 
     const {
         runId: pathRunId,
@@ -176,19 +193,16 @@ export function App() {
                         e.id === "gemini",
                 );
                 setProviderCatalog(catalog);
-                setSelectedModel((current) => pickModelForProvider("openai", catalog, current));
             })
             .catch(() => setProviderCatalog([]));
     }, []);
 
     useEffect(() => {
-        const cred = selectedCredentialId
-            ? credentials.find((c) => c.id === selectedCredentialId)
-            : undefined;
-        setSelectedModel((current) =>
-            pickModelForProvider(selectedProvider, providerCatalog, current, cred?.default_model),
-        );
-    }, [selectedProvider, providerCatalog, selectedCredentialId, credentials]);
+        if (!user || selectedModel !== "") {
+            return;
+        }
+        setSelectedModel(pickModelForProvider(selectedProvider, providerCatalog, ""));
+    }, [user, selectedProvider, selectedModel, providerCatalog]);
 
     useEffect(() => {
         getLaunchers()
@@ -237,10 +251,14 @@ export function App() {
         goto("/", navigate);
         dispatch({ type: "reset-ui" });
         setApiKey("");
-        setSelectedProvider("openai");
+        modelEdited.current = false;
+        setSelectedProvider(user ? "openai" : "openrouter");
+        setSelectedModel(
+            user ? pickModelForProvider("openai", providerCatalog, "") : "openrouter/free",
+        );
         setSelectedCredentialId(null);
         window.scrollTo({ top: 0, behavior: "smooth" });
-    }, [navigate]);
+    }, [navigate, user, providerCatalog]);
 
     const launch = useCallback(async () => {
         const trimmed = url.trim();
@@ -261,10 +279,10 @@ export function App() {
             const body = await createRun(
                 selected,
                 trimmed,
-                selectedProvider,
-                apiKey,
-                selectedCredentialId ?? undefined,
-                selectedModel || undefined,
+                user ? selectedProvider : "openrouter",
+                user && !selectedCredentialId ? apiKey : "",
+                user ? (selectedCredentialId ?? undefined) : undefined,
+                user ? selectedModel || undefined : "openrouter/free",
             );
             goto(`/runs/${body.id}`, navigate);
             dispatch({
@@ -287,7 +305,16 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, selectedProvider, selectedModel, apiKey, selectedCredentialId, navigate]);
+    }, [
+        url,
+        selected,
+        selectedProvider,
+        selectedModel,
+        apiKey,
+        selectedCredentialId,
+        navigate,
+        user,
+    ]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =
@@ -311,9 +338,16 @@ export function App() {
         apiKey,
         setApiKey,
         selectedProvider,
-        setSelectedProvider,
+        setSelectedProvider: (provider) => {
+            modelEdited.current = true;
+            setSelectedProvider(provider);
+            setSelectedModel(pickModelForProvider(provider, providerCatalog, ""));
+        },
         selectedModel,
-        setSelectedModel,
+        setSelectedModel: (model) => {
+            modelEdited.current = true;
+            setSelectedModel(model);
+        },
         providerCatalog,
         launchers,
         credentials,

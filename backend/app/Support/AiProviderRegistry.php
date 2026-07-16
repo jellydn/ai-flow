@@ -18,6 +18,10 @@ use InvalidArgumentException;
  */
 class AiProviderRegistry
 {
+    public const GUEST_PROVIDER = 'openrouter';
+
+    public const GUEST_MODEL = 'openrouter/free';
+
     /** @var array<string, class-string<AIProviderInterface>> */
     private const PROVIDERS = [
         'openai' => OpenAIProvider::class,
@@ -117,12 +121,16 @@ class AiProviderRegistry
         };
     }
 
-    public function resolveModel(string $providerId, ?string $requested, ?string $credentialDefault = null): string
-    {
+    public function resolveModel(
+        string $providerId,
+        ?string $requested,
+        ?string $credentialDefault = null,
+        bool $allowCustom = false,
+    ): string {
         $allowed = $this->modelsFor($providerId);
 
         foreach (array_filter([$requested, $credentialDefault]) as $candidate) {
-            if ($candidate !== '' && in_array($candidate, $allowed, true)) {
+            if ($candidate !== '' && ($allowCustom || in_array($candidate, $allowed, true))) {
                 return $candidate;
             }
         }

@@ -44,6 +44,7 @@ class RunController extends Controller
             $provider ?? 'openai',
             $requestedModel,
             $credential?->default_model,
+            allowCustom: $request->user() !== null,
         );
 
         $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());

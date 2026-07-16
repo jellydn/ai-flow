@@ -11,6 +11,10 @@ describe("pickModelForProvider", () => {
         expect(pickModelForProvider("openai", catalog, "gpt-4o-mini", "gpt-4o")).toBe("gpt-4o");
     });
 
+    it("preserves a custom credential default", () => {
+        expect(pickModelForProvider("openai", catalog, "gpt-4o-mini", "gpt-5.1")).toBe("gpt-5.1");
+    });
+
     it("keeps current model when still valid", () => {
         expect(pickModelForProvider("openai", catalog, "gpt-4o", null)).toBe("gpt-4o");
     });

@@ -34,6 +34,7 @@ class OpenRouterProvider implements AIProviderInterface
     public function models(): array
     {
         return [
+            'openrouter/free',
             'openai/gpt-4o-mini',
             'openai/gpt-4o',
             'anthropic/claude-sonnet-4',

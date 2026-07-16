@@ -30,7 +30,7 @@ php artisan queue:work --tries=2 --timeout=120
 npm run dev
 ```
 
-Set `OPENAI_API_KEY` (or `OPENROUTER_API_KEY` when using OpenRouter). `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. `RESEND_API_KEY` is required for **Email link** sign-in (magic links); password sign-in does not use email delivery. Model and timeout: `config/services.php` uses `AI_MODEL` if set, otherwise `OPENAI_MODEL` (default `gpt-4o-mini`). OpenAI-compatible endpoints: `AI_BASE_URL` (OpenRouter example in `.env.example`). Use a durable database/cache/queue in production.
+Set `OPENROUTER_API_KEY` for guest runs, which always use the `openrouter/free` model router. Add `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` to make server credentials available to signed-in users. `GITHUB_TOKEN` is optional but strongly recommended for GitHub rate limits. `RESEND_API_KEY` is required for **Email link** sign-in (magic links); password sign-in does not use email delivery. Model and timeout defaults live in `config/services.php`. Use a durable database/cache/queue in production.
 
 Optional error monitoring: set `SENTRY_LARAVEL_DSN` and `VITE_SENTRY_DSN` to enable Sentry error tracking on both backend and frontend (no-op when unset).
 
@@ -94,7 +94,7 @@ Copy values from the Neon connection details; never commit credentials. Use Neon
 
 ## Bring Your Own API Key
 
-The server key remains the default. A caller can optionally supply an OpenAI-compatible key for one execution:
+For signed-in requests, the server key remains the default and the caller can optionally supply a provider key for one execution:
 
 ```json
 {
@@ -104,7 +104,7 @@ The server key remains the default. A caller can optionally supply an OpenAI-com
 }
 ```
 
-The launch form's optional AI provider selector and API key field send the same `provider` object. Supported `provider.id` values are `openai` (default), `openrouter`, `anthropic`, and `gemini`; the authoritative list is `AiProviderRegistry::ids()`. The existing `flow_id` and `input` fields remain supported. User keys override `OPENAI_API_KEY`, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
+Guest launches are forced to OpenRouter's `openrouter/free` model router. Signed-in users may choose `openai`, `openrouter`, `anthropic`, or `gemini`, select a catalog model, or enter another model ID supported by that provider. The authoritative provider list is `AiProviderRegistry::ids()`. The existing `flow_id` and `input` fields remain supported. One-time user keys override the matching server key, are never added to run records or responses, and are never logged. Only **HTTPS** `https://github.com/...` URLs are accepted for `source_url`. Because execution is asynchronous, Laravel encrypts the complete queued job with the shared `APP_KEY`; only the worker decrypts the key in memory for the current execution. Authentication failures are exposed only as `Invalid API key.`
 
 ## API
 
@@ -119,7 +119,7 @@ curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/executions/RUN_
 
 `/api/flows` and `/api/executions` are compatibility aliases for `/api/launchers` and `/api/runs`; they use the same request and response contracts.
 
-`POST /api/executions` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
+`POST /api/executions` returns HTTP 202 with a UUID, `queued` status, and `Workflow started`; it is limited to 5 requests per IP per hour. Anonymous requests run with `provider.id=openrouter` and `provider.model=openrouter/free`, regardless of submitted provider fields. Supported slugs are `review-pr`, `plan-issue`, `explain-repository`, and `laravel-doctor`; HTTPS GitHub URLs must match the launcher's repository/PR/issue input type. The status endpoint exposes queued/running/completed/failed state, a progress message array, and a structured result. SSE emits changed progress snapshots, then a completed or failed event.
 
 ### Sign-in
 

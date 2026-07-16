@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Jobs\ExecuteLauncherJob;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -37,7 +36,7 @@ class RunRequiresProviderKeyTest extends TestCase
         Queue::assertNothingPushed();
     }
 
-    public function test_post_runs_accepts_one_time_key_without_server_config(): void
+    public function test_anonymous_run_ignores_one_time_key_without_server_config(): void
     {
         Queue::fake();
 
@@ -47,8 +46,9 @@ class RunRequiresProviderKeyTest extends TestCase
             'provider' => ['id' => 'openai', 'api_key' => 'sk-test-one-time-key'],
         ]);
 
-        $response->assertStatus(202);
-        Queue::assertPushed(ExecuteLauncherJob::class);
+        $response->assertUnprocessable()
+            ->assertJsonValidationErrors(['provider.api_key']);
+        Queue::assertNothingPushed();
     }
 
     public function test_authenticated_user_without_key_gets_validation_error(): void
