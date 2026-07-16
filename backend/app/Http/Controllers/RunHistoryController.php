@@ -85,7 +85,7 @@ class RunHistoryController extends Controller
         $newRun->completed_at = null;
         $newRun->save();
 
-        ExecuteLauncherJob::dispatch($newRun->id, $newRun->provider);
+        ExecuteLauncherJob::dispatch($newRun->id, $newRun->provider, null, $newRun->provider_credential_id, $newRun->model);
 
         return response()->json(['id' => $newRun->id, 'status' => 'queued', 'message' => 'Run retried'], 202);
     }

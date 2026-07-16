@@ -5,11 +5,13 @@ import { useRunFromPath } from "../hooks/useRunFromPath.ts";
 import { useRunSubscription } from "../hooks/useRunSubscription.ts";
 import {
     fetchCredentials,
+    fetchProviders,
     fetchUser,
     logout as apiLogout,
     type ProviderCredential,
     type User,
 } from "../services/auth.ts";
+import { pickModelForProvider, type ProviderCatalogEntry } from "../lib/runModels.ts";
 import {
     createRun,
     getLaunchers,
@@ -64,6 +66,8 @@ export function App() {
     const [isLaunching, setIsLaunching] = useState(false);
     const [apiKey, setApiKey] = useState("");
     const [selectedProvider, setSelectedProvider] = useState<RunProviderId>("openai");
+    const [selectedModel, setSelectedModel] = useState("");
+    const [providerCatalog, setProviderCatalog] = useState<ProviderCatalogEntry[]>([]);
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
     const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
@@ -162,6 +166,31 @@ export function App() {
     }, []);
 
     useEffect(() => {
+        fetchProviders()
+            .then((entries) => {
+                const catalog = entries.filter(
+                    (e): e is ProviderCatalogEntry =>
+                        e.id === "openai" ||
+                        e.id === "openrouter" ||
+                        e.id === "anthropic" ||
+                        e.id === "gemini",
+                );
+                setProviderCatalog(catalog);
+                setSelectedModel((current) => pickModelForProvider("openai", catalog, current));
+            })
+            .catch(() => setProviderCatalog([]));
+    }, []);
+
+    useEffect(() => {
+        const cred = selectedCredentialId
+            ? credentials.find((c) => c.id === selectedCredentialId)
+            : undefined;
+        setSelectedModel((current) =>
+            pickModelForProvider(selectedProvider, providerCatalog, current, cred?.default_model),
+        );
+    }, [selectedProvider, providerCatalog, selectedCredentialId, credentials]);
+
+    useEffect(() => {
         getLaunchers()
             .then(setLaunchers)
             .catch((e) => {
@@ -235,6 +264,7 @@ export function App() {
                 selectedProvider,
                 apiKey,
                 selectedCredentialId ?? undefined,
+                selectedModel || undefined,
             );
             goto(`/runs/${body.id}`, navigate);
             dispatch({
@@ -257,7 +287,7 @@ export function App() {
             setApiKey("");
             setIsLaunching(false);
         }
-    }, [url, selected, selectedProvider, apiKey, selectedCredentialId, navigate]);
+    }, [url, selected, selectedProvider, selectedModel, apiKey, selectedCredentialId, navigate]);
 
     const liveProgress = view.type === "live-running" ? (view.run?.progress ?? []) : [];
     const liveSteps =
@@ -282,6 +312,9 @@ export function App() {
         setApiKey,
         selectedProvider,
         setSelectedProvider,
+        selectedModel,
+        setSelectedModel,
+        providerCatalog,
         launchers,
         credentials,
         selectedCredentialId,
@@ -356,6 +389,11 @@ export function App() {
                 reportData={{
                     runId: view.type === "report" ? (view.run?.id ?? null) : null,
                     result: view.type === "report" ? (view.run?.result ?? null) : null,
+                    providerLabel:
+                        view.type === "report"
+                            ? (view.run?.provider_label ?? view.run?.provider ?? null)
+                            : null,
+                    model: view.type === "report" ? (view.run?.model ?? null) : null,
                     copied,
                     setCopied,
                 }}

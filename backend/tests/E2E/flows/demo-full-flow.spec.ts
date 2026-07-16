@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { authCard, authTabPanel } from "../helpers/authCard.ts";
+import { postAuthJson } from "../helpers/csrf.ts";
 
 /**
  * UI E2E against the real Laravel app (`scripts/e2e/serve-real.sh`).
@@ -43,11 +44,9 @@ test.describe("Home and launcher UI", () => {
         const health = await request.get("/api/health");
         expect(health.status()).toBe(200);
 
-        const response = await request.post("/api/runs", {
-            data: {
-                launcher: "review-pr",
-                source_url: "https://github.com/laravel/framework/pull/1",
-            },
+        const response = await postAuthJson(request, "/api/runs", {
+            launcher: "review-pr",
+            source_url: "https://github.com/laravel/framework/pull/1",
         });
 
         if (!process.env.OPENAI_API_KEY) {

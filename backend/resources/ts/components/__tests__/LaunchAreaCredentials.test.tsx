@@ -7,9 +7,27 @@ import type { ProviderCredential } from "../../services/auth.ts";
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+const launchProviderCatalog = [
+    {
+        id: "openai" as const,
+        name: "OpenAI",
+        models: ["gpt-4o-mini", "gpt-4o"],
+    },
+    {
+        id: "openrouter" as const,
+        name: "OpenRouter",
+        models: ["openai/gpt-4o-mini"],
+    },
+    { id: "anthropic" as const, name: "Anthropic", models: ["claude-sonnet-4-20250514"] },
+    { id: "gemini" as const, name: "Google Gemini", models: ["gemini-2.0-flash"] },
+];
+
 const baseProps = {
     provider: "openai" as const,
     setProvider: vi.fn(),
+    model: "gpt-4o-mini",
+    setModel: vi.fn(),
+    providerCatalog: launchProviderCatalog,
     apiKey: "",
     setApiKey: vi.fn(),
     launch: vi.fn(),

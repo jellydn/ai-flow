@@ -84,4 +84,49 @@ class AiProviderRegistry
     {
         return isset(self::PROVIDERS[$providerId]);
     }
+
+    public function displayName(?string $providerId): ?string
+    {
+        if ($providerId === null || $providerId === '') {
+            return null;
+        }
+
+        return self::DISPLAY_NAMES[$providerId] ?? $providerId;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function modelsFor(string $providerId): array
+    {
+        if (! isset(self::PROVIDERS[$providerId])) {
+            return [];
+        }
+
+        return (new (self::PROVIDERS[$providerId])(null))->models();
+    }
+
+    public function defaultModel(string $providerId): string
+    {
+        return match ($providerId) {
+            'openai' => (string) config('services.openai.model', 'gpt-4o-mini'),
+            'openrouter' => (string) config('services.openai.openrouter_model', 'openai/gpt-4o-mini'),
+            'anthropic' => (string) config('services.anthropic.model', 'claude-sonnet-4-20250514'),
+            'gemini' => (string) config('services.gemini.model', 'gemini-2.0-flash'),
+            default => $this->modelsFor($providerId)[0] ?? 'gpt-4o-mini',
+        };
+    }
+
+    public function resolveModel(string $providerId, ?string $requested, ?string $credentialDefault = null): string
+    {
+        $allowed = $this->modelsFor($providerId);
+
+        foreach (array_filter([$requested, $credentialDefault]) as $candidate) {
+            if ($candidate !== '' && in_array($candidate, $allowed, true)) {
+                return $candidate;
+            }
+        }
+
+        return $this->defaultModel($providerId);
+    }
 }

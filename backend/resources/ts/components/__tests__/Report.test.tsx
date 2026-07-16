@@ -14,6 +14,8 @@ describe("Report", () => {
                 setCopied={noop}
                 reset={noop}
                 runId="run-1"
+                providerLabel="OpenAI"
+                model="gpt-4o-mini"
                 result={{
                     summary: "Use **bold** and `inline code` in the summary.",
                     risk: "medium",
@@ -35,5 +37,7 @@ describe("Report", () => {
         expect(screen.getByText("first item")).toBeInTheDocument();
         expect(screen.getByText("Policy::check()")).toBeInTheDocument();
         expect(screen.getByText("php artisan test")).toBeInTheDocument();
+        expect(screen.getByText(/Generated with/)).toBeInTheDocument();
+        expect(screen.getAllByText(/OpenAI · gpt-4o-mini/).length).toBeGreaterThanOrEqual(1);
     });
 });

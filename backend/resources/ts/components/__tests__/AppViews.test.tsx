@@ -118,6 +118,9 @@ const baseHomeProps = {
     setApiKey: vi.fn(),
     selectedProvider: "openai" as RunProviderId,
     setSelectedProvider: vi.fn<(provider: RunProviderId) => void>(),
+    selectedModel: "gpt-4o-mini",
+    setSelectedModel: vi.fn(),
+    providerCatalog: [],
     launchers: [],
     navigate: vi.fn<(pathname: string) => void>(),
 };
@@ -132,6 +135,8 @@ const baseRunningData = {
 const baseReportData = {
     runId: null,
     result: null,
+    providerLabel: null,
+    model: null,
     copied: false,
     setCopied: vi.fn(),
 };
@@ -239,6 +244,8 @@ describe("AppViews", () => {
             reportData: {
                 runId: "run-1",
                 result: { summary: "OK" },
+                providerLabel: "OpenAI",
+                model: "gpt-4o",
                 copied: false,
                 setCopied: vi.fn(),
             },

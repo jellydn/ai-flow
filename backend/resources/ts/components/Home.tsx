@@ -12,6 +12,7 @@ import {
 import type { Launcher } from "../types/api.ts";
 import type { RunProviderId } from "../services/run.ts";
 import type { ProviderCredential, User } from "../services/auth.ts";
+import type { ProviderCatalogEntry } from "../lib/runModels.ts";
 import { launcherMetaBySlug } from "../data/launcherMeta.ts";
 import { scrollToSelector } from "../lib/scroll.ts";
 import { LauncherIcon } from "./LauncherIcon.tsx";
@@ -57,6 +58,9 @@ export interface HomeProps {
     setApiKey: (key: string) => void;
     selectedProvider: RunProviderId;
     setSelectedProvider: (provider: RunProviderId) => void;
+    selectedModel: string;
+    setSelectedModel: (model: string) => void;
+    providerCatalog: ProviderCatalogEntry[];
     launchers: Launcher[];
     credentials?: ProviderCredential[];
     selectedCredentialId?: string | null;
@@ -79,6 +83,9 @@ export function Home({
     setApiKey,
     selectedProvider,
     setSelectedProvider,
+    selectedModel,
+    setSelectedModel,
+    providerCatalog,
     launchers,
     credentials,
     selectedCredentialId,
@@ -131,6 +138,9 @@ export function Home({
                     <LaunchArea
                         provider={selectedProvider}
                         setProvider={setSelectedProvider}
+                        model={selectedModel}
+                        setModel={setSelectedModel}
+                        providerCatalog={providerCatalog}
                         apiKey={apiKey}
                         setApiKey={setApiKey}
                         launch={launch}

@@ -33,6 +33,8 @@ interface RunningData {
 interface ReportData {
     runId: string | null;
     result: RunResult | null;
+    providerLabel: string | null;
+    model: string | null;
     copied: boolean;
     setCopied: (v: boolean) => void;
 }
@@ -164,6 +166,8 @@ export function AppViews({
                     reset={onReset}
                     runId={reportData.runId}
                     result={reportData.result}
+                    providerLabel={reportData.providerLabel}
+                    model={reportData.model}
                 />
             )}
 

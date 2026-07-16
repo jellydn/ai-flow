@@ -1,6 +1,7 @@
 import { ArrowRight, Clock3, ShieldCheck, Zap } from "lucide-react";
 import type { RunProviderId } from "../services/run.ts";
 import type { ProviderCredential } from "../services/auth.ts";
+import type { ProviderCatalogEntry } from "../lib/runModels.ts";
 
 const runProviders: { id: RunProviderId; name: string }[] = [
     { id: "openai", name: "OpenAI" },
@@ -12,6 +13,9 @@ const runProviders: { id: RunProviderId; name: string }[] = [
 interface LaunchAreaProps {
     provider: RunProviderId;
     setProvider: (provider: RunProviderId) => void;
+    model: string;
+    setModel: (model: string) => void;
+    providerCatalog: ProviderCatalogEntry[];
     apiKey: string;
     setApiKey: (key: string) => void;
     launch: () => void;
@@ -29,6 +33,9 @@ interface LaunchAreaProps {
 export function LaunchArea({
     provider,
     setProvider,
+    model,
+    setModel,
+    providerCatalog,
     apiKey,
     setApiKey,
     launch,
@@ -41,6 +48,7 @@ export function LaunchArea({
 }: LaunchAreaProps) {
     const hasSavedCredentials = credentials.length > 0;
     const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
+    const modelOptions = providerCatalog.find((entry) => entry.id === provider)?.models ?? [];
     let providerBadge = "Optional";
     if (hasSavedCredentials) {
         providerBadge = "Saved keys";
@@ -52,7 +60,7 @@ export function LaunchArea({
         <>
             {showSignedInStep && (
                 <div className="step-label workflow-label" id="provider-step">
-                    <span>3</span> Choose AI provider &amp; key
+                    <span>3</span> Choose AI provider, model &amp; key
                 </div>
             )}
             {showSignedInStep && (
@@ -92,6 +100,17 @@ export function LaunchArea({
                                                 cred.provider === "gemini")
                                         ) {
                                             setProvider(cred.provider);
+                                            const models =
+                                                providerCatalog.find((p) => p.id === cred.provider)
+                                                    ?.models ?? [];
+                                            if (
+                                                cred.default_model &&
+                                                models.includes(cred.default_model)
+                                            ) {
+                                                setModel(cred.default_model);
+                                            } else if (models[0]) {
+                                                setModel(models[0]);
+                                            }
                                         }
                                     }
                                 }}
@@ -103,6 +122,24 @@ export function LaunchArea({
                                         {cred.label} ({cred.provider}
                                         {cred.is_default ? ", default" : ""})
                                         {cred.masked_key ? ` · ${cred.masked_key}` : ""}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
+                )}
+                {modelOptions.length > 0 && (
+                    <div className="provider-fields provider-fields-single">
+                        <label>
+                            <span>Model</span>
+                            <select
+                                value={modelOptions.includes(model) ? model : modelOptions[0]}
+                                onChange={(event) => setModel(event.target.value)}
+                                aria-label="AI model"
+                            >
+                                {modelOptions.map((item) => (
+                                    <option key={item} value={item}>
+                                        {item}
                                     </option>
                                 ))}
                             </select>

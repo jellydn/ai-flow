@@ -55,7 +55,7 @@ class GeminiProvider implements AIProviderInterface
         }
     }
 
-    public function generate(string $prompt, array $schema): array
+    public function generate(string $prompt, array $schema, ?string $model = null): array
     {
         $key = $this->apiKey;
         if (! $key) {
@@ -67,7 +67,7 @@ class GeminiProvider implements AIProviderInterface
             throw new RuntimeException('The AI provider timeout is not configured.');
         }
 
-        $model = config('services.gemini.model', 'gemini-2.0-flash');
+        $model = $model ?: config('services.gemini.model', 'gemini-2.0-flash');
 
         try {
             $response = Http::acceptJson()

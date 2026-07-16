@@ -11,6 +11,8 @@ interface ReportProps {
     reset: () => void;
     runId: string | null;
     result: RunResult | null;
+    providerLabel: string | null;
+    model: string | null;
 }
 
 export function Report({
@@ -21,6 +23,8 @@ export function Report({
     reset,
     runId,
     result,
+    providerLabel,
+    model,
 }: ReportProps) {
     if (!result) {
         return (
@@ -40,6 +44,14 @@ export function Report({
     const summary = result.summary ?? "";
     const risk = result.risk ?? "medium";
     const checklist = result.verification_steps ?? [];
+    const aiAttribution =
+        providerLabel && model
+            ? `${providerLabel} · ${model}`
+            : providerLabel
+              ? providerLabel
+              : model
+                ? model
+                : null;
 
     const copy = async () => {
         if (!runId) {
@@ -74,6 +86,11 @@ export function Report({
                 <div className="repo-name">
                     <GitFork size={18} /> {repo || "repository"}
                 </div>
+                {aiAttribution ? (
+                    <p className="report-ai-provider">
+                        Generated with <strong>{aiAttribution}</strong>
+                    </p>
+                ) : null}
                 <div className="report-stats">
                     <div>
                         <span>Risk level</span>
@@ -101,6 +118,7 @@ export function Report({
                     <div className="ai-card">
                         <Sparkles size={18} />
                         <strong>AI-generated report</strong>
+                        {aiAttribution ? <p className="ai-card-provider">{aiAttribution}</p> : null}
                         <p>Always verify critical findings before merging.</p>
                     </div>
                 </aside>

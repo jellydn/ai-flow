@@ -27,5 +27,8 @@ interface AIProviderInterface
     /**
      * Generate a structured JSON response from the AI provider.
      */
-    public function generate(string $prompt, array $schema): array;
+    /**
+     * @param  string|null  $model  Override the configured default model for this request.
+     */
+    public function generate(string $prompt, array $schema, ?string $model = null): array;
 }

@@ -134,6 +134,9 @@ export function decodeRun(value: unknown): Run {
         progress,
         result,
         error: assertStringOrNull(data.error, "error"),
+        provider: assertStringOrNull(data.provider, "provider") ?? undefined,
+        provider_label: assertStringOrNull(data.provider_label, "provider_label") ?? undefined,
+        model: assertStringOrNull(data.model, "model") ?? undefined,
         started_at: assertStringOrNull(data.started_at, "started_at"),
         completed_at: assertStringOrNull(data.completed_at, "completed_at"),
         created_at: assertStringOrNull(data.created_at, "created_at") ?? undefined,
@@ -243,14 +246,17 @@ export async function createRun(
     providerId: RunProviderId,
     apiKey: string,
     providerCredentialId?: string,
+    model?: string,
 ): Promise<CreateRunResponse> {
     const trimmedKey = apiKey.trim();
+    const trimmedModel = model?.trim();
     const body = await post("/api/runs", {
         launcher,
         source_url: sourceUrl,
         provider: {
             id: providerId,
             ...(trimmedKey !== "" ? { api_key: trimmedKey } : {}),
+            ...(trimmedModel ? { model: trimmedModel } : {}),
         },
         ...(providerCredentialId ? { provider_credential_id: providerCredentialId } : {}),
     });
