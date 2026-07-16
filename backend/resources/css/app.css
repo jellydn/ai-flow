@@ -1497,6 +1497,27 @@ footer > span {
   accent-color: var(--orange);
 }
 
+/* copy prompt button in findings */
+.copy-prompt-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6f6c64;
+  cursor: pointer;
+  transition: 0.15s;
+}
+.copy-prompt-button:hover {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
+
 /* ── Auth page ──────────────────────────────────────────────── */
 .auth-page {
   min-height: calc(100vh - 74px);

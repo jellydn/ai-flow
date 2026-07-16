@@ -28,6 +28,8 @@ class Run extends Model
         'provider',
         'model',
         'source_url',
+        'repo_slug',
+        'repo_type',
         'status',
         'progress',
         'input',

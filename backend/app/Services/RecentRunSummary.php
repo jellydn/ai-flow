@@ -3,35 +3,24 @@
 namespace App\Services;
 
 use App\Models\Run;
-use InvalidArgumentException;
 
 /**
  * Transform a completed Run into the lightweight summary shape
  * used by the home-page recent-runs endpoint.
  *
- * Reuses GitHubService::parse() for repo slug + type derivation
- * so URL-shape knowledge lives in one module (ADR-0010).
+ * Repo slug and type are stored on the Run at creation time
+ * (RunController::store) — no runtime parsing needed.
  */
 class RecentRunSummary
 {
-    public static function from(Run $run, GitHubService $gitHubService): array
+    public static function from(Run $run): array
     {
-        $sourceUrl = $run->source_url ?? '';
-
-        $repo = null;
-        $type = 'Repository';
-
-        try {
-            $ref = $gitHubService->parse($sourceUrl);
-            $repo = "{$ref->owner}/{$ref->repo}";
-            $type = match ($ref->type) {
-                'pull_request' => 'Pull request',
-                'issue' => 'Issue',
-                default => 'Repository',
-            };
-        } catch (InvalidArgumentException) {
-            // Malformed or unsupported URL — leave repo null, type 'Repository'.
-        }
+        $repo = $run->repo_slug;
+        $type = match ($run->repo_type) {
+            'pull_request' => 'Pull request',
+            'issue' => 'Issue',
+            default => 'Repository',
+        };
 
         $result = $run->result ?? [];
         $findings = isset($result['findings']) ? count($result['findings']) : 0;
