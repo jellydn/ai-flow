@@ -37,7 +37,36 @@ test.describe("Home and launcher UI", () => {
         await expect(page.locator("h1")).toContainText("in flow");
     });
 
+    test("POST /api/runs accepts a valid launch when a provider key is configured", async ({
+        request,
+    }) => {
+        const health = await request.get("/api/health");
+        expect(health.status()).toBe(200);
+
+        const response = await request.post("/api/runs", {
+            data: {
+                launcher: "review-pr",
+                source_url: "https://github.com/laravel/framework/pull/1",
+            },
+        });
+
+        if (!process.env.OPENAI_API_KEY) {
+            expect(response.status()).toBe(422);
+            return;
+        }
+
+        expect(response.status()).toBe(202);
+        const body = await response.json();
+        expect(body).toMatchObject({ status: "queued" });
+        expect(typeof body.id).toBe("string");
+    });
+
     test("launch starts a run and shows the running view", async ({ page }) => {
+        test.skip(
+            !process.env.OPENAI_API_KEY,
+            "Requires OPENAI_API_KEY (or server key) for POST /api/runs",
+        );
+
         await page.goto("/");
 
         await expect(page.locator("h1")).toContainText("in flow");
