@@ -6,7 +6,6 @@ use App\Contracts\AIProviderInterface;
 use App\Contracts\RunExecutorInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -49,10 +48,8 @@ class RunExecutor implements RunExecutorInterface
             RunProgressed::dispatch($run->fresh());
         } catch (Throwable $e) {
             $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
-            $run->update(['status' => 'failed', 'error' => $message, 'source_context' => null, 'completed_at' => now()]);
-            Log::error('Launcher run failed', ['run_id' => $run->id, 'exception' => get_class($e)]);
+            $run->markFailed($message, $e);
             \Sentry\captureException($e);
-            RunProgressed::dispatch($run->fresh());
         }
     }
 

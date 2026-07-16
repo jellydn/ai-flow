@@ -2,10 +2,8 @@
 
 namespace App\Console\Commands;
 
-use App\Events\RunProgressed;
 use App\Models\Run;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Log;
 
 class ReapStuckRuns extends Command
 {
@@ -31,20 +29,9 @@ class ReapStuckRuns extends Command
 
         /** @var Run $run */
         foreach ($stuck as $run) {
-            $run->update([
-                'status' => 'failed',
-                'error' => 'Run timed out.',
-                'source_context' => null,
-                'completed_at' => now(),
-            ]);
+            $run->markFailed('Run timed out.', logContext: 'Reaped stuck run');
 
-            RunProgressed::dispatch($run->fresh());
-
-            Log::warning('Reaped stuck run', [
-                'run_id' => $run->id,
-                'started_at' => $run->started_at,
-                'ttl_seconds' => $ttl,
-            ]);
+            $this->warn("Reaped stuck run: {$run->id} (started {$run->started_at?->diffForHumans()}, ttl={$ttl}s)");
 
             $this->warn("Reaped stuck run: {$run->id}");
         }

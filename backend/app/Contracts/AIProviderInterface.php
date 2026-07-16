@@ -17,6 +17,11 @@ interface AIProviderInterface
     public function models(): array;
 
     /**
+     * Return the configured default model for this provider.
+     */
+    public function defaultModel(): string;
+
+    /**
      * Verify that a given API key is valid by making the smallest
      * practical request to the provider's API.
      *
@@ -26,8 +31,7 @@ interface AIProviderInterface
 
     /**
      * Generate a structured JSON response from the AI provider.
-     */
-    /**
+     *
      * @param  string|null  $model  Override the configured default model for this request.
      */
     public function generate(string $prompt, array $schema, ?string $model = null): array;

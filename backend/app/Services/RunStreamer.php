@@ -32,28 +32,9 @@ class RunStreamer
         while (microtime(true) < $deadline && ! connection_aborted()) {
             $version = Cache::get($versionKey);
 
-            // Cache unavailable (e.g. array driver in tests) — fall back to
-            // unconditional DB refresh so existing behaviour is preserved.
-            if ($version === null) {
-                $encoded = $this->fetchSnapshot($run);
-
-                if ($encoded !== $lastEncoded) {
-                    yield new StreamedEvent(event: 'progress', data: $encoded);
-                    $lastEncoded = $encoded;
-                }
-
-                if ($this->isTerminal($run)) {
-                    yield new StreamedEvent(event: $run->status, data: $encoded);
-
-                    break;
-                }
-
-                usleep($pollIntervalMicroseconds);
-
-                continue;
-            }
-
-            if ($version === $lastVersion) {
+            // Null version = cache unavailable (e.g. array driver in tests).
+            // In that case, always refresh from DB to preserve existing behaviour.
+            if (! $this->shouldRefresh($version, $lastVersion)) {
                 usleep($pollIntervalMicroseconds);
 
                 continue;
@@ -75,6 +56,18 @@ class RunStreamer
 
             usleep($pollIntervalMicroseconds);
         }
+    }
+
+    /**
+     * Decide whether to refresh the snapshot from the database.
+     *
+     * - null version (cache unavailable): always refresh (fallback path)
+     * - version unchanged from last poll: skip DB query, just sleep
+     * - version changed: refresh
+     */
+    private function shouldRefresh(mixed $version, mixed $lastVersion): bool
+    {
+        return $version === null || $version !== $lastVersion;
     }
 
     /**

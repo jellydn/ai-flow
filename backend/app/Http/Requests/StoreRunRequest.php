@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Models\ProviderCredential;
 use App\Services\LaunchAiKeyResolver;
+use App\Services\LaunchParameters;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -73,11 +73,17 @@ class StoreRunRequest extends FormRequest
 
             $resolver = app(LaunchAiKeyResolver::class);
             $registry = app(AiProviderRegistry::class);
-            $providerId = $this->input('provider.id');
-            $oneTimeKey = $this->input('provider.api_key');
-            $credentialId = $this->input('provider_credential_id');
 
-            if ($credentialId && $oneTimeKey) {
+            $params = LaunchParameters::resolve(
+                providerId: $this->input('provider.id'),
+                oneTimeApiKey: $this->input('provider.api_key'),
+                providerCredentialId: $this->input('provider_credential_id'),
+                requestedModel: $this->input('provider.model') ?: $this->input('model'),
+                registry: $registry,
+                keyResolver: $resolver,
+            );
+
+            if ($params->hasCredentialKeyConflict()) {
                 $validator->errors()->add(
                     'provider.api_key',
                     'Choose either a saved credential or a one-time API key, not both.',
@@ -86,7 +92,7 @@ class StoreRunRequest extends FormRequest
                 return;
             }
 
-            if (! $resolver->hasUsableKey($providerId, $oneTimeKey, $credentialId)) {
+            if (! $params->hasUsableKey()) {
                 $validator->errors()->add(
                     'provider.api_key',
                     'No AI provider API key is available. Paste a key, select a saved key (sign in), or configure the provider key on the server.',
@@ -95,43 +101,20 @@ class StoreRunRequest extends FormRequest
                 return;
             }
 
-            $effectiveProvider = $providerId;
-            if ($credentialId) {
-                $credential = ProviderCredential::find($credentialId);
-                $effectiveProvider = $credential?->provider ?? $providerId;
-            }
-            $effectiveProvider = is_string($effectiveProvider) && $effectiveProvider !== ''
-                ? $effectiveProvider
-                : 'openai';
-
-            $requestedModel = $this->input('provider.model') ?: $this->input('model');
-
-            if ($this->user() === null && $effectiveProvider !== AiProviderRegistry::GUEST_PROVIDER) {
+            if ($params->isGuestProviderViolation($this->user() !== null)) {
                 $validator->errors()->add(
                     'provider.id',
                     'Sign in to choose a different AI provider.',
                 );
             }
 
-            if ($this->user() === null && $requestedModel !== AiProviderRegistry::GUEST_MODEL) {
+            if (! $params->isModelAllowed($registry, $this->user() !== null)) {
                 $validator->errors()->add(
                     'provider.model',
-                    'Sign in to choose a different AI model.',
+                    $this->user() !== null
+                        ? 'The model name may only contain letters, numbers, dots, underscores, colons, slashes, and hyphens.'
+                        : 'Sign in to choose a different AI model.',
                 );
-            }
-
-            if ($this->user() !== null && $requestedModel !== null && $requestedModel !== '') {
-                $allowed = $registry->modelsFor($effectiveProvider);
-                if (in_array($requestedModel, $allowed, true)) {
-                    return;
-                }
-
-                if (! preg_match('~^[A-Za-z0-9][A-Za-z0-9._:/-]*$~', $requestedModel)) {
-                    $validator->errors()->add(
-                        'provider.model',
-                        'The model name may only contain letters, numbers, dots, underscores, colons, slashes, and hyphens.',
-                    );
-                }
             }
         });
     }

@@ -36,6 +36,19 @@ return [
     ],
 
     'github' => ['token' => env('GITHUB_TOKEN')],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Shared AI Provider Settings
+    |--------------------------------------------------------------------------
+    | The timeout applies to all AI provider generate() calls. Per-provider
+    | keys and model defaults remain in their own config blocks below.
+    | Backward-compat: falls back to OPENAI_TIMEOUT if AI_TIMEOUT is unset.
+    */
+    'ai' => [
+        'timeout' => env('AI_TIMEOUT', env('OPENAI_TIMEOUT', 30)),
+    ],
+
     'openai' => [
         'key' => env('OPENAI_API_KEY') ?: env('OPENROUTER_API_KEY'),
         'base_url' => env('AI_BASE_URL', 'https://api.openai.com/v1'),

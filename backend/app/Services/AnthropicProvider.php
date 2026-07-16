@@ -2,15 +2,10 @@
 
 namespace App\Services;
 
-use App\Contracts\AIProviderInterface;
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Support\Facades\Http;
-use RuntimeException;
+use Illuminate\Http\Client\PendingRequest;
 
-class AnthropicProvider implements AIProviderInterface
+class AnthropicProvider extends BaseAIProvider
 {
-    public function __construct(private ?string $apiKey = null) {}
-
     public function id(): string
     {
         return 'anthropic';
@@ -26,81 +21,57 @@ class AnthropicProvider implements AIProviderInterface
         ];
     }
 
-    public function verifyCredential(string $apiKey): array
+    protected function configKey(): ?string
     {
-        $key = $apiKey ?: $this->apiKey;
-        if (! $key) {
-            return ['valid' => false, 'message' => 'The AI provider API key is not configured.'];
-        }
-
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $key,
-                'anthropic-version' => '2023-06-01',
-            ])
-                ->acceptJson()
-                ->timeout(10)
-                ->get('https://api.anthropic.com/v1/models', ['limit' => 1]);
-
-            if ($response->status() === 401 || $response->status() === 403) {
-                return ['valid' => false, 'message' => 'Invalid API key.'];
-            }
-
-            if (! $response->successful()) {
-                return ['valid' => false, 'message' => 'Provider verification failed (HTTP '.$response->status().').'];
-            }
-
-            return ['valid' => true, 'message' => 'Credential verified successfully.'];
-        } catch (\Throwable) {
-            return ['valid' => false, 'message' => 'Unable to reach the provider. Check your network and try again.'];
-        }
+        return 'services.anthropic.key';
     }
 
-    public function generate(string $prompt, array $schema, ?string $model = null): array
+    public function defaultModel(): string
     {
-        $key = $this->apiKey;
-        if (! $key) {
-            throw new RuntimeException('The AI provider API key is not configured.');
-        }
+        return (string) config('services.anthropic.model', 'claude-sonnet-4-20250514');
+    }
 
-        $timeout = (int) config('services.openai.timeout');
-        if ($timeout <= 0) {
-            throw new RuntimeException('The AI provider timeout is not configured.');
-        }
+    protected function configureRequest(PendingRequest $http): PendingRequest
+    {
+        return $http->withHeaders([
+            'x-api-key' => $this->resolvedKey,
+            'anthropic-version' => '2023-06-01',
+        ]);
+    }
 
-        try {
-            $response = Http::withHeaders([
-                'x-api-key' => $key,
-                'anthropic-version' => '2023-06-01',
-            ])
-                ->acceptJson()
-                ->timeout($timeout)
-                ->retry(2, 500, throw: false)
-                ->post('https://api.anthropic.com/v1/messages', [
-                    'model' => $model ?: config('services.anthropic.model', 'claude-sonnet-4-20250514'),
-                    'max_tokens' => 4096,
-                    'system' => 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.',
-                    'messages' => [
-                        ['role' => 'user', 'content' => $prompt],
-                    ],
-                ]);
+    protected function endpoint(string $model): string
+    {
+        return 'https://api.anthropic.com/v1/messages';
+    }
 
-            if (in_array($response->status(), [401, 403], true)) {
-                throw new RuntimeException('Invalid API key.');
-            }
-            if (! $response->successful()) {
-                throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
-            }
+    protected function buildPayload(string $prompt, array $schema, string $model): array
+    {
+        return [
+            'model' => $model,
+            'max_tokens' => 4096,
+            'system' => $this->systemMessage(),
+            'messages' => [
+                ['role' => 'user', 'content' => $prompt],
+            ],
+        ];
+    }
 
-            $content = $response->json('content.0.text', '');
-            $json = json_decode($content, true);
-            if (! is_array($json)) {
-                throw new RuntimeException('AI provider returned invalid JSON.');
-            }
+    protected function extractContent(array $response): string
+    {
+        return (string) ($response['content'][0]['text'] ?? '');
+    }
 
-            return $json;
-        } catch (ConnectionException $e) {
-            throw new RuntimeException('Unable to reach the AI provider. Check your network.');
-        }
+    protected function verifyEndpoint(): string
+    {
+        return 'https://api.anthropic.com/v1/models?limit=1';
+    }
+
+    /**
+     * Anthropic relies on prompting alone (no json_schema enforcement),
+     * so append the explicit JSON-only instruction.
+     */
+    protected function systemMessage(): string
+    {
+        return 'Return accurate JSON matching the supplied schema. Output only the JSON, no other text.';
     }
 }

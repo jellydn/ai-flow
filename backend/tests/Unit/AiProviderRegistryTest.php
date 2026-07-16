@@ -96,6 +96,34 @@ class AiProviderRegistryTest extends TestCase
         }
     }
 
+    public function test_default_model_delegates_to_adapter(): void
+    {
+        config()->set('services.openai.model', 'gpt-4o-mini');
+        config()->set('services.openai.openrouter_model', 'openai/gpt-4o-mini');
+        config()->set('services.anthropic.model', 'claude-sonnet-4-20250514');
+        config()->set('services.gemini.model', 'gemini-2.0-flash');
+
+        $this->assertSame('gpt-4o-mini', $this->registry->defaultModel('openai'));
+        $this->assertSame('openai/gpt-4o-mini', $this->registry->defaultModel('openrouter'));
+        $this->assertSame('claude-sonnet-4-20250514', $this->registry->defaultModel('anthropic'));
+        $this->assertSame('gemini-2.0-flash', $this->registry->defaultModel('gemini'));
+    }
+
+    public function test_default_model_falls_back_for_unknown_provider(): void
+    {
+        // Unknown provider returns first model from modelsFor() or 'gpt-4o-mini'
+        $this->assertSame('gpt-4o-mini', $this->registry->defaultModel('groq'));
+    }
+
+    public function test_resolve_model_prefers_requested_then_credential_default(): void
+    {
+        config()->set('services.openai.model', 'gpt-4o-mini');
+
+        $this->assertSame('gpt-4o', $this->registry->resolveModel('openai', 'gpt-4o'));
+        $this->assertSame('gpt-4o-mini', $this->registry->resolveModel('openai', 'invalid-model'));
+        $this->assertSame('gpt-4o', $this->registry->resolveModel('openai', null, 'gpt-4o'));
+    }
+
     public function test_list_includes_display_names(): void
     {
         $list = $this->registry->list();
