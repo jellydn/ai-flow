@@ -1,91 +1,106 @@
 # Technology Stack
 
-**Analysis Date:** 2026-07-15
+## Languages & Runtime
 
-## Languages
+| Layer | Technology | Version |
+|-------|-----------|---------|
+| Backend | **PHP** | 8.4+ |
+| Frontend | **TypeScript** | 5.9.3 |
+| Frontend UI | **React** | 19.2.7 |
+| Runtime | **Node.js** | 24 (CI) |
 
-**Primary:**
-- PHP ^8.4 (runtime constraint in `backend/composer.json`; production image uses PHP 8.5 FPM in `backend/Dockerfile`) — Laravel API, jobs, launchers under `backend/app/`
-- TypeScript 5.9.3 — React SPA under `backend/resources/ts/` (`backend/tsconfig.json`, strict mode)
+## Backend Framework
 
-**Secondary:**
-- CSS — `backend/resources/css/app.css`, loaded from `backend/resources/ts/app.tsx`
-- Shell — deploy/release scripts (`backend/docker/bin/`, repo `scripts/hooks/`)
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `laravel/framework` | ^13.0 | HTTP, queue, Eloquent ORM, auth, validation |
+| `filament/filament` | ^5.0 | Admin panel (super admin for users & launchers) |
+| `laravel/tinker` | ^3.0 | REPL for debugging |
+| `resend/resend-php` | ^1.5 | Transactional email (magic links, password auth) |
+| `sentry/sentry-laravel` | ^4.26 | Error tracking & monitoring |
 
-## Runtime
+## Frontend Tooling
 
-**Environment:**
-- PHP 8.4+ locally/CI (`.github/workflows/ci.yml`); PHP 8.5-FPM in Docker (`backend/Dockerfile`)
-- Node.js 24 — CI (`.github/workflows/ci.yml`), frontend build stage (`backend/Dockerfile`)
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `vite` | 8.1.4 | Build tool & dev server |
+| `@vitejs/plugin-react` | 6.0.3 | React Fast Refresh |
+| `laravel-vite-plugin` | 3.1.3 | Laravel → Vite manifest integration |
+| `typescript` | 5.9.3 | Type checking (`strict` mode) |
+| `oxlint` | ^1.73.0 | Linting (replaces ESLint) |
+| `oxfmt` | ^0.59.0 | Formatting (replaces Prettier) |
+| `konsistent` | ^1.0.0-beta.3 | Structural TS conventions |
 
-**Package Manager:**
-- Composer 2 — PHP (`backend/composer.json`, `backend/composer.lock` present)
-- npm — JavaScript (`backend/package.json`, `backend/package-lock.json` present)
+## Frontend Libraries
 
-## Frameworks
+| Package | Version | Purpose |
+|---------|---------|---------|
+| `react` / `react-dom` | 19.2.7 | UI framework |
+| `lucide-react` | 1.24.0 (pinned) | Icon library |
+| `react-markdown` | ^10.1.0 | Markdown rendering in run reports |
+| `remark-gfm` | ^4.0.1 | GitHub Flavored Markdown support |
+| `@sentry/react` | ^10.65.0 | Client-side error tracking |
+| `consola` | ^3.4.2 | Structured logging |
 
-**Core:**
-- Laravel ^13.0 — HTTP API, auth, queue, Eloquent (`backend/composer.json`, `backend/bootstrap/app.php`, `backend/routes/api.php`)
-- React 19.2.7 — UI (`backend/package.json`, entry `backend/resources/ts/app.tsx`)
+## Development & Quality
 
-**Testing:**
-- PHPUnit ^13.0 — backend (`backend/composer.json`, `backend/tests/`)
-- Vitest ^4.1.10 + Testing Library — unit/component tests (`backend/package.json`, `backend/vitest.config.ts`)
-- Playwright ^1.61.1 — E2E (`backend/package.json`, `backend/tests/E2E/`, `backend/playwright.config.ts`)
+| Tool | Purpose |
+|------|---------|
+| `laravel/pint` (^1.24) | PHP code style (PSR-12) |
+| `phpunit/phpunit` (^13.0) | Backend test framework |
+| `vitest` (^4.1.10) | Frontend test framework |
+| `@playwright/test` (^1.61.1) | E2E browser tests |
+| `@testing-library/react` (^16.3.2) | React component testing |
+| `jsdom` (^29.1.1) | DOM environment for Vitest |
+| `concurrently` (10.0.3) | Run dev servers in parallel |
+| `prek` / `.pre-commit-config.yaml` | Git hooks |
 
-**Build/Dev:**
-- Vite 8.1.4 + `laravel-vite-plugin` 3.1.3 — asset pipeline (`backend/vite.config.ts`, `backend/package.json`)
-- `@vitejs/plugin-react` 6.0.3 — JSX/TSX transform
-- Laravel Pint ^1.24 — PHP style (`backend/composer.json`, CI in `.github/workflows/ci.yml`)
-- oxlint / oxfmt — TS lint/format (repo root `.oxlintrc.json`, `.oxfmtrc.json`; invoked via `backend/package.json` scripts)
-- konsistent ^1.0.0-beta.3 — structural TS conventions (`konsistent.json`)
-- concurrently 10.0.3 — local dev orchestration (`backend/composer.json` `dev` script)
-- laravel/pail ^1.2.2 — log tailing in dev (`backend/composer.json`)
+## Database
 
-## Key Dependencies
+| Environment | Driver | Notes |
+|-------------|--------|-------|
+| Development | **SQLite** (`database/database.sqlite`) | Zero-config local dev |
+| Production | **PostgreSQL** or **MySQL** | Managed (Neon, Dokku Postgres) |
+| Queue | **Database** driver | Jobs table, never `sync` in production |
+| Cache | **File** or **Redis** (`phpredis` client) | Configurable per env |
 
-**Critical:**
-- `laravel/framework` ^13.0 — application core
-- `react` / `react-dom` 19.2.7 — SPA
-- `lucide-react` 1.24.0 — icons (pinned in `backend/package.json`)
-- `sentry/sentry-laravel` ^4.26 — server error reporting (`backend/composer.json`, `backend/config/sentry.php`)
-- `@sentry/react` ^10.65.0 — client error reporting (`backend/resources/ts/app.tsx`)
-- `resend/resend-php` ^1.5 — transactional email for magic links (`backend/.env.example` `MAIL_MAILER=resend`)
+## AI Providers
 
-**Infrastructure (app code, not separate packages):**
-- Laravel HTTP client (`Illuminate\Support\Facades\Http`) — OpenAI/OpenRouter, Anthropic, Gemini, GitHub REST (`backend/app/Services/OpenAIProvider.php`, `backend/app/Services/GitHubContextFetcher.php`)
-- Database queue driver — async runs (`backend/.env.example` `QUEUE_CONNECTION=database`, `backend/app/Jobs/ExecuteLauncherJob.php`)
+| Provider | Adapter Class | Config Key |
+|----------|--------------|------------|
+| OpenAI | `OpenAIProvider` | `services.openai.key` |
+| OpenRouter | `OpenRouterProvider` | `services.openai.openrouter_key` |
+| Anthropic | `AnthropicProvider` | `services.anthropic.key` |
+| Google Gemini | `GeminiProvider` | `services.gemini.key` |
 
-## Configuration
+Default model: `gpt-4o-mini` (overridable via `AI_MODEL` or `OPENAI_MODEL` env vars).
 
-**Environment:**
-- Laravel `.env` / `.env.example` in `backend/` — DB, AI keys, mail, Sentry, CORS (`backend/.env.example`)
-- Vite env: `VITE_DEMO_MODE`, `VITE_SENTRY_DSN` (`backend/.env.example`, `backend/resources/ts/`)
-- Service credentials centralized in `backend/config/services.php` (GitHub, OpenAI, Anthropic, Gemini, Resend)
+## Deployment
 
-**Build:**
-- `backend/vite.config.ts` — Laravel plugin, React, dev server port 5173
-- `backend/tsconfig.json` — ES2022, strict, `noEmit` (typecheck only)
-- `backend/phpunit.xml` — PHP test runner
-- `konsistent.json` — component/hook naming rules at repo root
+| Target | Method | URL |
+|--------|--------|-----|
+| Staging | **Dokku** via `dokku` git remote | `https://ai-flow-staging.itman.fyi` |
+| Alternative | **Laravel Cloud** | N/A |
 
-**Quality gates:**
-- `.github/workflows/ci.yml` — backend + frontend + E2E jobs
-- `.pre-commit-config.yaml` — Pint, typecheck, oxlint, composer validate
+Deploy root is `backend/` (not repo root). Dockerfile builds React assets + nginx/PHP-FPM.
+Release phase runs migrations + seeds.
 
-## Platform Requirements
+## Key Configuration Files
 
-**Development:**
-- PHP 8.4+ with extensions used in CI: mbstring, xml, zip, sqlite3, pgsql (`.github/workflows/ci.yml`)
-- Composer, Node 24, SQLite file `backend/database/database.sqlite` for local default (`backend/.env.example`)
-- Queue worker for real runs: `php artisan queue:work` (documented in `backend/README.md`, `AGENTS.md`)
-
-**Production:**
-- Deploy root **`backend/`** only (`backend/CLOUD_DEPLOY.md`, `backend/DOKKU_DEPLOY.md`)
-- **Dokku (staging):** Dockerfile + nginx/PHP-FPM + separate worker (`backend/Dockerfile`, `backend/Procfile`, `backend/DOKKU_DEPLOY.md`) — e.g. `https://ai-flow-staging.itman.fyi`
-- **Laravel Cloud (alternative):** `composer install --no-dev && npm ci && npm run build`, Postgres, queue worker (`backend/CLOUD_DEPLOY.md`)
-- Postgres/MySQL in production; SQLite rejected when `APP_ENV=production` (`backend/app/Providers/AppServiceProvider.php`)
-
----
-
-*Stack analysis: 2026-07-15*
+| File | Purpose |
+|------|---------|
+| `backend/composer.json` | PHP dependencies |
+| `backend/package.json` | JS/TS dependencies |
+| `backend/tsconfig.json` | TypeScript config (strict) |
+| `backend/vite.config.ts` | Vite build config |
+| `backend/vitest.config.ts` | Vitest test config |
+| `backend/playwright.config.ts` | Playwright E2E config |
+| `backend/phpunit.xml` | PHPUnit config |
+| `backend/.env.example` | Environment template |
+| `backend/Dockerfile` | Container build |
+| `backend/config/services.php` | AI provider keys, email, GitHub |
+| `backend/config/database.php` | DB connections |
+| `backend/config/queue.php` | Queue connections |
+| `.github/workflows/ci.yml` | CI (PHP 8.4 + Node 24) |
+| `.github/workflows/deploy-staging.yml` | Staging deploy |
+| `.pre-commit-config.yaml` | Pre-commit hooks |

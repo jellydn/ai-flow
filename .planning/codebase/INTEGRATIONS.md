@@ -1,104 +1,98 @@
 # External Integrations
 
-**Analysis Date:** 2026-07-15
+## AI Providers
 
-## APIs & External Services
+All providers implement `AIProviderInterface` (`backend/app/Contracts/AIProviderInterface.php`) and extend `BaseAIProvider` (`backend/app/Services/BaseAIProvider.php`). Registered in `AiProviderRegistry` (`backend/app/Support/AiProviderRegistry.php`).
 
-**AI / LLM (workflow output):**
-- OpenAI Chat Completions — default provider (`backend/app/Services/OpenAIProvider.php`, `backend/config/services.php`)
-- OpenRouter — OpenAI-compatible routing (`backend/app/Services/OpenRouterProvider.php`, `backend/app/Support/AiProviderRegistry.php`)
-- Anthropic Messages API (`backend/app/Services/AnthropicProvider.php`)
-- Google Gemini (`backend/app/Services/GeminiProvider.php`)
-- SDK/Client: Laravel `Http` facade (no vendor AI SDK)
-- Auth: server `OPENAI_API_KEY` / `OPENROUTER_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` in `backend/config/services.php`; per-user keys via `provider-credentials` API (`backend/routes/api.php`, stored encrypted — never on run records)
+### OpenAI
+- **Adapter**: `backend/app/Services/OpenAIProvider.php`
+- **Endpoint**: `https://api.openai.com/v1/chat/completions`
+- **Auth**: Bearer token via `Authorization` header
+- **Default model**: `gpt-4o-mini` (configurable via `OPENAI_MODEL` or `AI_MODEL`)
+- **Config keys**: `services.openai.key`, `services.openai.model`, `services.openai.timeout`
+- **Features**: JSON schema enforcement via `response_format`, OpenRouter URL detection removed (ADR-0017)
 
-**GitHub (context for launchers):**
-- GitHub REST API `https://api.github.com` — repos, README, trees, PRs, issues (`backend/app/Services/GitHubContextFetcher.php`, `backend/app/Services/GitHubService.php`)
-- Auth: optional `GITHUB_TOKEN` (`backend/config/services.php` → `services.github.token`)
+### OpenRouter
+- **Adapter**: `backend/app/Services/OpenRouterProvider.php`
+- **Endpoint**: `https://openrouter.ai/api/v1/chat/completions`
+- **Auth**: Bearer token + `HTTP-Referer` + `X-Title` headers
+- **Guest provider**: Unauthenticated users default to OpenRouter with `openrouter/free` model
+- **Config keys**: `services.openai.openrouter_key`, `services.openai.openrouter_model`, `services.openai.openrouter_base_url`
+- **Verify endpoint**: `https://openrouter.ai/api/v1/key`
 
-**Email:**
-- Resend — magic-link sign-in (`backend/.env.example` `MAIL_MAILER=resend`, `backend/app/Http/Controllers/Auth/MagicLinkController.php`, `resend/resend-php` in `backend/composer.json`)
-- Auth: `RESEND_API_KEY`
+### Anthropic
+- **Adapter**: `backend/app/Services/AnthropicProvider.php`
+- **Endpoint**: `https://api.anthropic.com/v1/messages`
+- **Auth**: `x-api-key` header + `anthropic-version: 2023-06-01`
+- **Default model**: `claude-sonnet-4-20250514`
+- **Config keys**: `services.anthropic.key`, `services.anthropic.model`
+- **Verify endpoint**: `https://api.anthropic.com/v1/models?limit=1`
+- **Note**: Relies on system prompt for JSON output (no native JSON schema enforcement)
 
-## Data Storage
+### Google Gemini
+- **Adapter**: `backend/app/Services/GeminiProvider.php`
+- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
+- **Auth**: API key baked into URL as `?key=` query parameter
+- **Default model**: `gemini-2.0-flash`
+- **Config keys**: `services.gemini.key`, `services.gemini.model`
+- **Note**: Relies on system prompt for JSON output (no native JSON schema enforcement)
 
-**Databases:**
-- SQLite — local default (`backend/config/database.php`, `backend/.env.example` `DB_CONNECTION=sqlite`)
-- PostgreSQL — staging/production (Dokku plugin or Neon; `backend/DOKKU_DEPLOY.md`, `backend/CLOUD_DEPLOY.md`)
-- Connection: `DB_CONNECTION`, `DB_URL` or `DB_HOST`/`DB_*`, `DB_SSLMODE` (`backend/.env.example`)
-- Client: Eloquent ORM (Laravel); migrations in `backend/database/migrations/`
+## GitHub REST API
 
-**File Storage:**
-- Local filesystem — `FILESYSTEM_DISK=local` (`backend/.env.example`); Laravel `storage/` and `public/`
+- **Service**: `backend/app/Services/GitHubService.php`
+- **Context fetcher**: `backend/app/Services/GitHubContextFetcher.php`
+- **Context assembler**: `backend/app/Services/GitHubContextAssembler.php`
+- **Trending**: `backend/app/Services/GitHubTrendingService.php`
+- **Endpoint**: `https://api.github.com`
+- **Auth**: Optional `GITHUB_TOKEN` for higher rate limits
+- **Features**:
+  - Parses GitHub URLs into owner/repo references (`GitHubReference` DTO)
+  - Fetches repository context (tree, README, recent commits) with cache
+  - No git clone — REST-only context gathering (ADR-0010)
+  - Context budget shared via `ContextBudget` constants (`backend/app/Services/ContextBudget.php`)
+  - Truncation via `ContextEncoder` to stay within AI token limits
+- **Rate limiting**: Respects GitHub API limits; `GITHUB_TOKEN` recommended in production
 
-**Caching:**
-- Database cache store — `CACHE_STORE=database` (`backend/.env.example`, `backend/config/cache.php` pattern)
+## Email (Resend)
 
-**Sessions:**
-- Database-backed sessions — `SESSION_DRIVER=database` (`backend/.env.example`)
+- **Package**: `resend/resend-php` ^1.5
+- **Usage**: Magic link emails (`backend/app/Mail/MagicLinkMail.php`), super admin bootstrap (`backend/app/Mail/SuperAdminBootstrapMail.php`)
+- **Config**: `services.resend.key`
 
-## Authentication & Identity
+## Error Tracking (Sentry)
 
-**Auth Provider:**
-- Custom Laravel session auth — password register/login (`backend/routes/auth.php`, `backend/app/Http/Controllers/Auth/PasswordAuthController.php`) and email magic links (`backend/app/Http/Controllers/Auth/MagicLinkController.php`, table `magic_login_tokens` in `backend/database/migrations/2026_07_13_000002_create_magic_login_tokens_table.php`)
-- SPA uses cookie session + CSRF on mutating API routes (`backend/routes/api.php` `web` middleware on `POST /api/runs`)
-- Post-verify redirect: `FRONTEND_URL` (`backend/.env.example`, `backend/config/app.php`)
+- **Backend**: `sentry/sentry-laravel` ^4.26 (`backend/config/sentry.php`)
+- **Frontend**: `@sentry/react` ^10.65.0
+- **Usage**: Exception capture in `ExecuteLauncherJob`, `RunExecutor`
 
-## Monitoring & Observability
+## Admin Panel (Filament)
 
-**Error Tracking:**
-- Sentry — optional when DSN set (`SENTRY_LARAVEL_DSN`, `VITE_SENTRY_DSN` in `backend/.env.example`; `backend/config/sentry.php`; `backend/resources/ts/lib/logger.ts` forwards errors to Sentry)
+- **Package**: `filament/filament` ^5.0
+- **Provider**: `backend/app/Providers/Filament/AdminPanelProvider.php`
+- **Resources**:
+  - `LauncherResource` — manage workflow templates (slug, prompt, active status)
+  - `UserResource` — manage users (create, edit, promote super admin)
+- **Access**: Super admin only (guarded by `config/super_admin.php` emails list)
+- **ADR**: 0021
 
-**Logs:**
-- Laravel logging stack (`LOG_CHANNEL=stack` in `backend/.env.example`); `laravel/pail` in local `composer run dev`; job failures captured in `backend/app/Services/RunExecutor.php` via `\Sentry\captureException`
+## Caching
 
-## CI/CD & Deployment
+- **Driver**: File (dev) or Redis (production)
+- **GitHub context cache**: `GitHubContextFetcher` caches repository tree/readme/commits
+- **Run progressed version**: `CacheRunProgressedVersion` listener tracks SSE polling version
 
-**Hosting:**
-- Dokku on VPS — primary staging path (`backend/DOKKU_DEPLOY.md`, git remote `dokku`)
-- Laravel Cloud — documented production alternative (`backend/CLOUD_DEPLOY.md`)
+## Queue
 
-**CI Pipeline:**
-- GitHub Actions — `.github/workflows/ci.yml` (PHP 8.4 tests + Pint, Node 24 typecheck/lint/konsistent/build/vitest, Playwright E2E demo + real-backend auth spec)
+- **Driver**: Database (never `sync` in production)
+- **Job**: `ExecuteLauncherJob` (`backend/app/Jobs/ExecuteLauncherJob.php`)
+- **Worker config**: `--sleep=1 --tries=2 --timeout=120`
+- **Failed jobs**: Stored in `failed_jobs` table (database-uuids)
+- **Reaper**: `ReapStuckRuns` console command cleans up stalled runs
 
-**Container:**
-- Multi-stage `backend/Dockerfile` (Node build → PHP-FPM + nginx)
-- Process types: `backend/Procfile` (`web`, `worker`, `release` migrate/seed)
+## No External Auth Provider
 
-## Environment Configuration
-
-**Required env vars (workflow runs):**
-- `OPENAI_API_KEY` (or user credential / OpenRouter key) — `backend/.env.example`
-- `APP_KEY` — Laravel encryption
-
-**Strongly recommended:**
-- `GITHUB_TOKEN` — rate limits and private repo access
-- `QUEUE_CONNECTION=database` (never `sync` in production — enforced in `backend/app/Providers/AppServiceProvider.php`)
-
-**Production database:**
-- `DB_CONNECTION=pgsql`, `DB_SSLMODE=require`, durable `DB_URL` or discrete vars (`backend/DOKKU_DEPLOY.md`)
-
-**Optional:**
-- `AI_MODEL`, `AI_BASE_URL`, `OPENAI_TIMEOUT`, provider-specific model env vars (`backend/config/services.php`)
-- `RESEND_API_KEY`, `MAIL_FROM_*` for magic links
-- `CORS_ALLOWED_ORIGINS` for SPA origins
-- `VITE_DEMO_MODE` — browser-only simulated runs without queue (`backend/.env.example`)
-
-**Secrets location:**
-- Server/Dokku/Laravel Cloud environment config (not committed); user AI keys in DB via provider credentials API
-
-## Webhooks & Callbacks
-
-**Incoming:**
-- None — no third-party webhook endpoints; user-facing auth callbacks are GET `/auth/magic-link/{token}` (`backend/routes/auth.php`)
-
-**Outgoing:**
-- HTTPS only to OpenAI/OpenRouter, Anthropic, Gemini, GitHub API, Resend API (queued mail)
-- No outbound webhooks to customer systems
-
-**Real-time to clients:**
-- Server-Sent Events — `GET /api/runs/{run}/stream` (`backend/routes/api.php`); Dokku nginx `proxy-buffering off` and extended read timeout (`backend/DOKKU_DEPLOY.md`)
-
----
-
-*Integration audit: 2026-07-15*
+Authentication is entirely self-hosted:
+- **Magic link** (ADR-0015): `MagicLinkController` → `MagicLinkMail` via Resend
+- **Email/password** (ADR-0019): `PasswordAuthController` with Laravel session guard
+- **Session-based**: `web` guard with `session` driver
+- No OAuth, no social login, no JWT
