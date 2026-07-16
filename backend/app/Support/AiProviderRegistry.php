@@ -66,7 +66,7 @@ class AiProviderRegistry
     }
 
     /** @var list<array{id: string, name: string, models: list<string>}>|null */
-    private ?array $cachedList = null;
+    private static ?array $cachedList = null;
 
     /**
      * Get provider metadata (id, display name, models) for all providers.
@@ -75,7 +75,7 @@ class AiProviderRegistry
      */
     public function list(): array
     {
-        return $this->cachedList ??= array_map(function (string $id): array {
+        return self::$cachedList ??= array_map(function (string $id): array {
             $provider = new (self::PROVIDERS[$id])(null);
 
             return [
