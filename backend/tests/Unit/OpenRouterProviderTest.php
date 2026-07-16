@@ -48,6 +48,8 @@ class OpenRouterProviderTest extends TestCase
 
     public function test_verify_credential_fails_with_no_key(): void
     {
+        config()->set('services.openai.openrouter_key', null);
+
         $result = (new OpenRouterProvider)->verifyCredential('');
 
         $this->assertFalse($result['valid']);

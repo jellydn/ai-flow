@@ -109,7 +109,12 @@ class LaunchParameters
             return true;
         }
 
-        if (! $isAuthenticated && $this->requestedModel !== AiProviderRegistry::GUEST_MODEL) {
+        // Guest users always pass with the designated guest model.
+        if (! $isAuthenticated && $this->requestedModel === AiProviderRegistry::GUEST_MODEL) {
+            return true;
+        }
+
+        if (! $isAuthenticated) {
             return false;
         }
 
