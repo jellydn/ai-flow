@@ -17,7 +17,7 @@ class AiProviderRegistryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        $this->registry = new AiProviderRegistry;
+        $this->registry = $this->app->make(AiProviderRegistry::class);
     }
 
     public function test_get_returns_openai_provider(): void

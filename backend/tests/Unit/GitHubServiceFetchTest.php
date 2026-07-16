@@ -3,12 +3,17 @@
 namespace Tests\Unit;
 
 use App\Data\GitHubReference;
-use App\Services\GitHubContextFetcher;
+use App\Services\GitHubService;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
-class GitHubContextFetcherTest extends TestCase
+class GitHubServiceFetchTest extends TestCase
 {
+    private function makeService(): GitHubService
+    {
+        return new GitHubService;
+    }
+
     public function test_fetches_repository_data(): void
     {
         Http::fake([
@@ -18,8 +23,7 @@ class GitHubContextFetcherTest extends TestCase
             '*api.github.com/repos/a/b/git/trees/main*' => Http::response(['tree' => [['path' => 'src/app.php']]]),
         ]);
 
-        $fetcher = new GitHubContextFetcher;
-        $result = $fetcher->fetch(new GitHubReference('a', 'b', 'repository'));
+        $result = $this->makeService()->fetch(new GitHubReference('a', 'b', 'repository'));
 
         $this->assertSame('b', $result['repo']['name']);
         $this->assertSame(['PHP' => 5000], $result['languages']);
@@ -39,8 +43,7 @@ class GitHubContextFetcherTest extends TestCase
             '*api.github.com/repos/a/b/issues/1/comments*' => Http::response([['user' => ['login' => 'r'], 'body' => 'ok']]),
         ]);
 
-        $fetcher = new GitHubContextFetcher;
-        $result = $fetcher->fetch(new GitHubReference('a', 'b', 'pull_request', 1));
+        $result = $this->makeService()->fetch(new GitHubReference('a', 'b', 'pull_request', 1));
 
         $this->assertNotNull($result['pr']);
         $this->assertSame(1, $result['pr']['number']);
@@ -59,8 +62,7 @@ class GitHubContextFetcherTest extends TestCase
             '*api.github.com/repos/a/b/issues/42/comments*' => Http::response([['user' => ['login' => 'h'], 'body' => 'try this']]),
         ]);
 
-        $fetcher = new GitHubContextFetcher;
-        $result = $fetcher->fetch(new GitHubReference('a', 'b', 'issue', 42));
+        $result = $this->makeService()->fetch(new GitHubReference('a', 'b', 'issue', 42));
 
         $this->assertNotNull($result['issue']);
         $this->assertSame(42, $result['issue']['number']);
@@ -76,8 +78,7 @@ class GitHubContextFetcherTest extends TestCase
             '*api.github.com/repos/a/b/git/trees/main*' => Http::response(['tree' => []]),
         ]);
 
-        $fetcher = new GitHubContextFetcher;
-        $result = $fetcher->fetch(new GitHubReference('a', 'b', 'repository'));
+        $result = $this->makeService()->fetch(new GitHubReference('a', 'b', 'repository'));
 
         $this->assertNull($result['readmeContent']);
     }
@@ -92,8 +93,7 @@ class GitHubContextFetcherTest extends TestCase
             '*api.github.com/repos/a/b/git/trees/main*' => Http::response(['tree' => []]),
         ]);
 
-        $fetcher = new GitHubContextFetcher;
-        $fetcher->fetch(new GitHubReference('a', 'b', 'repository'));
+        $this->makeService()->fetch(new GitHubReference('a', 'b', 'repository'));
 
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer ghp_test-token'));
     }
@@ -111,7 +111,7 @@ class GitHubContextFetcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Pull request #42 was not found in a/b.');
 
-        (new GitHubContextFetcher)->fetch(new GitHubReference('a', 'b', 'pull_request', 42));
+        $this->makeService()->fetch(new GitHubReference('a', 'b', 'pull_request', 42));
     }
 
     public function test_maps_missing_repository_to_runtime_exception(): void
@@ -123,7 +123,7 @@ class GitHubContextFetcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('Repository a/missing was not found or is private.');
 
-        (new GitHubContextFetcher)->fetch(new GitHubReference('a', 'missing', 'repository'));
+        $this->makeService()->fetch(new GitHubReference('a', 'missing', 'repository'));
     }
 
     public function test_maps_rate_limit_to_runtime_exception(): void
@@ -135,6 +135,6 @@ class GitHubContextFetcherTest extends TestCase
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('GitHub API rate limit or access denied');
 
-        (new GitHubContextFetcher)->fetch(new GitHubReference('a', 'b', 'repository'));
+        $this->makeService()->fetch(new GitHubReference('a', 'b', 'repository'));
     }
 }

@@ -6,7 +6,7 @@ namespace App\Services;
  * Shared context budget constants.
  *
  * The single source of truth for GitHub context size limits.
- * Both GitHubContextAssembler (initial fetch-time caps) and
+ * Both GitHubService::assemble() (initial fetch-time caps) and
  * ContextEncoder (byte-budget enforcement) reference these
  * so the two truncation passes stay aligned.
  */
@@ -15,7 +15,7 @@ final class ContextBudget
     /** Maximum encoded context size in bytes. */
     public const MAX_CONTEXT_BYTES = 120_000;
 
-    // ── Fetch-time caps (GitHubContextAssembler) ──────────────────────
+    // ── Fetch-time caps (GitHubService::assemble) ────────────────────
 
     /** Max readme excerpt length at fetch time (chars). */
     public const FETCH_README_LIMIT = 50_000;

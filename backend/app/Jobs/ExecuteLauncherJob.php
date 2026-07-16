@@ -4,7 +4,6 @@ namespace App\Jobs;
 
 use App\Models\ProviderCredential;
 use App\Models\Run;
-use App\Services\LaunchAiKeyResolver;
 use App\Services\RunExecutor;
 use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldBeEncrypted;
@@ -43,8 +42,7 @@ class ExecuteLauncherJob implements ShouldBeEncrypted, ShouldQueue
                 return;
             }
 
-            $resolver = app(LaunchAiKeyResolver::class);
-            $apiKey = $resolver->resolve($providerId, $this->apiKey, $this->providerCredentialId);
+            $apiKey = $registry->resolveApiKey($providerId, $this->apiKey, $this->providerCredentialId);
 
             if ($apiKey === null || $apiKey === '') {
                 $run->markFailed('No AI provider API key is available. Paste a key on launch, choose a saved key in API Keys, or configure OPENAI_API_KEY on the server.', logContext: 'Launcher run failed during provider setup');
