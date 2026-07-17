@@ -1,11 +1,23 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="AI Flow">
-  <rect width="64" height="64" rx="16" ry="16" fill="#181714"/>
-  <g fill="none" stroke="#f7f5f0" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M20 20 C30 24 34 40 44 44"/>
-    <path d="M20 44 C30 40 34 24 44 20"/>
-  </g>
-  <circle cx="20" cy="20" r="6" fill="#f7f5f0"/>
-  <circle cx="20" cy="44" r="6" fill="#f7f5f0"/>
-  <circle cx="44" cy="44" r="6" fill="#f26334"/>
-  <circle cx="44" cy="20" r="6" fill="#f26334"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" fill="none">
+  <title>AI Flow</title>
+  <!-- Icon mark: asymmetric rounded square (signature corner cut) -->
+  <path
+    d="M12 0L52 0A12 12 0 0 1 64 12L64 60A4 4 0 0 1 60 64L12 64A12 12 0 0 1 0 52L0 12A12 12 0 0 1 12 0Z"
+    fill="#181714"
+  />
+  <!-- Flow wave lines in orange -->
+  <path
+    d="M14 26C23 19 28 35 37 28S49 35 53 25"
+    stroke="#F26334"
+    stroke-width="3"
+    stroke-linecap="round"
+    fill="none"
+  />
+  <path
+    d="M14 36C23 29 28 45 37 38S49 45 53 35"
+    stroke="#F26334"
+    stroke-width="3"
+    stroke-linecap="round"
+    fill="none"
+  />
 </svg>

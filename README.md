@@ -1,4 +1,9 @@
-<h1 align="center">⚡ AI Flow</h1>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/jellydn/ai-flow/main/backend/public/logo-dark.svg">
+    <img alt="AI Flow" src="https://raw.githubusercontent.com/jellydn/ai-flow/main/backend/public/logo.svg" width="220">
+  </picture>
+</p>
 
 <p align="center">
   <strong>Turn GitHub URLs into structured AI workflows — without writing a prompt.</strong>
@@ -174,7 +179,7 @@ CI runs the backend suite on **PHP 8.4** and the frontend suite on **Node 24**. 
 Try it live at **[ai-flow-staging.itman.fyi](https://ai-flow-staging.itman.fyi)**.
 
 <p align="center">
-  <em>Screenshots coming soon — PRs with beautiful demo captures welcome!</em>
+  <img src="https://raw.githubusercontent.com/jellydn/ai-flow/main/backend/public/demo.png" alt="AI Flow — landing page with launcher cards and URL input" width="800">
 </p>
 
 ---
