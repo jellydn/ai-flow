@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Contracts\AIProviderInterface;
 use App\Events\RunProgressed;
 use App\Models\Run;
+use Illuminate\Http\Client\ConnectionException;
+use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
 
@@ -45,9 +47,22 @@ class RunExecutor
                 'completed_at' => now(),
             ]);
             RunProgressed::dispatch($run->fresh());
+        } catch (InvalidArgumentException $e) {
+            // URL parsing errors (malformed GitHub URLs, unsupported paths)
+            $run->markFailed($e->getMessage(), $e);
+            \Sentry\captureException($e);
+        } catch (ConnectionException $e) {
+            // Network-level failures reaching GitHub
+            $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e);
+            \Sentry\captureException($e);
+        } catch (RuntimeException $e) {
+            // Domain-specific errors with user-friendly messages
+            $run->markFailed($e->getMessage(), $e);
+            \Sentry\captureException($e);
         } catch (Throwable $e) {
-            $message = $e instanceof RuntimeException ? $e->getMessage() : 'Run failed unexpectedly.';
-            $run->markFailed($message, $e);
+            // Unexpected errors — include the exception class for debugging
+            $errorClass = class_basename($e);
+            $run->markFailed("Run failed unexpectedly ({$errorClass}).", $e);
             \Sentry\captureException($e);
         }
     }
