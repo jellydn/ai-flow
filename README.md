@@ -1,66 +1,62 @@
-# AI Flow
+<h1 align="center">⚡ AI Flow</h1>
 
-[![CI](https://github.com/jellydn/ai-flow/actions/workflows/ci.yml/badge.svg)](https://github.com/jellydn/ai-flow/actions/workflows/ci.yml)
-[![GitHub stars](https://img.shields.io/github/stars/jellydn/ai-flow)](https://github.com/jellydn/ai-flow/stargazers)
-[![GitHub license](https://img.shields.io/github/license/jellydn/ai-flow)](LICENSE)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/jellydn/ai-flow/pulls)
+<p align="center">
+  <strong>Turn GitHub URLs into structured AI workflows — without writing a prompt.</strong>
+</p>
 
-> Turn a public GitHub repository, issue, or pull request into a structured AI report—without writing a prompt.
+<p align="center">
+  <a href="https://github.com/jellydn/ai-flow/actions/workflows/ci.yml"><img src="https://github.com/jellydn/ai-flow/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/jellydn/ai-flow/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jellydn/ai-flow" alt="License"></a>
+  <a href="https://github.com/jellydn/ai-flow/stargazers"><img src="https://img.shields.io/github/stars/jellydn/ai-flow?style=social" alt="Stars"></a>
+  <a href="https://github.com/jellydn/ai-flow/pulls"><img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg" alt="PRs welcome"></a>
+  <a href="https://php.net"><img src="https://img.shields.io/badge/PHP-8.4-777bb4?logo=php" alt="PHP 8.4"></a>
+  <a href="https://laravel.com"><img src="https://img.shields.io/badge/Laravel-13-ff2d20?logo=laravel" alt="Laravel 13"></a>
+  <a href="https://react.dev"><img src="https://img.shields.io/badge/React-19-61dafb?logo=react" alt="React 19"></a>
+</p>
 
-[Try the staging app](https://ai-flow-staging.itman.fyi) · [Backend and API guide](backend/README.md) · [Architecture decisions](doc/adr/README.md)
+---
 
-## What AI Flow does
+## What is AI Flow?
 
-AI Flow packages common engineering tasks as reusable **launchers**. Choose a launcher, paste a GitHub URL, and follow the run in real time while a queue worker collects context, calls an AI provider, validates the structured response, and publishes a shareable report.
+**AI Flow** packages common software engineering tasks into reusable **launchers**. Pick a launcher, paste a GitHub URL, and watch as the queue worker gathers context, calls an AI provider, validates the structured response, and delivers a shareable report — all in real time.
 
-Built-in launchers:
+<table>
+<tr>
+<td width="25%"><strong>🔍 Review PR</strong></td>
+<td>Identify risks, findings, and verification steps for any public pull request.</td>
+</tr>
+<tr>
+<td width="25%"><strong>📋 Plan Issue</strong></td>
+<td>Turn a GitHub issue into an actionable implementation plan with tasks.</td>
+</tr>
+<tr>
+<td width="25%"><strong>📖 Explain Repo</strong></td>
+<td>Summarize a public codebase — architecture, structure, and key patterns.</td>
+</tr>
+<tr>
+<td width="25%"><strong>🩺 Laravel Doctor</strong></td>
+<td>Inspect a Laravel project and recommend improvements across conventions, security, and performance.</td>
+</tr>
+</table>
 
-- **Review pull request** — identify risks, findings, and verification steps
-- **Plan GitHub issue** — turn an issue into an actionable implementation plan
-- **Explain repository** — summarize a public codebase and its structure
-- **Laravel project doctor** — inspect a Laravel project and recommend improvements
+Every run produces a **structured, schema-validated report** — not a wall of chat text. Each finding carries a severity label, file references, and concrete fix suggestions. Results are shareable by URL.
 
-Every run includes progress updates, a schema-validated result, timing information, and a dedicated result URL.
+---
 
-## Guest and signed-in access
+## ✨ Why AI Flow?
 
-| Access | Provider and model behavior |
-| --- | --- |
-| **Guest** | Runs use OpenRouter's [`openrouter/free`](https://openrouter.ai/openrouter/free) model router. No provider setup is required. |
-| **Signed in** | Choose OpenAI, OpenRouter, Anthropic, or Gemini; select a suggested model or enter another provider model ID; use a one-time key or an encrypted saved credential. |
+| | AI Flow | Chat-based AI tools |
+|---|---|---|
+| **Output** | Structured JSON → polished report | Free-form markdown |
+| **Prompting** | Zero — pick a launcher | Must craft context manually |
+| **Context** | Automatic GitHub REST fetches | Copy-paste code snippets |
+| **Validation** | JSON Schema enforced | Hope the LLM follows format |
+| **Sharing** | Shareable result URLs | Chat links, screenshots |
+| **Real-time** | SSE progress streaming | Polling or manual refresh |
 
-Only public `https://github.com/...` URLs are accepted. Provider credentials are never stored on runs, logged, or returned by the API. Saved keys are encrypted at rest and decrypted only by the worker executing the run.
+---
 
-## How it works
-
-```text
-Browser
-  │
-  ├─ POST /api/runs ──▶ Laravel API ──▶ database queue
-  │                                          │
-  └─ SSE /api/runs/{id}/stream               ▼
-                                      ExecuteLauncherJob
-                                              │
-                                  GitHub context + AI provider
-                                              │
-                                              ▼
-                                    validated structured report
-```
-
-The repository is a single Laravel 13 application. Laravel serves the React 19 SPA and queue-backed API; Vite builds the TypeScript frontend.
-
-| Layer | Technology |
-| --- | --- |
-| UI | React 19, TypeScript, Vite |
-| API | Laravel 13, PHP 8.4 |
-| Async execution | Laravel database queue and Server-Sent Events |
-| AI | OpenAI, OpenRouter, Anthropic, and Gemini adapters |
-| Storage | SQLite for development; PostgreSQL/MySQL for production |
-| Deployment | Docker/Dokku or Laravel Cloud |
-
-## Local development
-
-Prerequisites: PHP 8.4+, Composer, Node.js 24+, and SQLite.
+## 🚀 Quick Start
 
 ```bash
 git clone https://github.com/jellydn/ai-flow.git
@@ -70,90 +66,146 @@ cp .env.example .env
 composer install
 npm install
 php artisan key:generate
-touch database/database.sqlite
-php artisan migrate --seed
-```
+touch database/database.sqlite && php artisan migrate --seed
 
-Configure at least `OPENROUTER_API_KEY` for guest runs. Add provider keys such as `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GEMINI_API_KEY` when you want their server-side defaults available. `GITHUB_TOKEN` is optional but recommended to avoid GitHub's low anonymous rate limits.
+# Add your API keys
+# Required: OPENROUTER_API_KEY (for guest runs)
+# Optional: OPENAI_API_KEY, GITHUB_TOKEN
 
-Start Laravel, the queue listener, application logs, and Vite together:
-
-```bash
 composer run dev
 ```
 
-Open <http://localhost:8000>.
+Open **http://localhost:8000** and launch your first workflow.
 
-### Run services separately
+> **Prerequisites:** PHP 8.4+, Composer, Node.js 24+, SQLite. See [`backend/README.md`](backend/README.md) for full setup, sign-in, credentials, and API details.
 
-```bash
-php artisan serve
-php artisan queue:work --sleep=1 --tries=2 --timeout=120
-npm run dev
-```
-
-Do not use `QUEUE_CONNECTION=sync` in production. Runs are intentionally asynchronous so GitHub and AI requests never block the HTTP request cycle.
-
-## Quality checks
-
-Run commands from `backend/`:
+### ⚡ API in 30 seconds
 
 ```bash
-php artisan test
-./vendor/bin/pint --test
-
-npm run typecheck
-npm run lint
-npm run konsistent
-npm run build
-npm test
-```
-
-CI runs the backend suite on PHP 8.4 and the frontend suite on Node.js 24.
-
-## API overview
-
-```bash
-# Discover launchers and providers
+# Discover available launchers
 curl http://localhost:8000/api/launchers
-curl http://localhost:8000/api/providers
 
-# Start a guest run (returns 202 + UUID)
+# Start a run (returns 202 + UUID)
 curl -X POST http://localhost:8000/api/runs \
   -H 'Content-Type: application/json' \
-  -d '{
-    "launcher": "explain-repository",
-    "source_url": "https://github.com/laravel/framework"
-  }'
+  -d '{"launcher": "explain-repository", "source_url": "https://github.com/laravel/framework"}'
 
-# Read status or stream progress
+# Check status or stream progress
 curl http://localhost:8000/api/runs/RUN_UUID
 curl -N -H 'Accept: text/event-stream' http://localhost:8000/api/runs/RUN_UUID/stream
 ```
 
-`/api/flows` and `/api/executions` remain backward-compatible aliases for `/api/launchers` and `/api/runs`. See [`backend/README.md`](backend/README.md) for authentication, credentials, run history, rate limits, and complete request behavior.
+---
 
-## Deployment
+## 🧱 Architecture
 
-The deploy root is `backend/`, not the repository root.
+```
+Browser                                 Queue Worker
+  │                                         │
+  ├─ POST /api/runs ──▶ API ──▶ DB Queue ──▶ ExecuteLauncherJob
+  │                         │                    │
+  ├─ SSE /api/runs/{id}/stream               GitHubService
+  │                         │                    │
+  └─ GET /api/runs/{id}    │              AIProviderInterface
+                                        (OpenAI · OpenRouter
+                                         Anthropic · Gemini)
+                                               │
+                                          JsonSchemaValidator
+                                               │
+                                          runs.result ✅
+```
 
-- [Dokku deployment guide](backend/DOKKU_DEPLOY.md)
-- [Laravel Cloud deployment guide](backend/CLOUD_DEPLOY.md)
+| Layer | Stack |
+|---|---|
+| **UI** | React 19, TypeScript, Vite |
+| **API** | Laravel 13, PHP 8.4 |
+| **Async** | Laravel database queue + SSE |
+| **AI** | OpenAI, OpenRouter, Anthropic, Gemini |
+| **Storage** | SQLite (dev), PostgreSQL/MySQL (prod) |
+| **Deploy** | [Dokku](backend/DOKKU_DEPLOY.md) · [Laravel Cloud](backend/CLOUD_DEPLOY.md) |
 
-Production requires a stable shared `APP_KEY`, durable PostgreSQL/MySQL storage, a database queue worker, and provider credentials. Keep the web and worker environments in sync so encrypted queued jobs can be decrypted after deployment.
+---
 
-## Project documentation
+## 🔐 Authentication & Providers
 
-- [`backend/README.md`](backend/README.md) — application setup and API details
-- [`doc/adr/`](doc/adr/README.md) — architecture decision records
-- [`DESIGN.md`](DESIGN.md) — product and interface direction
-- [`backend/DOKKU_DEPLOY.md`](backend/DOKKU_DEPLOY.md) — current staging deployment
-- [`backend/CLOUD_DEPLOY.md`](backend/CLOUD_DEPLOY.md) — Laravel Cloud alternative
+| Access | Behavior |
+|---|---|
+| **Guest** | Uses OpenRouter's free model router. No setup needed. |
+| **Signed in** | Choose any provider (OpenAI, OpenRouter, Anthropic, Gemini), pick a model, and use a one-time key or encrypted saved credential. |
 
-## Contributing
+Provider keys are **never stored on runs, logged, or returned by the API**. Saved credentials are encrypted at rest and decrypted only by the worker executing the run. Only public `https://github.com/...` URLs are accepted.
 
-Issues and pull requests are welcome. Keep changes focused, include tests for behavior changes, and run the relevant checks above before opening a pull request.
+---
 
-## License
+## 🧪 Quality
+
+```bash
+# Backend
+php artisan test                    # 216 tests, 635 assertions
+./vendor/bin/pint --test            # PSR-12
+
+# Frontend
+npm run typecheck                   # tsc --noEmit (strict)
+npm run lint                        # oxlint + oxfmt
+npm run konsistent                  # Structural TS conventions
+npm run build                       # Production build
+npm test                            # Vitest + React Testing Library
+npm run test:e2e                    # Playwright
+```
+
+CI runs the backend suite on **PHP 8.4** and the frontend suite on **Node 24**. Pre-commit hooks via `prek`.
+
+---
+
+## 📚 Documentation
+
+| Document | What it covers |
+|---|---|
+| [`backend/README.md`](backend/README.md) | Full app setup, API reference, auth, credentials, Docker, cloud deploy |
+| [`doc/adr/`](doc/adr/README.md) | Architecture decision records (21 ADRs) |
+| [`DESIGN.md`](DESIGN.md) | Visual identity — colors, typography, components, spacing |
+| [`AGENTS.md`](AGENTS.md) | AI coding assistant guide — conventions, gotchas, commands |
+| [`.planning/codebase/`](.planning/codebase/) | Codebase map — stack, architecture, conventions, testing, concerns |
+
+---
+
+## 🌍 Demo
+
+Try it live at **[ai-flow-staging.itman.fyi](https://ai-flow-staging.itman.fyi)**.
+
+<p align="center">
+  <em>Screenshots coming soon — PRs with beautiful demo captures welcome!</em>
+</p>
+
+---
+
+## 🤝 Contributing
+
+Issues and pull requests are welcome! Here's how:
+
+1. **Fork** the repo and create a feature branch
+2. **Make your changes** — keep them focused and include tests
+3. **Run the checks** — `php artisan test`, `./vendor/bin/pint --test`, `npm run typecheck`, `npm run lint`
+4. **Open a PR** — describe what, why, and how
+
+All contributions are under the [MIT License](LICENSE). See [`AGENTS.md`](AGENTS.md) for AI-assisted development conventions.
+
+---
+
+## 👤 Author
+
+**Dung Huynh** ([@jellydn](https://github.com/jellydn))
+
+- 🔗 [GitHub](https://github.com/jellydn) · [Website](https://productsway.com) · [X](https://x.com/jellydn)
+
+---
+
+## 📄 License
 
 [MIT](LICENSE) © [jellydn](https://github.com/jellydn)
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ using Laravel, React, and a lot of ☕</sub>
+</p>
