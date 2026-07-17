@@ -1,89 +1,58 @@
 # Concerns
 
-## No TODO/FIXME/HACK Comments
+## Current State
 
-A comprehensive search across all PHP and TypeScript source files found **zero** TODO, FIXME, HACK, or XXX comments. The codebase is well-maintained with no deferred debt markers.
+**Codebase health**: ✅ Green — 216/216 tests passing, Pint clean (137 files), oxlint/oxfmt clean, TypeScript strict mode compiles, CI all green.
 
-## Technical Debt & Architectural Notes
+- **PHP**: 70 files, 4,079 lines
+- **TypeScript**: 47 files, 4,847 lines
+- **Test files**: 29 PHP + 8 TS + 4 E2E
+- **TODO/FIXME**: 0 found in codebase
 
-### 1. `CacheRunProgressedVersion` — Redis dependency awareness
-- **File**: `backend/app/Listeners/CacheRunProgressedVersion.php`
-- The SSE polling uses `CacheRunProgressedVersion` to skip DB queries when nothing changed. If the cache driver is `file` (default in dev) but the production env uses Redis, the cache behavior differs. This is a known design choice, not a bug, but worth noting for production debugging.
+## Architecture Notes
 
-### 2. SSE polling window (~55s)
-- **Files**: `backend/app/Services/RunStreamer.php`, `backend/routes/api.php`
-- The SSE stream polls the database every ~500ms and has a finite window (~55 seconds). Long-running AI calls may exceed this. The nginx `proxy-read-timeout` is set to 75s for Dokku, but there's no explicit reconnect mechanism in the frontend if the stream closes prematurely. (ADR-0013 acknowledges this trade-off vs WebSockets.)
+### Resolved Concerns
+1. **Thin helper classes** — `GitHubContextFetcher`, `GitHubContextAssembler`, `LaunchAiKeyResolver` were merged into their primary consumers (`GitHubService`, `AiProviderRegistry`). Eliminated 3 source files.
+2. **Speculative interface** — `RunExecutorInterface` (single implementation) deleted. Concrete `RunExecutor` type-hinted directly.
+3. **`RecentRunSummary` coupling** — No longer depends on `GitHubService`; `repo_slug` and `repo_type` stored on `Run` at creation time.
 
-### 3. SQLite in development vs production Postgres
-- **File**: `backend/config/database.php`
-- Local dev uses SQLite (`database/database.sqlite`), but production uses managed Postgres/MySQL. SQLite has different concurrency semantics (single-writer lock). Queue workers + HTTP requests in dev may encounter `database is locked` errors under heavy load. This is an accepted dev trade-off.
+### Current Concerns
+1. **`GitHubService` is now ~200+ lines** — previously split into fetcher + assembler. Merging was intentional (always used together), but the combined class should be monitored for growth. Split again if it exceeds ~400 lines or gains independent callers.
+2. **No dark mode** — intentional per DESIGN.md (dark accent sections only), but users may expect a toggle.
+3. **Staging deploy serialization** — Dokku deploys are serialized across PRs (`fix(ci): serialize staging Dokku deploys` — commit `c70ab3e`). This means deploy queue can back up during active development.
 
-### 4. BYOK credential encryption — key rotation risk
-- **Files**: `backend/app/Security/CredentialCipher.php`, `backend/config/app.php`
-- User-provided API keys are encrypted with AES-256-CBC using `APP_KEY`. If `APP_KEY` is rotated (e.g., after a security incident), all stored credentials become unreadable. There is no re-encryption mechanism. This is a standard Laravel encryption trade-off, but worth documenting.
+## Deploy Notes
+- **Staging**: `ai-flow-staging.itman.fyi` via Dokku (auto-deploy from `dokku` remote)
+- **Production**: Not yet deployed (Laravel Cloud ready, see `CLOUD_DEPLOY.md`)
+- **Worker**: `QUEUE_CONNECTION=database` with `php artisan queue:work --sleep=1 --tries=2 --timeout=120`
+- **SSE**: Nginx `proxy-buffering` disabled, `proxy-read-timeout 75s` required
 
-### 5. Guest run model selection enforcement is split
-- **Files**: `backend/app/Http/Requests/StoreRunRequest.php`, `backend/app/Services/LaunchParameters.php`
-- Guest provider/model restrictions are enforced in two places:
-  - `StoreRunRequest::prepareForValidation()` — forces `openrouter` / `openrouter/free` for unauthenticated users
-  - `LaunchParameters::isGuestProviderViolation()` / `isModelAllowed()` — validates in the request validator
-  - If someone adds a new API endpoint that creates runs without going through `StoreRunRequest`, the guest restriction would need to be re-implemented there.
+## Rate Limits
+| Limiter | Threshold |
+|---|---|
+| Create runs (API) | 5/hr per IP |
+| SSE streams | 30/min per IP |
+| Magic link requests | 3/min per IP |
+| Credential operations | 10/min per user |
 
-### 6. Frontend test coverage is sparse
-- **Files**: `backend/resources/ts/components/__tests__/`, `backend/resources/ts/lib/__tests__/`
-- Only 5 test files exist: `AppViews.test.tsx`, `HomeSubComponents.test.tsx`, `LaunchAreaCredentials.test.tsx`, `Report.test.tsx`, `runModels.test.ts`
-- Missing coverage: `LaunchArea.tsx` (the main input form), `App.tsx` (root routing), `Dashboard.tsx`, `Header.tsx`, hooks (`useRunFromPath`, `useRunSubscription`), services (`run.ts`, `auth.ts`)
-- CI `npm test` is a no-op — Vitest is configured but tests aren't run in CI
+## Security Notes
+- Provider API keys: never stored on runs, never logged, encrypted at rest via `CredentialCipher`
+- Queue jobs: encrypted (`ShouldBeEncrypted`) — protects BYOK keys in database queue
+- GitHub URLs: only HTTPS accepted, validated via `PublicHttpUrl` rule
+- CSS injection: React renders markdown via `react-markdown` with `remark-gfm`; no raw HTML
 
-### 7. `ContextBudget` constants — adoption verification needed
-- **Files**: `backend/app/Services/ContextBudget.php`, `backend/app/Services/GitHubContextAssembler.php`, `backend/app/Services/ContextEncoder.php`
-- `ContextBudget` is a new constants class (from architecture deepening). Only `GitHubContextAssembler` and `ContextEncoder` currently reference it. Other context-related services (`GitHubContextFetcher`, `GitHubService`) may have independent truncation that should reference `ContextBudget` for consistency.
+## Performance Notes
+- **GitHub context caching**: `GitHubService` caches fetched repository context
+- **Database queue**: in-memory by default (SQLite), durable in production
+- **SSE window**: ~55 seconds before connection close; long runs may require reconnect
+- **No image assets**: all icons via `lucide-react` (SVG), no raster images in UI
 
-### 8. RecentRunSummary — potential for stale data
-- **File**: `backend/app/Services/RecentRunSummary.php`
-- The `recent()` endpoint transforms runs in-memory via `RecentRunSummary::from($run)`. It does not cache the result. With 6 runs per page this is negligible, but if pagination is added later, caching should be considered.
+## Known Limitations
+1. **No multi-tenancy**: Single app instance; all users share the same database
+2. **No horizontal scaling**: Queue worker is single-threaded; scale by adding more workers
+3. **Public repos only**: Private GitHub repos not supported (auth scope limited)
+4. **`turso/libsql-laravel` not Laravel 13 compatible** — production uses managed Postgres/MySQL
+5. **SSR not implemented**: SPA only; no server-side rendering for share URLs
 
-## Performance Considerations
-
-### 9. GitHub context assembly is synchronous in the job
-- **File**: `backend/app/Jobs/ExecuteLauncherJob.php`
-- The entire GitHub context fetch + assembly runs in a single queued job. For very large repositories, fetching tree, README, and recent commits could take several seconds. There's no chunking or incremental context delivery. Acceptable given the ~120s job timeout and caching, but worth monitoring.
-
-### 10. No context size guard for AI prompts
-- **File**: `backend/app/Services/ContextEncoder.php`
-- `ContextEncoder::truncate()` uses `ContextBudget::MAX_CONTEXT_CHARS` but there's no pre-flight check to warn if the assembled context exceeds model token limits. The AI call would fail with a token-limit error, which is caught and surfaced as a run failure. A pre-flight estimate could provide a better UX.
-
-## Security Considerations
-
-### 11. API keys passed as constructor arguments
-- **Files**: All provider adapters (`OpenAIProvider`, `OpenRouterProvider`, `AnthropicProvider`, `GeminiProvider`)
-- API keys are passed to provider constructors as plain strings. While they're never logged or stored on runs (only credential IDs are stored), a stack trace in an error handler could accidentally expose a key. Sentry is configured, but care must be taken that Sentry's `before_send` scrubs API keys from stack traces.
-
-### 12. Public runs have no abuse prevention beyond rate limiting
-- **Files**: `backend/app/Http/Requests/StoreRunRequest.php`, `backend/app/Providers/AppServiceProvider.php`
-- Unauthenticated users can create runs at 5/hour/IP (rate limiter: `runs`). There's no content filtering on `source_url` beyond HTTPS + GitHub domain validation. Malicious URLs could theoretically probe internal services if the GitHub fetcher follows redirects.
-
-### 13. `LaunchAiKeyResolver` resolves keys from config
-- **File**: `backend/app/Services/LaunchAiKeyResolver.php`
-- When no injected key or credential is available, the resolver falls back to `config('services.{provider}.key')`. If a server-side API key is configured, every unauthenticated run consumes that key's quota. The guest model `openrouter/free` mitigates cost but the server key is still used as the auth mechanism.
-
-## Dependency & Upgrade Notes
-
-### 14. Laravel 13 + `turso/libsql-laravel` incompatibility
-- Turso's Laravel driver doesn't support Laravel 13 yet. Production uses managed Postgres/MySQL instead of SQLite. (Noted in `AGENTS.md`.)
-
-### 15. Pinned versions
-- `lucide-react` pinned at 1.24.0
-- `react` / `react-dom` pinned at 19.2.7
-- `vite` pinned at 8.1.4
-- These are intentionally pinned to prevent breaking changes from icon/library updates.
-
-## Areas for Future Improvement
-
-| Area | Priority | Notes |
-|------|----------|-------|
-| Frontend test coverage | Medium | Vitest configured but few tests exist; CI `npm test` is a no-op |
-| Pre-flight token estimation | Low | Warn before AI calls if context exceeds model limits |
-| Credential re-encryption | Low | Handle APP_KEY rotation for stored BYOK credentials |
-| Pagination for recent runs | Low | Currently hardcoded to 6; pagination would need caching strategy |
-| WebSocket upgrade from SSE | Low | ADR-0013 chose SSE for simplicity; WebSockets would eliminate polling overhead |
+## Open PRs (non-Renovate)
+- **#15** `ci/vercel` — deploy SPA to Vercel and wire production API. Has merge conflicts, stale (opened earlier). Needs manual review or closure.
