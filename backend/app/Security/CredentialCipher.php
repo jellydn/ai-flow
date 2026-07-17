@@ -2,15 +2,39 @@
 
 namespace App\Security;
 
-use Illuminate\Support\Facades\Crypt;
+use Illuminate\Encryption\Encrypter;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class CredentialCipher
 {
+    private Encrypter $encrypter;
+
+    public function __construct()
+    {
+        $key = (string) config('credentials.encryption_key');
+        $cipher = (string) config('app.cipher', 'AES-256-CBC');
+
+        // An explicitly-empty CREDENTIAL_ENCRYPTION_KEY= in .env would
+        // suppress the fallback and produce a zero-length key. Guard
+        // against that by treating empty string the same as unset.
+        if ($key === '') {
+            $key = (string) config('app.key');
+        }
+
+        // Parse the key: strip the "base64:" prefix if present (same format as APP_KEY).
+        if (Str::startsWith($key, 'base64:')) {
+            $key = base64_decode(Str::after($key, 'base64:'));
+        }
+
+        $this->encrypter = new Encrypter($key, $cipher);
+    }
+
     /**
      * Encrypt a plaintext API key for database storage.
      *
-     * Uses Laravel's Crypt facade (authenticated AES-256 encryption via APP_KEY).
+     * Uses a dedicated encryption key (CREDENTIAL_ENCRYPTION_KEY), falling
+     * back to APP_KEY, with authenticated AES-256 encryption.
      */
     public function encrypt(string $plaintext): string
     {
@@ -18,7 +42,7 @@ class CredentialCipher
             throw new RuntimeException('Cannot encrypt an empty credential.');
         }
 
-        return Crypt::encryptString($plaintext);
+        return $this->encrypter->encryptString($plaintext);
     }
 
     /**
@@ -28,7 +52,7 @@ class CredentialCipher
      */
     public function decrypt(string $ciphertext): string
     {
-        return Crypt::decryptString($ciphertext);
+        return $this->encrypter->decryptString($ciphertext);
     }
 
     /**

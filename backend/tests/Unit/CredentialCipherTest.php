@@ -18,14 +18,15 @@ class CredentialCipherTest extends TestCase
 
     public function test_encrypt_and_decrypt_round_trip(): void
     {
-        config()->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
+        config()->set('credentials.encryption_key', 'base64:'.base64_encode(random_bytes(32)));
+        $cipher = new CredentialCipher;
 
         $plaintext = 'sk-test-key-12345';
-        $encrypted = $this->cipher->encrypt($plaintext);
+        $encrypted = $cipher->encrypt($plaintext);
 
         $this->assertNotSame($plaintext, $encrypted);
         $this->assertGreaterThan(0, strlen($encrypted), 'Encrypted output should not be empty.');
-        $this->assertSame($plaintext, $this->cipher->decrypt($encrypted));
+        $this->assertSame($plaintext, $cipher->decrypt($encrypted));
     }
 
     public function test_empty_plaintext_throws(): void
