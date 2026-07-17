@@ -72,6 +72,9 @@ class ProviderCredentialController extends Controller
         if ($request->has('default_model')) {
             $credential->default_model = $request->validated('default_model');
         }
+        if ($request->has('metadata')) {
+            $credential->metadata = $request->validated('metadata');
+        }
         if ($request->has('is_default')) {
             $credential->is_default = $request->boolean('is_default');
         }

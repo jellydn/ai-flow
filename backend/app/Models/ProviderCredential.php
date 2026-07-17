@@ -17,6 +17,12 @@ class ProviderCredential extends Model
         'encrypted_api_key',
         'encrypted_base_url',
         'default_model',
+        /**
+         * Reserved for future per-provider configuration (e.g., organization
+         * ID for OpenAI, project for Anthropic). A free-form JSON object
+         * stored as JSONB in PostgreSQL / TEXT in SQLite. Currently unused
+         * but exposed via the API for forward compatibility.
+         */
         'metadata',
         'is_default',
         'last_verified_at',

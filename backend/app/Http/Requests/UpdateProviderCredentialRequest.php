@@ -20,6 +20,7 @@ class UpdateProviderCredentialRequest extends FormRequest
             'base_url' => ['nullable', 'url', 'max:2048', new PublicHttpUrl],
             'default_model' => ['nullable', 'string', 'max:255'],
             'is_default' => ['sometimes', 'boolean'],
+            'metadata' => ['nullable', 'array'],
         ];
     }
 }
