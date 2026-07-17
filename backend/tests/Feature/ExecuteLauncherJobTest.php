@@ -194,7 +194,7 @@ class ExecuteLauncherJobTest extends TestCase
         });
     }
 
-    public function test_run_executor_hides_non_allowlisted_invalid_argument_messages(): void
+    public function test_run_executor_exposes_invalid_argument_messages_safely(): void
     {
         $this->seed();
         $run = Run::create([
@@ -207,10 +207,10 @@ class ExecuteLauncherJobTest extends TestCase
         $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
         $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
         $ai = Mockery::mock(AIProviderInterface::class);
-        $ai->shouldReceive('generate')->andThrow(new \InvalidArgumentException('Internal parser detail.'));
+        $ai->shouldReceive('generate')->andThrow(new \InvalidArgumentException('A public HTTPS github.com repository URL is required.'));
 
         (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
-        $this->assertSame('Run failed unexpectedly.', $run->fresh()->error);
+        $this->assertSame('A public HTTPS github.com repository URL is required.', $run->fresh()->error);
     }
 }
