@@ -2180,6 +2180,7 @@ footer > span {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
   padding: 15px 18px;
   border-bottom: 1px solid #e9e6df;
   transition: 0.15s;
@@ -2189,6 +2190,18 @@ footer > span {
 }
 .run-item:hover {
   background: #faf8f3;
+}
+.run-error {
+  display: block;
+  flex-basis: 100%;
+  padding: 9px 14px;
+  margin: 0 0 12px;
+  background: #fef4f4;
+  border: 1px solid #f0d0d0;
+  border-radius: 7px;
+  color: #b93838;
+  font-size: 11px;
+  line-height: 1.5;
 }
 .run-meta {
   display: flex;
