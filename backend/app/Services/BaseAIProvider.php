@@ -47,6 +47,12 @@ abstract class BaseAIProvider implements AIProviderInterface
      */
     protected const VERIFY_TIMEOUT_SECONDS = 10;
 
+    /**
+     * Maximum characters to include from a malformed AI response
+     * in the error message preview (prevents bloated exception messages).
+     */
+    protected const MAX_ERROR_PREVIEW_LENGTH = 200;
+
     public function __construct(
         protected ?string $apiKey = null,
     ) {}
@@ -131,7 +137,7 @@ abstract class BaseAIProvider implements AIProviderInterface
             $json = json_decode($raw, true);
             if (! is_array($json)) {
                 $error = json_last_error_msg();
-                $preview = mb_substr($raw, 0, 200);
+                $preview = mb_substr($raw, 0, self::MAX_ERROR_PREVIEW_LENGTH);
                 throw new RuntimeException("AI provider returned invalid JSON (json error: {$error}, preview: {$preview}).");
             }
 
