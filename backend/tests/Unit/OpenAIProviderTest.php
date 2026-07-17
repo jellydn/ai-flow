@@ -101,7 +101,7 @@ class OpenAIProviderTest extends TestCase
         ])]);
 
         $this->expectException(RuntimeException::class);
-        $this->expectExceptionMessage('AI provider returned invalid JSON.');
+        $this->expectExceptionMessage('AI provider returned invalid JSON (json error: Syntax error, preview: not json at all).');
 
         (new OpenAIProvider('test-key'))->generate('Inspect.', ['type' => 'object']);
     }

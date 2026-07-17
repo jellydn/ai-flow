@@ -116,6 +116,9 @@ export function RunHistory({ navigate }: RunHistoryProps) {
                                         : "—"}
                                 </span>
                             </div>
+                            {run.status === "failed" && run.error && (
+                                <div className="run-error">{run.error}</div>
+                            )}
                             <div className="run-actions">
                                 <button
                                     type="button"

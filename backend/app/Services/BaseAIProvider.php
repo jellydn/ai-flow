@@ -127,9 +127,12 @@ abstract class BaseAIProvider implements AIProviderInterface
                 throw new RuntimeException('AI provider request failed (HTTP '.$response->status().').');
             }
 
-            $json = json_decode($this->extractContent($response->json() ?? []), true);
+            $raw = $this->extractContent($response->json() ?? []);
+            $json = json_decode($raw, true);
             if (! is_array($json)) {
-                throw new RuntimeException('AI provider returned invalid JSON.');
+                $error = json_last_error_msg();
+                $preview = mb_substr($raw, 0, 200);
+                throw new RuntimeException("AI provider returned invalid JSON (json error: {$error}, preview: {$preview}).");
             }
 
             return $json;

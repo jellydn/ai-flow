@@ -1,98 +1,89 @@
-# External Integrations
+# Integrations
 
 ## AI Providers
 
-All providers implement `AIProviderInterface` (`backend/app/Contracts/AIProviderInterface.php`) and extend `BaseAIProvider` (`backend/app/Services/BaseAIProvider.php`). Registered in `AiProviderRegistry` (`backend/app/Support/AiProviderRegistry.php`).
-
 ### OpenAI
-- **Adapter**: `backend/app/Services/OpenAIProvider.php`
-- **Endpoint**: `https://api.openai.com/v1/chat/completions`
-- **Auth**: Bearer token via `Authorization` header
-- **Default model**: `gpt-4o-mini` (configurable via `OPENAI_MODEL` or `AI_MODEL`)
-- **Config keys**: `services.openai.key`, `services.openai.model`, `services.openai.timeout`
-- **Features**: JSON schema enforcement via `response_format`, OpenRouter URL detection removed (ADR-0017)
+- **Class**: `app/Services/OpenAIProvider.php` extends `BaseAIProvider`
+- **SDK**: `openai-php/client` (via Composer)
+- **Config**: `OPENAI_API_KEY`, `OPENAI_MODEL` (default: `gpt-4o-mini`, `.env.example` bumps to `gpt-5`)
+- **Auth**: Server key or BYOK (per-run, never stored)
 
 ### OpenRouter
-- **Adapter**: `backend/app/Services/OpenRouterProvider.php`
-- **Endpoint**: `https://openrouter.ai/api/v1/chat/completions`
-- **Auth**: Bearer token + `HTTP-Referer` + `X-Title` headers
-- **Guest provider**: Unauthenticated users default to OpenRouter with `openrouter/free` model
-- **Config keys**: `services.openai.openrouter_key`, `services.openai.openrouter_model`, `services.openai.openrouter_base_url`
-- **Verify endpoint**: `https://openrouter.ai/api/v1/key`
+- **Class**: `app/Services/OpenRouterProvider.php` extends `BaseAIProvider`
+- **API**: `https://openrouter.ai/api/v1/chat/completions`
+- **Config**: `OPENROUTER_API_KEY`
+- **Guest runs**: Forced to `openrouter/free` model router
+- **Model list**: Fetched from `/api/v1/models` at boot, cached
 
 ### Anthropic
-- **Adapter**: `backend/app/Services/AnthropicProvider.php`
-- **Endpoint**: `https://api.anthropic.com/v1/messages`
-- **Auth**: `x-api-key` header + `anthropic-version: 2023-06-01`
-- **Default model**: `claude-sonnet-4-20250514`
-- **Config keys**: `services.anthropic.key`, `services.anthropic.model`
-- **Verify endpoint**: `https://api.anthropic.com/v1/models?limit=1`
-- **Note**: Relies on system prompt for JSON output (no native JSON schema enforcement)
+- **Class**: `app/Services/AnthropicProvider.php` extends `BaseAIProvider`
+- **API**: `https://api.anthropic.com/v1/messages`
+- **Config**: `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` (default: `claude-sonnet-4-20250514`)
+- **Note**: Uses Messages API, not Completions
 
-### Google Gemini
-- **Adapter**: `backend/app/Services/GeminiProvider.php`
-- **Endpoint**: `https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent`
-- **Auth**: API key baked into URL as `?key=` query parameter
-- **Default model**: `gemini-2.0-flash`
-- **Config keys**: `services.gemini.key`, `services.gemini.model`
-- **Note**: Relies on system prompt for JSON output (no native JSON schema enforcement)
+### Gemini
+- **Class**: `app/Services/GeminiProvider.php` extends `BaseAIProvider`
+- **Config**: `GEMINI_API_KEY`, `GEMINI_MODEL` (default: `gemini-2.0-flash`)
+
+### Provider Registry
+- **Class**: `app/Support/AiProviderRegistry.php`
+- **Role**: Canonical source for provider→config mapping, API key resolution, usability checks
+- **Key resolution**: `resolveApiKey()` — checks run-level BYOK → user-level saved credential → server env key
+- **Provider IDs**: Sourced from `AiProviderRegistry::ids()`, not a config array
 
 ## GitHub REST API
 
-- **Service**: `backend/app/Services/GitHubService.php`
-- **Context fetcher**: `backend/app/Services/GitHubContextFetcher.php`
-- **Context assembler**: `backend/app/Services/GitHubContextAssembler.php`
-- **Trending**: `backend/app/Services/GitHubTrendingService.php`
-- **Endpoint**: `https://api.github.com`
-- **Auth**: Optional `GITHUB_TOKEN` for higher rate limits
-- **Features**:
-  - Parses GitHub URLs into owner/repo references (`GitHubReference` DTO)
-  - Fetches repository context (tree, README, recent commits) with cache
-  - No git clone — REST-only context gathering (ADR-0010)
-  - Context budget shared via `ContextBudget` constants (`backend/app/Services/ContextBudget.php`)
-  - Truncation via `ContextEncoder` to stay within AI token limits
-- **Rate limiting**: Respects GitHub API limits; `GITHUB_TOKEN` recommended in production
+- **Service**: `app/Services/GitHubService.php`
+- **Purpose**: Fetch repository context (file tree, README, directory structure) for AI report generation
+- **Auth**: `GITHUB_TOKEN` (optional, recommended for rate limits)
+- **Caching**: Context is cached to reduce API calls
+- **Parsing**: Validates and parses GitHub URLs (repo, PR, issue), strips `.git` suffix
+- **Input constraint**: Only `https://github.com/...` URLs accepted
 
 ## Email (Resend)
 
-- **Package**: `resend/resend-php` ^1.5
-- **Usage**: Magic link emails (`backend/app/Mail/MagicLinkMail.php`), super admin bootstrap (`backend/app/Mail/SuperAdminBootstrapMail.php`)
-- **Config**: `services.resend.key`
+- **SDK**: `resend/resend-php`
+- **Config**: `RESEND_API_KEY`
+- **Use cases**:
+  - Magic link authentication emails
+  - Super admin bootstrap password emails
+- **Rate limiting**: Magic link endpoint: 3 requests/min/IP
 
-## Error Tracking (Sentry)
+## Error Monitoring (Sentry)
 
-- **Backend**: `sentry/sentry-laravel` ^4.26 (`backend/config/sentry.php`)
-- **Frontend**: `@sentry/react` ^10.65.0
-- **Usage**: Exception capture in `ExecuteLauncherJob`, `RunExecutor`
+- **SDK**: `sentry/sentry-laravel` (backend), `@sentry/react` (frontend)
+- **Config**: `SENTRY_LARAVEL_DSN`, `VITE_SENTRY_DSN`
+- **Behavior**: No-op when DSNs are unset (optional integration)
+
+## Database
+
+| Environment | Driver | Config |
+|---|---|---|
+| Development | SQLite | `database/database.sqlite` |
+| Production | PostgreSQL (Neon) | `DB_CONNECTION=pgsql`, `DB_SSLMODE=require` |
+| Production (alt) | MySQL | Standard Laravel MySQL config |
+
+- **Migrations**: Standard Laravel migrations in `database/migrations/`
+- **Queue**: Database driver (`QUEUE_CONNECTION=database`)
+- **Cache**: File (dev), configurable for production
+
+## Authentication
+
+### Session-based (Laravel Sanctum cookie)
+- **Views**: `routes/auth.php` — register, login, magic-link, logout
+- **Methods**: Password (`POST /auth/login`, `POST /auth/register`) + Magic link (`POST /auth/magic-link`, `GET /auth/magic-link/{token}`)
+- **SPA**: Same-origin cookie (`credentials: include`)
+- **Model**: `app/Models/User.php` — standard Laravel user with `is_super_admin` flag
+
+### Super Admin (Filament)
+- **Route**: `/admin` (excluded from SPA catch-all)
+- **Access**: Requires `users.is_super_admin = true`
+- **Bootstrap**: `php artisan user:promote-super-admin` or auto-seeded via `SUPER_ADMIN_BOOTSTRAP_EMAIL`
+- **Panel**: `app/Providers/Filament/AdminPanelProvider.php`
 
 ## Admin Panel (Filament)
 
-- **Package**: `filament/filament` ^5.0
-- **Provider**: `backend/app/Providers/Filament/AdminPanelProvider.php`
-- **Resources**:
-  - `LauncherResource` — manage workflow templates (slug, prompt, active status)
-  - `UserResource` — manage users (create, edit, promote super admin)
-- **Access**: Super admin only (guarded by `config/super_admin.php` emails list)
-- **ADR**: 0021
-
-## Caching
-
-- **Driver**: File (dev) or Redis (production)
-- **GitHub context cache**: `GitHubContextFetcher` caches repository tree/readme/commits
-- **Run progressed version**: `CacheRunProgressedVersion` listener tracks SSE polling version
-
-## Queue
-
-- **Driver**: Database (never `sync` in production)
-- **Job**: `ExecuteLauncherJob` (`backend/app/Jobs/ExecuteLauncherJob.php`)
-- **Worker config**: `--sleep=1 --tries=2 --timeout=120`
-- **Failed jobs**: Stored in `failed_jobs` table (database-uuids)
-- **Reaper**: `ReapStuckRuns` console command cleans up stalled runs
-
-## No External Auth Provider
-
-Authentication is entirely self-hosted:
-- **Magic link** (ADR-0015): `MagicLinkController` → `MagicLinkMail` via Resend
-- **Email/password** (ADR-0019): `PasswordAuthController` with Laravel session guard
-- **Session-based**: `web` guard with `session` driver
-- No OAuth, no social login, no JWT
+- **Package**: `filament/filament: ^5.0`
+- **Resources**: Users (`Filament/Resources/Users/`), Launchers (`Filament/Resources/Launchers/`)
+- **Pages**: List, Create, Edit for both resources
+- **Assets**: `php artisan filament:assets` (not committed)

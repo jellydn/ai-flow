@@ -1,125 +1,100 @@
-# Coding Conventions
+# Conventions
 
 ## PHP (Laravel)
 
-### Style
-- **PSR-12** enforced via `laravel/pint` (^1.24)
-- Run: `./vendor/bin/pint --test` (CI check) or `./vendor/bin/pint` (auto-fix)
-- Explicit return types on all methods
-- No nested ternaries — prefer `match` or early returns
+### Code Style
+- **PSR-12** enforced via **Pint** (`./vendor/bin/pint`)
+- **Explicit return types** on all methods
+- **`match` over nested ternaries** — no ternary chains
+- **Early returns** over deep nesting (guard clauses)
+- **No `die()`/`dd()`** in production code; use exceptions or `abort()`
 
-### HTTP Layer
-- **Form requests** for validation: `StoreRunRequest`, `StoreProviderCredentialRequest`, etc.
-  - Validation rules in `rules()`, custom logic in `withValidator(Validator $validator)` using `$validator->after()`
-  - `LaunchParameters::resolve()` for provider/model resolution; key resolution delegated to `AiProviderRegistry::resolveApiKey()` (canonical source for provider→config mapping)
-  - `prepareForValidation()` for input normalization (aliases, guest defaults)
-- **API resources** for JSON serialization: `RunResource`, `UserResource`, `ProviderCredentialResource`
-  - Use `$this->when()` for conditional fields
-- **Controllers** are thin: validate → resolve → dispatch/query → respond
-  - Constructor injection for service dependencies
-  - `private` readonly properties for injected services
+### Architecture Rules
+- **Form requests** for validation: `Store*Request`, `Update*Request` classes
+- **API resources** for JSON: `*Resource` extends `JsonResource`
+- **Thin controllers**: delegate to services/jobs; no business logic in controllers
+- **Jobs for slow/IO work**: `ExecuteLauncherJob` queues all AI/GitHub calls
+- **Contracts for swappable services**: `AIProviderInterface` for 4 providers
+- **Single-implementation interfaces are speculative**: type-hint concrete class directly
+- **Thin helpers merge into consumers**: when always used together with a single caller, merge them; split only when independent callers emerge
 
-### Jobs & Queue
-- Slow/IO work goes through jobs, never in the HTTP cycle
-- `ExecuteLauncherJob` is the single queued job
-- Constructor receives scalar/string parameters (run UUID, provider ID, API key, model)
-- `handle()` method resolves models + services from the container
-- Use `Queue::fake()` in feature tests
-- Private helper methods for job-internal logic (e.g., `failRun()` → now `Run::markFailed()`)
-
-### Services
-- Located in `app/Services/`, not `app/Services/` (no sub-namespace by domain)
-- Contract + container binding for swappable services (multiple implementations); single-implementation interfaces are speculative generality — type-hint the concrete class directly and let Laravel auto-resolve it
-- `BaseAIProvider` uses template method pattern — concrete adapters declare hooks, base owns lifecycle
-- `LaunchParameters` is a value object (readonly properties, static factory, delegates key checks to `AiProviderRegistry`)
-- Thin helper classes that are always used together with a single consumer should be merged into that consumer (e.g., `GitHubContextFetcher` + `GitHubContextAssembler` → `GitHubService`); split them only when they gain independent callers
-- `ContextBudget` is a constants-only class (no instantiation needed)
-- `RecentRunSummary` is a transformer (static `from(Run): array`)
-
-### Error Handling
-- AI provider errors: `throw new RuntimeException('message')` — caught in `ExecuteLauncherJob`
-- Connection errors: `catch (ConnectionException)` → user-friendly message
-- `Run::markFailed()` as single failure transition owner
-- Sentry captures exceptions in job catch blocks
-- Never log API keys: `Log::error()` context excludes key material
-
-### Models
-- UUID primary keys on `Run`
-- JSON columns: `input`, `result`, `progress` on `Run`; `prompt_template` on `Launcher`
-- `markFailed()` method on `Run` for consistent failure state transitions
-- Relationships: `Run → Launcher` (belongsTo), `Run → User` (belongsTo, nullable), `Run → ProviderCredential` (belongsTo, nullable)
-- `LauncherPromptOverride` for per-user prompt customization
+### Provider Resolution
+- **Provider/model resolution**: `LaunchParameters::resolve()` — canonical source
+- **Key resolution**: `AiProviderRegistry::resolveApiKey()` — canonical source
+- **No duplicating resolution logic** across the codebase
 
 ### Launchers
 - One class per workflow under `app/Launchers/`
-- Extend `BaseLauncher` → abstract `slug()`, `make()` returns metadata array
+- Extend `BaseLauncher` (implements `LauncherInterface`)
+- Metadata via `BaseLauncher::make()` static factory
 - Seeded in `DatabaseSeeder`
 - Shared `outputSchema` in `BaseLauncher`
 
-### Configuration
-- AI keys in `config/services.php`: `services.openai.key`, `services.anthropic.key`, etc.
-- Timeout: `services.ai.timeout` (new) with backward-compat `services.openai.timeout`
-- Model resolution: `AI_MODEL` > `OPENAI_MODEL` > code default `gpt-4o-mini`
-- Per-adapter model configs: `ANTHROPIC_MODEL`, `GEMINI_MODEL`
+### Models
+- `Run`: UUID primary key, JSON columns (`input`, `result`, `progress`), status enum
+- `User`: Standard Laravel auth, `is_super_admin` flag
+- `ProviderCredential`: Encrypted API keys per-user per-provider
 
-## TypeScript / React
+### Naming
+- Controllers: `*Controller` (thin, action methods)
+- Services: `*Provider`, `*Service`, `*Executor`, `*Registry`
+- Jobs: `Execute*Job` implements `ShouldQueue` + `ShouldBeEncrypted`
+- Form requests: `Store*Request`, `Update*Request`
+- Resources: `*Resource` extends `JsonResource`
+- Mailables: `*Mail` extends `Mailable`
 
-### Style
-- **oxlint** (^1.73.0) for linting, **oxfmt** (^0.59.0) for formatting
-- No ESLint, no Prettier
-- Config at repo root: `.oxlintrc.json`, `.oxfmtrc.json`
-- **konsistent** enforces: `components/*.tsx` → export PascalCase matching filename; `hooks/*.ts` → export `use*` functions
-- `npm run lint` = oxlint + oxfmt --check; `npm run format` = oxfmt --write
+### Testing
+- Feature tests: `RefreshDatabase` trait + seed, `Queue::fake()` for dispatch, mock GitHub/AI
+- Unit tests: isolated, focused on single class
+- After PHP changes: run `php artisan test`
 
-### Components
-- Functional components + hooks only (no class components)
-- Strict TypeScript mode (`tsconfig.json` strict: true)
-- Avoid broad `any` types
-- Each component file exports a PascalCase component matching the filename
-- Tests in `__tests__/` subdirectories: `components/__tests__/Report.test.tsx`
-- Pin `react`, `vite`, `lucide-react` versions
+## TypeScript (React)
 
-### State Management
-- Component-local state via `useState` / `useReducer`
-- `appUiState.ts` for app-level UI state (view routing)
-- `useRunSubscription` hook for SSE streaming state
-- No Redux, no Zustand, no context-heavy patterns
+### Code Style
+- **oxlint + oxfmt** for linting and formatting (no Prettier)
+- **konsistent** for structural conventions (`components/*.tsx` → PascalCase export matching filename, `hooks/*.ts` → `use*` functions)
+- **Strict mode** TypeScript (`tsc --noEmit`)
+- **Avoid broad `any`** — prefer explicit types or `unknown`
+
+### Component Rules
+- **Functional components + hooks** (no class components)
+- **PascalCase** filenames with matching default export
+- **No `useEffect` for derived state** — compute values directly
+- Import from specific files, not barrel exports
+
+### File Organization
+| Directory | Contents |
+|---|---|
+| `components/` | React components (PascalCase, one per file) |
+| `hooks/` | Custom hooks (`use*` functions) |
+| `services/` | API client functions |
+| `lib/` | Utility/helper functions |
+| `types/` | TypeScript type definitions |
+| `data/` | Static data and constants |
 
 ### API Client
-- `services/run.ts` — run creation, status polling, SSE subscription
-- `services/auth.ts` — login, register, logout, user info
-- `lib/http.ts` — shared HTTP client wrapper
-- Types in `types/api.ts` — centralized API response interfaces
+- `services/run.ts` — primary API service for run operations
+- `lib/http.ts` — HTTP helper functions
+- All API calls go through these services
+- SSE via `hooks/useRunSubscription.ts`
 
-### Routing
-- Client-side routing via `appPaths.ts` constants + `navigate.ts`
-- `AppViews.tsx` as view state machine
-- URL-based run loading: `useRunFromPath.ts`
+## General
 
-## Architecture Decision Records (ADRs)
+### Version Pinning
+- React 19.2.7, Vite 8.1.5, `lucide-react` 1.24.0 — pinned in `package.json`
+- Laravel 13, PHP 8.4 — in `composer.json`
 
-- All significant architectural decisions documented in `doc/adr/`
-- Format: `NNNN-kebab-case-title.md`
-- Index: `doc/adr/README.md`
-- Template includes: Status, Context, Decision, Consequences
-- Reference ADRs in code comments for context (e.g., `// See ADR-0022`)
+### Git
+- Commit messages: [Conventional Commits](https://www.conventionalcommits.org/) format
+- Branch naming: `feat/`, `fix/`, `chore/`, `refactor/`, `docs/` prefixes
+- After rebase: use `git push --force-with-lease` (never `--force`)
 
-## Git
-
-- Remote: `origin` = `github.com/jellydn/ai-flow`
-- Deploy remote: `dokku` = staging target
-- Conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `style:`, `test:`
-- CI: `.github/workflows/ci.yml` — PHP 8.4 + Node 24
-- Pre-commit hooks via `prek`: pint, composer validate, env check, npm-in-backend
-
-## No-Go Patterns
-
-- ❌ Synchronous OpenAI/GitHub calls in HTTP cycle — always queue
-- ❌ `QUEUE_CONNECTION=sync` in production — always `database`
-- ❌ Nested ternaries — use `match` or early returns
-- ❌ Storing API keys on run records — keys are transient, only credential IDs stored
-- ❌ Logging API keys — `Log::error()` context must not contain key material
+### No-Go Patterns
 - ❌ Direct `app()->make()` for provider resolution — use `AiProviderRegistry`
 - ❌ Duplicating provider/model resolution — use `LaunchParameters::resolve()`
 - ❌ Duplicating key resolution — use `AiProviderRegistry::resolveApiKey()`
-- ❌ Duplicating failure transition logic — use `Run::markFailed()`
+- ❌ `QUEUE_CONNECTION=sync` in production
+- ❌ Synchronous AI/GitHub calls in HTTP cycle
+- ❌ Nested ternaries — use `match` or early returns
+- ❌ Storing provider keys on runs or in logs
+- ❌ Non-HTTPS GitHub URLs for `source_url`
