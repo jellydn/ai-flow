@@ -69,15 +69,16 @@ Branch: `main` (already implemented, 18/18 acceptance criteria met)
 **Severity**: Info
 **Spec reference**: Part 3 — Frontend routes including `/auth/check-email`
 
-**Current state**:
-- Magic link verification is server-side redirect — user is taken directly to app or error redirect
-- Email is sent asynchronously — no explicit "check your email" interstitial shown
-- The spec listed `/auth/check-email` as a frontend page but the current flow handles this differently
+**Decision**: Keep the current server-side redirect flow (no interstitial page).
 
-**What to do**:
-- [ ] Decide: add the interstitial page or keep the current flow
-- [ ] Current flow is actually better UX — fewer clicks. If keeping, document the decision in an ADR
-- [ ] If adding: show a `<CheckEmail>` component after magic link request with the obfuscated email address
+**Rationale**:
+- Magic link verification is handled server-side via `MagicLinkController::verify()`
+- User clicks the email link → server validates the token → redirects directly to `/user`
+- An interstitial "check your email" page would add an extra click with no security benefit
+- The email itself already serves as the notification ("Sign in to AI Flow" with a button)
+- Error states (expired, used, invalid) redirect with an `auth_error` query parameter the SPA can read
+
+**Status**: ✅ Resolved — no code change needed. Decision documented here.
 
 ---
 
