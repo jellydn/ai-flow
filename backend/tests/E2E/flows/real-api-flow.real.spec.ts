@@ -70,6 +70,17 @@ test.describe("Real backend: API contracts and page rendering", () => {
         expect(body).toHaveProperty("errors");
     });
 
+    test("can clear the URL input", async ({ page }) => {
+        await page.goto("/");
+
+        const urlInput = page.getByPlaceholder(/github.com/);
+        await urlInput.fill("https://github.com/a/b");
+        await expect(urlInput).toHaveValue("https://github.com/a/b");
+
+        await page.getByRole("button", { name: "Clear URL" }).click();
+        await expect(urlInput).toHaveValue("");
+    });
+
     test("POST /api/runs with valid URL returns 202 and run is pollable", async ({
         request,
         page,

@@ -30,11 +30,10 @@ npm run build         # tsc --noEmit && vite build -> public/build
 npm run konsistent    # structural TS conventions (root konsistent.json)
 npm run doctor        # npx react-doctor
 npm run test          # vitest run (frontend unit tests)
-npm run test:e2e      # Playwright e2e suite (--project=e2e)
-npm run test:e2e:real # Playwright vs real API (--project=real-backend)
+npm run test:e2e      # Playwright e2e suite (--project=real-backend)
 ```
 
-Frontend JS commands also exposed as `just` targets (`just lint-js`, `just test-js`, `just e2e-real`, etc.). `just ci` runs the full backend+frontend gate locally.
+Frontend JS commands also exposed as `just` targets (`just lint-js`, `just test-js`, `just e2e`, etc.). `just ci` runs the full backend+frontend gate locally.
 
 CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
 

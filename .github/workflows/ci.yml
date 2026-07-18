@@ -110,16 +110,5 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Run E2E tests (demo flows)
-        run: npm run test:e2e
-        env:
-          RUNS_RATE_LIMIT_PER_HOUR: "100"
-          AUTH_LOGIN_RATE_LIMIT_PER_MIN: "100"
-          AUTH_REGISTER_RATE_LIMIT_PER_MIN: "100"
-
-      - name: Run E2E tests (real backend — all .real.spec.ts)
+      - name: Run E2E tests (real backend)
         run: npx playwright test --project=real-backend
-        env:
-          RUNS_RATE_LIMIT_PER_HOUR: "100"
-          AUTH_LOGIN_RATE_LIMIT_PER_MIN: "100"
-          AUTH_REGISTER_RATE_LIMIT_PER_MIN: "100"

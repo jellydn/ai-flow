@@ -34,12 +34,6 @@ export default defineConfig({
 
     projects: [
         {
-            name: "e2e",
-            testMatch: "**/*.spec.ts",
-            testIgnore: "**/*.real.spec.ts",
-            use: { ...devices["Desktop Chrome"] },
-        },
-        {
             name: "real-backend",
             testMatch: "**/*.real.spec.ts",
             use: { ...devices["Desktop Chrome"] },

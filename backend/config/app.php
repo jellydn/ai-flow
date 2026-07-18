@@ -163,4 +163,19 @@ return [
 
     'auth_register_rate_limit_per_min' => env('AUTH_REGISTER_RATE_LIMIT_PER_MIN', 5),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Other Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Remaining rate limiters that benefit from test-time configurability.
+    |
+    */
+
+    'runs_stream_rate_limit_per_min' => env('RUNS_STREAM_RATE_LIMIT_PER_MIN', 30),
+
+    'magic_link_rate_limit_per_min' => env('MAGIC_LINK_RATE_LIMIT_PER_MIN', 3),
+
+    'credentials_rate_limit_per_min' => env('CREDENTIALS_RATE_LIMIT_PER_MIN', 10),
+
 ];
