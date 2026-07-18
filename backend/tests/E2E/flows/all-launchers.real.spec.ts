@@ -45,17 +45,17 @@ test.describe("All launcher flows (real backend)", () => {
         expect(res.status()).toBe(200);
 
         const body = await res.json();
-        expect(body).toHaveProperty("data");
-        expect(Array.isArray(body.data)).toBe(true);
-        expect(body.data.length).toBeGreaterThanOrEqual(4);
+        // /api/launchers returns a flat array (not wrapped in {data: [...]}).
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBeGreaterThanOrEqual(4);
 
-        const slugs = body.data.map((l: { slug: string }) => l.slug);
+        const slugs = body.map((l: { slug: string }) => l.slug);
         for (const launcher of LAUNCHERS) {
             expect(slugs, `missing launcher: ${launcher.slug}`).toContain(launcher.slug);
         }
 
         // Each launcher has the required fields.
-        for (const launcher of body.data) {
+        for (const launcher of body) {
             expect(launcher).toHaveProperty("id");
             expect(launcher).toHaveProperty("slug");
             expect(launcher).toHaveProperty("name");

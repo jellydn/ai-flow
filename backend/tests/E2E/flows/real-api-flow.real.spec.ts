@@ -25,8 +25,16 @@ test.describe("Real backend: API contracts and page rendering", () => {
         // Page should render the hero heading.
         await expect(page.locator("h1")).toContainText("in flow", { timeout: 10_000 });
 
-        // No console errors on page load.
-        expect(consoleErrors.filter((e) => !e.includes("favicon"))).toHaveLength(0);
+        // No console errors on page load (ignore favicon 404 and expected 401
+        // from unauthenticated /api/user/* calls the SPA makes on load).
+        expect(
+            consoleErrors.filter(
+                (e) =>
+                    !e.includes("favicon") &&
+                    !e.includes("401") &&
+                    !e.includes("Unauthorized"),
+            ),
+        ).toHaveLength(0);
     });
 
     test("GET /api/launchers returns valid launcher data", async ({ request }) => {
@@ -34,12 +42,12 @@ test.describe("Real backend: API contracts and page rendering", () => {
         expect(res.status()).toBe(200);
 
         const body = await res.json();
-        expect(body).toHaveProperty("data");
-        expect(Array.isArray(body.data)).toBe(true);
-        expect(body.data.length).toBeGreaterThanOrEqual(4);
+        // /api/launchers returns a flat array (not wrapped in {data: [...]}).
+        expect(Array.isArray(body)).toBe(true);
+        expect(body.length).toBeGreaterThanOrEqual(4);
 
         // Each launcher has required fields.
-        for (const launcher of body.data) {
+        for (const launcher of body) {
             expect(launcher).toHaveProperty("id");
             expect(launcher).toHaveProperty("slug");
             expect(launcher).toHaveProperty("name");

@@ -48,8 +48,8 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('runs', fn (Request $request) => Limit::perHour((int) config('app.runs_rate_limit_per_hour', 5))->by($request->ip()));
         RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
         RateLimiter::for('magic-link', fn (Request $request) => Limit::perMinute(3)->by($request->ip().'|'.$request->input('email', '')));
-        RateLimiter::for('auth-login', fn (Request $request) => Limit::perMinute(10)->by($request->ip().'|'.$request->input('email', '')));
-        RateLimiter::for('auth-register', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
+        RateLimiter::for('auth-login', fn (Request $request) => Limit::perMinute((int) config('app.auth_login_rate_limit_per_min', 10))->by($request->ip().'|'.$request->input('email', '')));
+        RateLimiter::for('auth-register', fn (Request $request) => Limit::perMinute((int) config('app.auth_register_rate_limit_per_min', 5))->by($request->ip()));
         RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute(self::CREDENTIAL_VERIFY_PER_MINUTE)->by($request->user()->id));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.

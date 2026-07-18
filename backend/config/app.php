@@ -148,4 +148,19 @@ return [
 
     'runs_rate_limit_per_hour' => env('RUNS_RATE_LIMIT_PER_HOUR', 5),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Auth Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Max auth-login / auth-register attempts per minute per IP. E2E and CI
+    | set higher values so parallel .real.spec.ts files can each register
+    | user accounts without hitting the limiter.
+    |
+    */
+
+    'auth_login_rate_limit_per_min' => env('AUTH_LOGIN_RATE_LIMIT_PER_MIN', 10),
+
+    'auth_register_rate_limit_per_min' => env('AUTH_REGISTER_RATE_LIMIT_PER_MIN', 5),
+
 ];
