@@ -19,13 +19,15 @@ class RunFactory extends Factory
      */
     public function definition(): array
     {
+        $repoSlug = $this->faker->userName().'/'.$this->faker->slug(1);
+
         return [
             'launcher_id' => Launcher::factory(),
             'user_id' => null,
             'provider' => 'openai',
             'model' => 'gpt-4o-mini',
-            'source_url' => 'https://github.com/'.$this->faker->userName().'/'.$this->faker->slug(1),
-            'repo_slug' => $this->faker->userName().'/'.$this->faker->slug(1),
+            'source_url' => 'https://github.com/'.$repoSlug,
+            'repo_slug' => $repoSlug,
             'repo_type' => $this->faker->randomElement(['repository', 'pull_request', 'issue']),
             'status' => 'queued',
             'progress' => [],
