@@ -30,9 +30,10 @@ Store API keys **encrypted at rest** using Laravel's `Crypt` facade (authenticat
 - Decrypted keys live in memory for the shortest practical duration.
 
 **Key management:**
-- Uses Laravel `APP_KEY` for encryption. Losing `APP_KEY` makes stored credentials unrecoverable.
-- A dedicated `CREDENTIAL_ENCRYPTION_KEY` env var is documented as a future enhancement for key separation.
-- Key rotation requires a planned re-encryption migration.
+- Uses a dedicated `CREDENTIAL_ENCRYPTION_KEY` env var for encryption when set, falling back to `APP_KEY` for backward compatibility. This decouples credential encryption from `APP_KEY` rotation.
+- Losing the encryption key makes stored credentials unrecoverable.
+- A documented key rotation procedure lives in `config/credentials.php` (decrypt with old key → set new key → re-encrypt → verify).
+- In production, `AppServiceProvider` logs a warning when `CREDENTIAL_ENCRYPTION_KEY` is unset so operators know the `APP_KEY` fallback is in effect.
 
 ## Consequences
 
