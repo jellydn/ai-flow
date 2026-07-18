@@ -25,7 +25,12 @@ class RunExecutor
 
         try {
             $this->progress($run, 'Fetching repository', true);
-            $ref = $this->github->parse($run->source_url);
+            try {
+                $ref = $this->github->parse($run->source_url);
+            } catch (InvalidArgumentException $e) {
+                // Malformed / unsupported GitHub URLs are user input errors, not bugs.
+                throw new UserFacingRunException($e->getMessage(), (int) $e->getCode(), $e);
+            }
             if ($run->launcher->input_type !== $ref->type) {
                 throw new UserFacingRunException("This launcher requires a {$run->launcher->input_type} URL.");
             }
@@ -49,10 +54,7 @@ class RunExecutor
             ]);
             RunProgressed::dispatch($run->fresh());
         } catch (UserFacingRunException $e) {
-            // Expected user/input failures (missing repo, wrong launcher URL, etc.)
-            $run->markFailed($e->getMessage(), $e);
-        } catch (InvalidArgumentException $e) {
-            // URL parsing errors (malformed GitHub URLs, unsupported paths)
+            // Expected user/input failures (missing repo, wrong launcher URL, malformed URL, etc.)
             $run->markFailed($e->getMessage(), $e);
         } catch (ConnectionException $e) {
             // Network-level failures reaching GitHub
