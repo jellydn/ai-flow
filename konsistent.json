@@ -13,6 +13,7 @@
     },
     {
       "name": "error-boundary-class",
+      "description": "React error boundaries require a class component (getDerivedStateFromError / componentDidCatch), so ErrorBoundary.tsx is the only class component in the tree; all other components are functional.",
       "paths": "backend/resources/ts/components/ErrorBoundary.tsx",
       "must": {
         "exportClasses": [{ "name": "ErrorBoundary" }]

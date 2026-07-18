@@ -55,7 +55,7 @@ test.describe("Launcher prompts (real backend)", () => {
         await textarea.fill(custom);
 
         const card = page.locator(".workflow-prompt-card").filter({
-            has: page.getByRole("heading", { name: "Laravel Project Doctor" }),
+            has: page.getByText("Laravel Project Doctor", { exact: true }),
         });
         await card.getByRole("button", { name: "Save" }).click();
         await expect(card.locator(".workflow-prompt-badge")).toBeVisible({ timeout: 10_000 });

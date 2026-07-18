@@ -1,3 +1,4 @@
+import { assertArray, assertObject, assertString, assertStringOrNull } from "../lib/decode.ts";
 import { get, post } from "../lib/http.ts";
 import type {
     CreateRunResponse,
@@ -8,54 +9,13 @@ import type {
     RunStatus,
 } from "../types/api.ts";
 
+// Keep in sync with the backend status enum App\Models\Run::STATUSES / TERMINAL_STATUSES.
 const isRunStatus: { [K in RunStatus]: true } = {
     queued: true,
     running: true,
     completed: true,
     failed: true,
 };
-
-export function assertObject(value: unknown): Record<string, unknown> {
-    if (value === null || typeof value !== "object") {
-        throw new Error("Expected an object.");
-    }
-    return value as Record<string, unknown>;
-}
-
-export function assertString(value: unknown, field: string): string {
-    if (typeof value !== "string") {
-        throw new Error(`Expected ${field} to be a string.`);
-    }
-    return value;
-}
-
-/** Laravel JSON often encodes integer primary keys as numbers, not strings. */
-export function assertIntegerId(value: unknown, field: string): number {
-    if (typeof value === "number" && Number.isInteger(value)) {
-        return value;
-    }
-    if (typeof value === "string" && value !== "" && Number.isInteger(Number(value))) {
-        return Number(value);
-    }
-    throw new Error(`Expected ${field} to be an integer id.`);
-}
-
-function assertStringOrNull(value: unknown, field: string): string | null {
-    if (value === null || value === undefined) {
-        return null;
-    }
-    if (typeof value !== "string") {
-        throw new Error(`Expected ${field} to be a string or null.`);
-    }
-    return value;
-}
-
-export function assertArray(value: unknown, field: string): unknown[] {
-    if (!Array.isArray(value)) {
-        throw new Error(`Expected ${field} to be an array.`);
-    }
-    return value;
-}
 
 function decodeFinding(value: unknown): Finding {
     const data = assertObject(value);

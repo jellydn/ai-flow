@@ -135,4 +135,47 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Runs Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Max workflow launches per hour per IP. E2E and CI set a higher value
+    | (e.g. 100) via RUNS_RATE_LIMIT_PER_HOUR so the full launcher suite can
+    | POST multiple runs in a single test pass without hitting the limiter.
+    |
+    */
+
+    'runs_rate_limit_per_hour' => env('RUNS_RATE_LIMIT_PER_HOUR', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Auth Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Max auth-login / auth-register attempts per minute per IP. E2E and CI
+    | set higher values so parallel .real.spec.ts files can each register
+    | user accounts without hitting the limiter.
+    |
+    */
+
+    'auth_login_rate_limit_per_min' => env('AUTH_LOGIN_RATE_LIMIT_PER_MIN', 10),
+
+    'auth_register_rate_limit_per_min' => env('AUTH_REGISTER_RATE_LIMIT_PER_MIN', 5),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Other Rate Limits
+    |--------------------------------------------------------------------------
+    |
+    | Remaining rate limiters that benefit from test-time configurability.
+    |
+    */
+
+    'runs_stream_rate_limit_per_min' => env('RUNS_STREAM_RATE_LIMIT_PER_MIN', 30),
+
+    'magic_link_rate_limit_per_min' => env('MAGIC_LINK_RATE_LIMIT_PER_MIN', 3),
+
+    'credentials_rate_limit_per_min' => env('CREDENTIALS_RATE_LIMIT_PER_MIN', 10),
+
 ];

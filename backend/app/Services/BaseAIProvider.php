@@ -134,7 +134,7 @@ abstract class BaseAIProvider implements AIProviderInterface
             }
 
             $raw = $this->extractContent($response->json() ?? []);
-            $json = json_decode($raw, true);
+            $json = $this->extractJson($raw);
             if (! is_array($json)) {
                 $error = json_last_error_msg();
                 $preview = mb_substr($raw, 0, self::MAX_ERROR_PREVIEW_LENGTH);
@@ -148,6 +148,51 @@ abstract class BaseAIProvider implements AIProviderInterface
     }
 
     // ─── Shared lifecycle helpers ────────────────────────────────────
+
+    /**
+     * Decode the extracted provider text as JSON, tolerating common
+     * model wrapping that providers without native json_schema enforcement
+     * (Anthropic, Gemini) sometimes emit despite the prompt-only instruction.
+     *
+     * Tries, in order:
+     *  1. Direct json_decode of the whole text.
+     *  2. Strip a single surrounding markdown code fence (```json ... ```
+     *     or ``` ... ```) and decode the inner content.
+     *  3. Slice from the first '{' to the last '}' and decode that span.
+     *
+     * Returns the decoded array on success, or null when every strategy
+     * fails (so the caller can surface the json error + preview).
+     *
+     * @return array<string,mixed>|null
+     */
+    protected function extractJson(string $raw): ?array
+    {
+        $direct = json_decode($raw, true);
+        if (is_array($direct)) {
+            return $direct;
+        }
+
+        // Strip one surrounding ```json / ``` fence.
+        if (preg_match('/^\s*```(?:json)?\s*\n(.*?)\n```\s*$/s', $raw, $m)) {
+            $fenced = json_decode($m[1], true);
+            if (is_array($fenced)) {
+                return $fenced;
+            }
+        }
+
+        // Slice from the first '{' to the last '}' — tolerates leading prose
+        // (e.g. "Here is the JSON:\n{...}") and trailing prose.
+        $start = strpos($raw, '{');
+        $end = strrpos($raw, '}');
+        if ($start !== false && $end !== false && $end > $start) {
+            $sliced = json_decode(substr($raw, $start, $end - $start + 1), true);
+            if (is_array($sliced)) {
+                return $sliced;
+            }
+        }
+
+        return null;
+    }
 
     /**
      * Resolve the effective API key: injected key → server config fallback.

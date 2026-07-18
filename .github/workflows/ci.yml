@@ -110,8 +110,5 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install chromium --with-deps
 
-      - name: Run E2E tests
-        run: npm run test:e2e
-
-      - name: Run E2E tests (real backend — auth flows)
-        run: npx playwright test tests/E2E/flows/auth-user-flow.real.spec.ts --project=real-backend
+      - name: Run E2E tests (real backend)
+        run: npx playwright test --project=real-backend

@@ -45,12 +45,12 @@ class AppServiceProvider extends ServiceProvider
 
         Event::listen(RunProgressed::class, CacheRunProgressedVersion::class);
 
-        RateLimiter::for('runs', fn (Request $request) => Limit::perHour(5)->by($request->ip()));
-        RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute(30)->by($request->ip()));
-        RateLimiter::for('magic-link', fn (Request $request) => Limit::perMinute(3)->by($request->ip().'|'.$request->input('email', '')));
-        RateLimiter::for('auth-login', fn (Request $request) => Limit::perMinute(10)->by($request->ip().'|'.$request->input('email', '')));
-        RateLimiter::for('auth-register', fn (Request $request) => Limit::perMinute(5)->by($request->ip()));
-        RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute(self::CREDENTIAL_VERIFY_PER_MINUTE)->by($request->user()->id));
+        RateLimiter::for('runs', fn (Request $request) => Limit::perHour((int) config('app.runs_rate_limit_per_hour', 5))->by($request->ip()));
+        RateLimiter::for('runs-stream', fn (Request $request) => Limit::perMinute((int) config('app.runs_stream_rate_limit_per_min', 30))->by($request->ip()));
+        RateLimiter::for('magic-link', fn (Request $request) => Limit::perMinute((int) config('app.magic_link_rate_limit_per_min', 3))->by($request->ip().'|'.$request->input('email', '')));
+        RateLimiter::for('auth-login', fn (Request $request) => Limit::perMinute((int) config('app.auth_login_rate_limit_per_min', 10))->by($request->ip().'|'.$request->input('email', '')));
+        RateLimiter::for('auth-register', fn (Request $request) => Limit::perMinute((int) config('app.auth_register_rate_limit_per_min', 5))->by($request->ip()));
+        RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute((int) config('app.credentials_rate_limit_per_min', self::CREDENTIAL_VERIFY_PER_MINUTE))->by($request->user()->id));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
         // Production uses Neon PostgreSQL; file-backed sqlite is local/CI only.
@@ -101,6 +101,20 @@ class AppServiceProvider extends ServiceProvider
 
         if (app()->environment('production') && strtolower((string) env('LOG_LEVEL', 'warning')) === 'debug') {
             Log::warning('LOG_LEVEL is debug in production; set LOG_LEVEL=warning or error to reduce sensitive log exposure.');
+        }
+
+        // Alert operators when stored BYOK credentials fall back to APP_KEY
+        // instead of a dedicated CREDENTIAL_ENCRYPTION_KEY. Rotating APP_KEY
+        // in this state would silently invalidate every stored credential.
+        // Uses config('credentials.uses_dedicated_key') (not env() directly)
+        // so the check works correctly after `php artisan config:cache`.
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && ! config('credentials.uses_dedicated_key')
+        ) {
+            Log::warning('CREDENTIAL_ENCRYPTION_KEY is not set in production; stored BYOK credentials are encrypted with APP_KEY. Set a dedicated CREDENTIAL_ENCRYPTION_KEY to decouple credential encryption from APP_KEY rotation (see config/credentials.php for the rotation procedure).');
         }
     }
 }

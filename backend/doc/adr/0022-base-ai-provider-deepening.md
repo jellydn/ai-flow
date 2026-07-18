@@ -33,7 +33,7 @@ Introduce **`BaseAIProvider`** (abstract class in `app/Services/`) that owns the
 - **Verify timeout**: `VERIFY_TIMEOUT_SECONDS = 10` (intentionally shorter than generate — lightweight GET).
 - **Status mapping**: 401/403 → "Invalid API key.", non-success → "AI provider request failed (HTTP {status}).".
 - **Connection errors**: `ConnectionException` → "Unable to reach the AI provider. Check your network." — fixing the OpenAI gap.
-- **JSON decode**: `json_decode` + "AI provider returned invalid JSON." guard.
+- **JSON decode**: `extractJson()` tries direct `json_decode`, then strips a single ```` ```json ```` code fence, then slices from the first `{` to the last `}` — tolerating prose-wrapped JSON from providers without native `json_schema` enforcement (Anthropic, Gemini). Falls back to the "AI provider returned invalid JSON." guard only when all strategies fail.
 - **`verifyCredential()`**: full verify lifecycle owned by the base; subclass declares only `verifyEndpoint()`.
 
 ### Template-method hooks (declared by each subclass)

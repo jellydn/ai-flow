@@ -155,7 +155,7 @@ npm run lint                        # oxlint + oxfmt
 npm run konsistent                  # Structural TS conventions
 npm run build                       # Production build
 npm test                            # Vitest + React Testing Library
-npm run test:e2e                    # Playwright
+npm run test:e2e                    # Playwright (real backend)
 ```
 
 CI runs the backend suite on **PHP 8.4** and the frontend suite on **Node 24**. Pre-commit hooks via `prek`.

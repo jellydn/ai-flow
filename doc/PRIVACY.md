@@ -17,9 +17,9 @@
 
 ## What is encrypted
 
-API keys are encrypted before database storage using Laravel's `Crypt` facade (authenticated AES-256-CBC encryption via `APP_KEY`). They are decrypted **only** at the moment an AI request is sent to your selected provider — never in API responses, logs, queue payloads, or error reports.
+API keys are encrypted before database storage using Laravel's `Crypt` facade (authenticated AES-256-CBC encryption). A dedicated `CREDENTIAL_ENCRYPTION_KEY` env var is used when set, falling back to `APP_KEY` for backward compatibility. Keys are decrypted **only** at the moment an AI request is sent to your selected provider — never in API responses, logs, queue payloads, or error reports.
 
-We do not claim encryption makes the application immune to server compromise. If an attacker gains access to both the database and `APP_KEY`, stored credentials could be decrypted.
+We do not claim encryption makes the application immune to server compromise. If an attacker gains access to both the database and the encryption key, stored credentials could be decrypted.
 
 ## What is sent to external providers
 
@@ -51,11 +51,11 @@ We use structured logs containing IDs and statuses, not full sensitive payloads.
 
 ## Encryption key management
 
-- API keys are encrypted using Laravel's `APP_KEY`.
-- **Back up your `APP_KEY` securely.** Losing it makes all stored credentials unrecoverable.
-- Key rotation requires a planned re-encryption migration.
+- API keys are encrypted using a dedicated `CREDENTIAL_ENCRYPTION_KEY` env var when set, falling back to `APP_KEY` for backward compatibility.
+- **Back up your encryption key securely.** Losing it makes all stored credentials unrecoverable.
+- Key rotation requires a planned re-encryption migration (see `config/credentials.php` for the procedure).
 - Staging and production must use separate keys.
-- A dedicated `CREDENTIAL_ENCRYPTION_KEY` env var is documented as a future enhancement for key separation.
+- In production, the application logs a warning if `CREDENTIAL_ENCRYPTION_KEY` is unset (i.e. the `APP_KEY` fallback is in effect), so operators are alerted that rotating `APP_KEY` would invalidate stored credentials.
 
 ## Provider data policies
 

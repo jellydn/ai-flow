@@ -29,9 +29,13 @@ npm run format        # oxfmt --write
 npm run build         # tsc --noEmit && vite build -> public/build
 npm run konsistent    # structural TS conventions (root konsistent.json)
 npm run doctor        # npx react-doctor
+npm run test          # vitest run (frontend unit tests)
+npm run test:e2e      # Playwright e2e suite (--project=real-backend)
 ```
 
-CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (no-op). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+Frontend JS commands also exposed as `just` targets (`just lint-js`, `just test-js`, `just e2e`, etc.). `just ci` runs the full backend+frontend gate locally.
+
+CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
 
 ## Environment & AI providers
 
@@ -44,7 +48,7 @@ CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) 
 
 - Slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`.
 - Aliases: `/api/flows`=`/api/launchers`, `/api/executions`=`/api/runs` (backward compat).
-- Rate limiters in `AppServiceProvider`: `runs` (5/hr/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP), `credentials` (10/min/user).
+- Rate limiters in `AppServiceProvider::boot()`: `runs` (5/hr/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP), `auth-login` (10/min/IP), `auth-register` (5/min/IP), `credentials` (10/min/user).
 - `POST /api/runs` returns **202** + UUID; status at `GET /api/runs/{uuid}`; progress via SSE `GET /api/runs/{uuid}/stream` (DB-polled, ~55s window). Do not add synchronous OpenAI/GitHub calls to the HTTP cycle.
 - Authenticated user routes under `auth` middleware: run history (`/api/user/runs`), provider credentials (`/api/user/provider-credentials`).
 
@@ -62,7 +66,7 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 
 - **Dokku (staging, what CI actually ships):** `dokku` git remote → `docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`. Dockerfile builds React assets + nginx/PHP-FPM; release phase migrates + seeds. Disable nginx `proxy-buffering` and set `proxy-read-timeout 75s` for SSE. DB uses `DB_URL` (not Dokku's `DATABASE_URL`).
 - **Laravel Cloud (alternative):** deploy `backend/` as app root, build `npm ci && npm run build`; stable shared `APP_KEY`, durable Neon Postgres (`DB_SSLMODE=require`), `QUEUE_CONNECTION=database`. See `CLOUD_DEPLOY.md`.
-- Worker (both): `php artisan queue:work --sleep=1 --tries=2 --timeout=120`.
+- Worker (both): `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Note `composer run dev` uses `php artisan queue:listen --tries=1 --timeout=0` (differs from standalone worker flags — don't copy the dev flags to prod).
 
 ## Coding standards
 

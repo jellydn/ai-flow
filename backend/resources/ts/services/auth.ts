@@ -1,5 +1,5 @@
+import { assertArray, assertIntegerId, assertObject, assertString } from "../lib/decode.ts";
 import { get, mutationHeaders, post } from "../lib/http.ts";
-import { assertArray, assertIntegerId, assertObject, assertString } from "./run.ts";
 
 export interface User {
     id: number;
@@ -94,9 +94,27 @@ export async function fetchUser(): Promise<User> {
     return decodeUser(user);
 }
 
-export async function fetchProviders(): Promise<{ id: string; name: string; models: string[] }[]> {
+export interface ProviderSummary {
+    id: string;
+    name: string;
+    models: string[];
+}
+
+export function decodeProvider(value: unknown): ProviderSummary {
+    const data = assertObject(value);
+    return {
+        id: assertString(data.id, "provider.id"),
+        name: assertString(data.name, "provider.name"),
+        models: assertArray(data.models, "provider.models").map((item, index) =>
+            assertString(item, `provider.models[${index}]`),
+        ),
+    };
+}
+
+export async function fetchProviders(): Promise<ProviderSummary[]> {
     const body = await get("/api/providers");
-    return assertArray(body, "providers") as { id: string; name: string; models: string[] }[];
+    const payload = assertObject(body);
+    return assertArray(payload.data ?? body, "providers").map(decodeProvider);
 }
 
 export async function fetchCredentials(): Promise<ProviderCredential[]> {
@@ -119,7 +137,11 @@ export async function createCredential(payload: {
 
 export async function verifyCredential(id: string): Promise<{ valid: boolean; message: string }> {
     const body = await post(`/api/user/provider-credentials/${id}/verify`, {});
-    return body as { valid: boolean; message: string };
+    const data = assertObject(body);
+    return {
+        valid: Boolean(data.valid),
+        message: assertString(data.message, "message"),
+    };
 }
 
 export async function deleteCredential(id: string): Promise<void> {
@@ -138,7 +160,11 @@ export async function fetchUserRuns(params?: Record<string, string>): Promise<un
 
 export async function retryRun(id: string): Promise<{ id: string; status: string }> {
     const body = await post(`/api/user/runs/${id}/retry`, {});
-    return body as { id: string; status: string };
+    const data = assertObject(body);
+    return {
+        id: assertString(data.id, "id"),
+        status: assertString(data.status, "status"),
+    };
 }
 
 export async function deleteRun(id: string): Promise<void> {
