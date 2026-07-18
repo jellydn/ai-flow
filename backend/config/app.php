@@ -135,4 +135,17 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Runs Rate Limit
+    |--------------------------------------------------------------------------
+    |
+    | Max workflow launches per hour per IP. E2E and CI set a higher value
+    | (e.g. 100) via RUNS_RATE_LIMIT_PER_HOUR so the full launcher suite can
+    | POST multiple runs in a single test pass without hitting the limiter.
+    |
+    */
+
+    'runs_rate_limit_per_hour' => env('RUNS_RATE_LIMIT_PER_HOUR', 5),
+
 ];

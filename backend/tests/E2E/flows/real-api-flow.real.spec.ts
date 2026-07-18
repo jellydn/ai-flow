@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { postAuthJson } from "../helpers/csrf.ts";
 
 /**
  * Real-backend E2E: API contract + page rendering.
@@ -51,8 +52,9 @@ test.describe("Real backend: API contracts and page rendering", () => {
     });
 
     test("POST /api/runs with invalid URL returns 422", async ({ request }) => {
-        const res = await request.post("/api/runs", {
-            data: { launcher: "review-pr", source_url: "not-a-url" },
+        const res = await postAuthJson(request, "/api/runs", {
+            launcher: "review-pr",
+            source_url: "not-a-url",
         });
         expect(res.status()).toBe(422);
 
@@ -64,14 +66,19 @@ test.describe("Real backend: API contracts and page rendering", () => {
         request,
         page,
     }) => {
-        const res = await request.post("/api/runs", {
-            data: {
-                launcher: "review-pr",
-                source_url: "https://github.com/laravel/framework/pull/42",
-            },
+        const res = await postAuthJson(request, "/api/runs", {
+            launcher: "review-pr",
+            source_url: "https://github.com/laravel/framework/pull/42",
         });
 
-        expect(res.status()).toBe(202);
+        // Without a server AI key, guest runs get 422 (no provider key).
+        // With a key, they get 202 + queued run.
+        const status = res.status();
+        expect([202, 422], `unexpected status ${status}`).toContain(status);
+
+        if (status !== 202) {
+            return;
+        }
 
         const body = await res.json();
         expect(body).toHaveProperty("id");
