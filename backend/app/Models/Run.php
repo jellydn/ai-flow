@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Events\RunProgressed;
+use Database\Factories\RunFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Log;
@@ -11,8 +13,11 @@ use Throwable;
 
 class Run extends Model
 {
-    use HasUuids;
+    /** @use HasFactory<RunFactory> */
+    use HasFactory, HasUuids;
 
+    // Keep in sync with the frontend status enum in backend/resources/ts/types/api.ts (RunStatus)
+    // and the runtime guard isRunStatus in backend/resources/ts/services/run.ts.
     public const STATUSES = ['queued', 'running', 'completed', 'failed'];
 
     public const TERMINAL_STATUSES = ['completed', 'failed'];
@@ -105,6 +110,7 @@ class Run extends Model
         Log::error($logContext, [
             'run_id' => $this->id,
             'exception' => $e ? get_class($e) : null,
+            'exception_message' => $e?->getMessage(),
         ]);
 
         RunProgressed::dispatch($this->fresh());

@@ -32,8 +32,6 @@ class ReapStuckRuns extends Command
             $run->markFailed('Run timed out.', logContext: 'Reaped stuck run');
 
             $this->warn("Reaped stuck run: {$run->id} (started {$run->started_at?->diffForHumans()}, ttl={$ttl}s)");
-
-            $this->warn("Reaped stuck run: {$run->id}");
         }
 
         $this->info("Reaped {$stuck->count()} stuck run(s).");

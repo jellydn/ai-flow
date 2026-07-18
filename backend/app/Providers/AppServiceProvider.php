@@ -102,5 +102,17 @@ class AppServiceProvider extends ServiceProvider
         if (app()->environment('production') && strtolower((string) env('LOG_LEVEL', 'warning')) === 'debug') {
             Log::warning('LOG_LEVEL is debug in production; set LOG_LEVEL=warning or error to reduce sensitive log exposure.');
         }
+
+        // Alert operators when stored BYOK credentials fall back to APP_KEY
+        // instead of a dedicated CREDENTIAL_ENCRYPTION_KEY. Rotating APP_KEY
+        // in this state would silently invalidate every stored credential.
+        if (
+            app()->environment('production')
+            && ! app()->runningInConsole()
+            && ! app()->runningUnitTests()
+            && empty((string) env('CREDENTIAL_ENCRYPTION_KEY'))
+        ) {
+            Log::warning('CREDENTIAL_ENCRYPTION_KEY is not set in production; stored BYOK credentials are encrypted with APP_KEY. Set a dedicated CREDENTIAL_ENCRYPTION_KEY to decouple credential encryption from APP_KEY rotation (see config/credentials.php for the rotation procedure).');
+        }
     }
 }

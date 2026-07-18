@@ -81,6 +81,11 @@ class RunController extends Controller
     /**
      * Return recent completed public runs (user_id = null) for the home page.
      * Returns a lightweight summary — no full result, just repo/risk/findings count.
+     *
+     * Index coverage: the composite index runs_status_user_completed_at_index
+     * (status, user_id, completed_at) added in migration 2026_07_15_000001
+     * covers the (status = 'completed', user_id IS NULL, completed_at DESC)
+     * predicate below.
      */
     public function recent(): JsonResponse
     {
