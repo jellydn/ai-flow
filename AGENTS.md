@@ -31,7 +31,7 @@ npm run konsistent    # structural TS conventions (root konsistent.json)
 npm run doctor        # npx react-doctor
 ```
 
-CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (no-op). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run` via `--if-present`). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
 
 ## Environment & AI providers
 

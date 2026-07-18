@@ -1,146 +1,234 @@
 # Testing
 
-## Test Frameworks
+## Frameworks
 
-| Layer | Framework | Config |
-|---|---|---|
-| PHP Unit | PHPUnit 13 | `phpunit.xml` |
-| PHP Feature | PHPUnit + Laravel | `tests/TestCase.php` |
-| Frontend Unit | Vitest 4 | `vitest.config.ts` |
-| Frontend E2E | Playwright | `playwright.config.ts` |
+| Layer | Framework | Config | Runner |
+|---|---|---|---|
+| Backend Unit | PHPUnit `^13.0` | `backend/phpunit.xml` | `php artisan test` or `composer test` |
+| Backend Feature | PHPUnit `^13.0` | `backend/phpunit.xml` | `php artisan test` or `composer test` |
+| Frontend Unit | Vitest | `backend/vitest.config.ts` (jsdom, setup file) | `npm test` or `npm run test:watch` |
+| E2E | Playwright | `backend/playwright.config.ts` | `npm run test:e2e` (demo) / `npm run test:e2e:real` (real backend) |
 
-## Test Structure
+## Backend Tests
+
+### Structure
 
 ```
-tests/
-├── TestCase.php              # Base test case (RefreshDatabase, etc.)
-├── Unit/                     # 11 unit test files
+backend/tests/
+├── TestCase.php                     # Base (extends Illuminate\Foundation\Testing\TestCase)
+├── Unit/                            # 11 unit tests — isolated service/class tests
+│   ├── AiProviderRegistryTest.php
+│   ├── AnthropicProviderTest.php
+│   ├── CacheRunProgressedVersionTest.php
+│   ├── ContextEncoderTest.php
+│   ├── CredentialCipherTest.php
+│   ├── GeminiProviderTest.php
+│   ├── GitHubServiceFetchTest.php
+│   ├── GitHubServiceTest.php
 │   ├── OpenAIProviderTest.php
 │   ├── OpenRouterProviderTest.php
-│   ├── AnthropicProviderTest.php   (implied)
-│   ├── GitHubServiceTest.php       (implied)
-│   ├── GitHubContextFetcherTest.php
-│   ├── ContextEncoderTest.php
-│   ├── RunStreamerTest.php
-│   ├── AiProviderRegistryTest.php
-│   ├── JsonSchemaValidatorTest.php (implied)
-│   ├── CredentialCipherTest.php
-│   └── CacheRunProgressedVersionTest.php
-├── Feature/                  # 18 feature test files
-│   ├── RunApiTest.php
-│   ├── RunOwnershipTest.php
-│   ├── RunHistoryTest.php
-│   ├── RunPromptSnapshotTest.php
-│   ├── SessionRunCsrfTest.php
-│   ├── ExecuteLauncherJobTest.php
-│   ├── LauncherPromptApiTest.php
-│   ├── MagicLinkAuthTest.php
-│   ├── PasswordAuthTest.php
-│   ├── ProviderCredentialApiTest.php
-│   ├── ProviderCredentialBaseUrlValidationTest.php
-│   ├── SavedCredentialLaunchTest.php
-│   ├── AccountDeletionTest.php
-│   ├── SuperAdminBootstrapSeederTest.php
-│   ├── TrendingRepositoriesApiTest.php
-│   ├── FilamentPanelAccessTest.php
-│   ├── ReapStuckRunsTest.php
-│   └── RunRequiresProviderKeyTest.php
-└── E2E/                      # 4 Playwright spec files
-    └── flows/
-        └── demo-full-flow.spec.ts
+│   └── RunStreamerTest.php
+└── Feature/                         # 18 feature tests — HTTP + DB + queue integration
+    ├── AccountDeletionTest.php
+    ├── ExecuteLauncherJobTest.php
+    ├── FilamentPanelAccessTest.php
+    ├── LauncherPromptApiTest.php
+    ├── MagicLinkAuthTest.php
+    ├── PasswordAuthTest.php
+    ├── ProviderCredentialApiTest.php
+    ├── ProviderCredentialBaseUrlValidationTest.php
+    ├── ReapStuckRunsTest.php
+    ├── RunApiTest.php
+    ├── RunHistoryTest.php
+    ├── RunOwnershipTest.php
+    ├── RunPromptSnapshotTest.php
+    ├── RunRequiresProviderKeyTest.php
+    ├── SavedCredentialLaunchTest.php
+    ├── SessionRunCsrfTest.php
+    ├── SuperAdminBootstrapSeederTest.php
+    └── TrendingRepositoriesApiTest.php
 ```
 
-## Frontend Tests
+### PHPUnit Configuration (`backend/phpunit.xml`)
 
-```
-resources/ts/
-├── components/__tests__/
-│   ├── AppViews.test.tsx
-│   ├── HomeSubComponents.test.tsx
-│   ├── LaunchAreaCredentials.test.tsx
-│   └── Report.test.tsx
-└── lib/__tests__/
-    └── runModels.test.ts
-```
+- **Suites**: `Unit` → `tests/Unit`, `Feature` → `tests/Feature`
+- **Database**: in-memory SQLite (`DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`)
+- **Env**: `OPENAI_API_KEY=test-key-openai`, `OPENROUTER_API_KEY=test-key-openrouter`, `GITHUB_TOKEN=` (empty)
+- **Bootstrap**: `vendor/autoload.php`
 
-## Testing Patterns
+### Test Patterns
 
-### PHP Feature Tests
+#### Base TestCase
+
 ```php
-use RefreshDatabase;
-use Queue::fake();           // Prevent actual job dispatch
-use Http::fake();            // Mock GitHub/OpenAI API calls
-
-// Seed launchers for consistent test data
-$this->seed();
-
-// Test API endpoints
-$response = $this->postJson('/api/runs', [...]);
-$response->assertStatus(202);
+abstract class TestCase extends BaseTestCase {} // Illuminate\Foundation\Testing\TestCase
 ```
 
-### PHP Unit Tests
-- Test single class in isolation
-- Mock dependencies via Mockery or Laravel's `mock()` helper
-- Use `app->make()` for container-resolved classes with dependencies
+#### Feature Tests — `RefreshDatabase` + Seed
 
-### Frontend Unit Tests
-- Vitest + React Testing Library
-- `@testing-library/jest-dom` for DOM assertions
-- `@testing-library/user-event` for user interactions
-- `jsdom` environment for DOM simulation
+```php
+class RunApiTest extends TestCase
+{
+    use RefreshDatabase;
 
-### E2E Tests
-- Playwright against a real Laravel server
-- `scripts/e2e/serve-real.sh` starts server with `QUEUE_CONNECTION=sync`
-- Requires `OPENAI_API_KEY` for full run-to-report flows
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->seed();  // DatabaseSeeder → 4 launchers + super admin
+    }
 
-## Running Tests
-
-```bash
-# Backend
-php artisan test                         # All 216 tests
-php artisan test --filter=RunApiTest     # Focused test
-./vendor/bin/pint --test                 # Style check
-
-# Frontend
-npm test                                 # Vitest (component tests)
-npm run test:e2e                         # Playwright (E2E)
-npm run typecheck                        # TypeScript strict check
-npm run lint                             # oxlint + oxfmt
-npm run konsistent                       # Structural conventions
+    public function test_guest_can_create_run(): void
+    {
+        Queue::fake();
+        $response = $this->postJson('/api/runs', [
+            'launcher' => 'review-pr',
+            'source_url' => 'https://github.com/owner/repo/pull/1',
+        ]);
+        $response->assertStatus(202);
+        Queue::assertPushed(ExecuteLauncherJob::class);
+    }
+}
 ```
 
-## CI Pipeline
+Key patterns:
+- `use RefreshDatabase` — migrate fresh each test
+- `$this->seed()` — `DatabaseSeeder` (4 launchers + `SuperAdminBootstrapSeeder`)
+- `Queue::fake()` — intercept job dispatch; `Queue::assertPushed()`, `Queue::assertNothingPushed()`
+- `actingAs($user)` — authenticated requests
+- `postJson`, `getJson`, `assertStatus`, `assertJsonCount`, `assertDatabaseHas`
+
+#### Unit Tests — Isolated Service/Class
+
+```php
+class OpenAIProviderTest extends TestCase
+{
+    public function test_generate_sends_expected_request(): void
+    {
+        config()->set('services.openai.key', 'test-key');
+        Http::fake([
+            'api.openai.com/*' => Http::response([
+                'choices' => [['message' => ['content' => '{"summary":"..."}']]],
+            ]),
+        ]);
+
+        $provider = new OpenAIProvider('test-key');
+        $result = $provider->generate('prompt', $schema);
+
+        Http::assertSent(fn (Request $r) => $r->url() === '...'
+            && $r->hasHeader('Authorization', 'Bearer test-key'));
+    }
+}
+```
+
+Key patterns:
+- `config()->set(...)` — mock config values
+- `Http::fake([...])` — intercept external API calls
+- `Http::assertSent(fn (Request $r) => ...)` — verify outgoing request shape (URL, headers, body)
+- Direct instantiation: `new OpenAIProvider('test-key')`
+
+### Mocking
+
+| What | How |
+|---|---|
+| External HTTP (OpenAI, Anthropic, Gemini, OpenRouter, GitHub) | `Http::fake([url => Http::response(...)])` |
+| Job dispatch | `Queue::fake()` + `Queue::assertPushed(ExecuteLauncherJob::class)` |
+| Config values | `config()->set('services.openai.key', 'test-key')` |
+| Time | `Carbon::setTestNow(...)` or `$this->travelTo(...)` |
+| Database | `RefreshDatabase` trait (migrate fresh) + `$this->seed()` |
+
+### Factories
+
+- **`database/factories/UserFactory.php`** — only factory currently defined
+  - `definition()`: `name`, `email`, `password` via `fake()`
+  - State modifiers: `unverified()`
+- Other models (`Run`, `Launcher`, `ProviderCredential`) are created directly in tests via Eloquent or seeders
+
+### Coverage Gaps
+
+- No dedicated factories for `Run`, `Launcher`, `ProviderCredential`, `LauncherPromptOverride` (created inline)
+- No dedicated test for `ContextBudget` constants (covered indirectly via `ContextEncoderTest`)
+- No dedicated test for `LaunchParameters` (covered indirectly via `RunApiTest`, `RunRequiresProviderKeyTest`)
+- No dedicated test for `JsonSchemaValidator` (covered indirectly via `ExecuteLauncherJobTest`)
+- No integration test for SSE streaming over real HTTP (covered via `RunStreamerTest` unit test with array cache)
+
+## Frontend Tests (Vitest)
+
+### Structure
+
+```
+backend/resources/ts/
+├── components/__tests__/
+│   ├── AppViews.test.tsx               (273 lines)
+│   ├── DashboardAccount.test.tsx       (272 lines)
+│   ├── HomeSubComponents.test.tsx      (393 lines)
+│   ├── LaunchAreaCredentials.test.tsx  (313 lines)
+│   ├── ProviderSettingsComponents.test.tsx (337 lines)
+│   └── RunHistory.test.tsx             (182 lines)
+└── lib/__tests__/
+```
+
+### Vitest Configuration (`backend/vitest.config.ts`)
+
+- **Environment**: `jsdom`
+- **Root**: `resources/ts`
+- **Setup file**: `resources/ts/test/setup.ts`
+- **Test pattern**: `**/*.test.{ts,tsx}`
+
+### Frontend Test Patterns
+
+- `@testing-library/react` for component testing
+- Render components, query by role/text, assert on output
+- Mock `services/run.ts` / `services/auth.ts` as needed
+- Note: `npm test` is currently a **no-op in CI** (per `package.json` `test` script and CI workflow); tests exist but run locally
+
+## E2E Tests (Playwright)
+
+### Structure
+
+```
+backend/tests/E2E/
+├── flows/
+│   ├── auth-user-flow.real.spec.ts     # Auth flows (password + magic link) with real backend
+│   ├── demo-full-flow.spec.ts          # Full app flow (demo backend)
+│   └── launcher-prompts.real.spec.ts   # Launcher prompt overrides with real backend
+└── helpers/
+    └── uniqueEmail.ts                  # Unique email generator for E2E
+```
+
+### E2E Configuration (`backend/playwright.config.ts`)
+
+- Two modes: demo (mocked) and real (real backend)
+- Scripts: `npm run test:e2e` (demo), `npm run test:e2e:real` (real)
+- Real-backend server script: `backend/scripts/e2e/serve-real.sh`
+
+## CI Testing
 
 `.github/workflows/ci.yml`:
+- **Backend** (PHP 8.4, `sqlite3` + `pgsql` ext): `composer validate`, `php artisan test`, `pint --test`
+- **Frontend** (Node 24): `typecheck` (`tsc --noEmit`), `lint` (`oxlint`), `konsistent`, `build` (`tsc --noEmit && vite build`), `test` (no-op currently)
 
-| Job | Runtime | Checks |
+## Test Commands
+
+| Command | What | Where |
 |---|---|---|
-| **backend** | PHP 8.4 | `composer validate`, `php artisan test`, `pint --test` |
-| **frontend** | Node 24 | `typecheck`, `lint`, `konsistent`, `build`, `test` |
+| `php artisan test` | Full backend suite | `backend/` |
+| `php artisan test --filter=SomeTest` | Focused test | `backend/` |
+| `composer test` | Full backend suite (with config clear) | `backend/` |
+| `./vendor/bin/pint --test` | Pint format check (CI fails on violations) | `backend/` |
+| `./vendor/bin/pint` | Pint format fix | `backend/` |
+| `npm test` | Vitest frontend unit | `backend/` |
+| `npm run test:watch` | Vitest watch mode | `backend/` |
+| `npm run test:e2e` | Playwright (demo) | `backend/` |
+| `npm run test:e2e:real` | Playwright (real backend) | `backend/` |
+| `just test` | Unified (PHP + JS) | repo root |
+| `just ci` | Full CI: pint, test, typecheck, lint, konsistent, build | repo root |
 
-Additional CI checks:
-- GitGuardian Security Checks
-- Socket Security (Project Report + PR Alerts)
-- Code Review Doctor
-- CodeRabbit (automated review)
-- Deploy Staging (Dokku)
+## Testing Gotchas
 
-## Test Metrics
-
-| Metric | Count |
-|---|---|
-| PHP test files | 29 |
-| PHP tests passed | 216 |
-| PHP assertions | 635 |
-| TS test files | 8 |
-| E2E spec files | 4 |
-
-## Mocking Strategy
-
-- **GitHub API**: `Http::fake()` with JSON fixtures
-- **AI Providers**: Mock provider classes or `Http::fake()`
-- **Queue**: `Queue::fake()` to prevent actual job dispatch
-- **Auth**: `actingAs()` for authenticated user tests
-- **Rate limiting**: Test limiters directly via `RateLimiter`
+- Feature tests use `RefreshDatabase` + `$this->seed()` — every test starts with 4 launchers + super admin
+- `Queue::fake()` is essential — real `ExecuteLauncherJob` would make HTTP calls to GitHub/AI
+- `Http::fake()` must match exact provider URLs (e.g., `api.openai.com/*`, `api.anthropic.com/*`)
+- `RunStreamer` falls back to unconditional DB refresh when cache is `array` driver (tests) — `shouldRefresh(null, ...) === true`
+- `OPENROUTER_API_KEY=test-key-openrouter` set in `phpunit.xml` for guest run tests
+- In-memory SQLite means migrations run every test — keep them fast
+- Frontend `npm test` is a no-op in CI; run locally with `npm test` or `npm run test:watch`

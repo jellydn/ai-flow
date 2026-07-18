@@ -3,13 +3,16 @@
 namespace App\Models;
 
 use App\Security\CredentialCipher;
+use Database\Factories\ProviderCredentialFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ProviderCredential extends Model
 {
-    use HasUuids;
+    /** @use HasFactory<ProviderCredentialFactory> */
+    use HasFactory, HasUuids;
 
     protected $fillable = [
         'provider',
