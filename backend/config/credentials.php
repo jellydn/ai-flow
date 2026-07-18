@@ -34,4 +34,19 @@ return [
 
     'encryption_key' => env('CREDENTIAL_ENCRYPTION_KEY', env('APP_KEY')),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Dedicated Key In Use
+    |--------------------------------------------------------------------------
+    |
+    | Whether a dedicated CREDENTIAL_ENCRYPTION_KEY is set (true) or the
+    | APP_KEY fallback is in effect (false). Resolved from env() here in
+    | the config file (the correct place to call env()), then read via
+    | config('credentials.uses_dedicated_key') elsewhere (e.g. the
+    | AppServiceProvider production guard) so it works correctly even
+    | after `php artisan config:cache`.
+    |
+    */
+    'uses_dedicated_key' => filled(env('CREDENTIAL_ENCRYPTION_KEY')),
+
 ];

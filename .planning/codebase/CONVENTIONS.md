@@ -205,9 +205,11 @@ Defined in `AppServiceProvider::boot()` (see INTEGRATIONS.md). Limiters attached
 Runtime assertions on API JSON via `decode*` / `assert*` functions (no implicit trust):
 
 ```typescript
-// services/run.ts
+// lib/decode.ts — shared assert helpers (assertObject, assertString, assertArray, assertIntegerId, assertStringOrNull)
 export function assertObject(value: unknown): Record<string, unknown> { ... }
 export function assertString(value: unknown, field: string): string { ... }
+// services/run.ts — run-specific decoders built on the assert helpers
+import { assertObject, assertString } from "../lib/decode.ts";
 export function decodeRun(value: unknown): Run { ... }  // throws on shape mismatch
 ```
 

@@ -106,11 +106,13 @@ class AppServiceProvider extends ServiceProvider
         // Alert operators when stored BYOK credentials fall back to APP_KEY
         // instead of a dedicated CREDENTIAL_ENCRYPTION_KEY. Rotating APP_KEY
         // in this state would silently invalidate every stored credential.
+        // Uses config('credentials.uses_dedicated_key') (not env() directly)
+        // so the check works correctly after `php artisan config:cache`.
         if (
             app()->environment('production')
             && ! app()->runningInConsole()
             && ! app()->runningUnitTests()
-            && empty((string) env('CREDENTIAL_ENCRYPTION_KEY'))
+            && ! config('credentials.uses_dedicated_key')
         ) {
             Log::warning('CREDENTIAL_ENCRYPTION_KEY is not set in production; stored BYOK credentials are encrypted with APP_KEY. Set a dedicated CREDENTIAL_ENCRYPTION_KEY to decouple credential encryption from APP_KEY rotation (see config/credentials.php for the rotation procedure).');
         }
