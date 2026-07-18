@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Contracts\AIProviderInterface;
 use App\Data\GitHubReference;
+use App\Exceptions\UserFacingRunException;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
@@ -199,18 +200,47 @@ class ExecuteLauncherJobTest extends TestCase
         $this->seed();
         $run = Run::create([
             'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
-            'source_url' => 'https://github.com/a/b',
-            'input' => ['source_url' => 'https://github.com/a/b'],
+            'source_url' => 'not-a-github-url',
+            'input' => ['source_url' => 'not-a-github-url'],
             'progress' => [],
         ]);
         $github = Mockery::mock(GitHubService::class);
-        $github->shouldReceive('parse')->andReturn(new GitHubReference('a', 'b', 'repository'));
-        $github->shouldReceive('context')->andReturn(['repository' => ['name' => 'b']]);
+        $github->shouldReceive('parse')->andThrow(
+            new \InvalidArgumentException('A public HTTPS github.com repository URL is required.'),
+        );
+        $github->shouldNotReceive('context');
         $ai = Mockery::mock(AIProviderInterface::class);
-        $ai->shouldReceive('generate')->andThrow(new \InvalidArgumentException('A public HTTPS github.com repository URL is required.'));
+        $ai->shouldNotReceive('generate');
 
         (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
-        $this->assertSame('A public HTTPS github.com repository URL is required.', $run->fresh()->error);
+        $fresh = $run->fresh();
+        $this->assertSame('failed', $fresh->status);
+        $this->assertSame('A public HTTPS github.com repository URL is required.', $fresh->error);
+    }
+
+    public function test_run_executor_marks_missing_repository_as_failed_without_treating_as_bug(): void
+    {
+        $this->seed();
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'source_url' => 'https://github.com/jellydn/ai-flow-invalid-repo-123456789',
+            'input' => ['source_url' => 'https://github.com/jellydn/ai-flow-invalid-repo-123456789'],
+            'progress' => [],
+        ]);
+        $github = Mockery::mock(GitHubService::class);
+        $github->shouldReceive('parse')->andReturn(new GitHubReference('jellydn', 'ai-flow-invalid-repo-123456789', 'repository'));
+        $github->shouldReceive('context')->andThrow(
+            new UserFacingRunException('Repository jellydn/ai-flow-invalid-repo-123456789 was not found or is private.'),
+        );
+        $ai = Mockery::mock(AIProviderInterface::class);
+        $ai->shouldNotReceive('generate');
+
+        (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
+
+        $fresh = $run->fresh();
+        $this->assertSame('failed', $fresh->status);
+        $this->assertSame('Repository jellydn/ai-flow-invalid-repo-123456789 was not found or is private.', $fresh->error);
+        $this->assertNotNull($fresh->completed_at);
     }
 }

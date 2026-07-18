@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Data\GitHubReference;
+use App\Exceptions\UserFacingRunException;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Cache;
@@ -164,18 +165,18 @@ class GitHubService
 
         if ($status === 404) {
             return match ($ref->type) {
-                'pull_request' => new RuntimeException("Pull request #{$ref->number} was not found in {$fullName}."),
-                'issue' => new RuntimeException("Issue #{$ref->number} was not found in {$fullName}."),
-                default => new RuntimeException("Repository {$fullName} was not found or is private."),
+                'pull_request' => new UserFacingRunException("Pull request #{$ref->number} was not found in {$fullName}."),
+                'issue' => new UserFacingRunException("Issue #{$ref->number} was not found in {$fullName}."),
+                default => new UserFacingRunException("Repository {$fullName} was not found or is private."),
             };
         }
 
         if ($status === 403) {
-            return new RuntimeException('GitHub API rate limit or access denied. Configure GITHUB_TOKEN for higher limits, or try again later.');
+            return new UserFacingRunException('GitHub API rate limit or access denied. Configure GITHUB_TOKEN for higher limits, or try again later.');
         }
 
         if ($status === 401) {
-            return new RuntimeException('GitHub authentication failed. Check GITHUB_TOKEN.');
+            return new UserFacingRunException('GitHub authentication failed. Check GITHUB_TOKEN.');
         }
 
         return new RuntimeException('GitHub API request failed'.($status ? " (HTTP {$status})" : '').'.');

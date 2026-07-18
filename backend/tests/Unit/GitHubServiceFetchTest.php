@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Data\GitHubReference;
+use App\Exceptions\UserFacingRunException;
 use App\Services\GitHubService;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
@@ -98,7 +99,7 @@ class GitHubServiceFetchTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer ghp_test-token'));
     }
 
-    public function test_maps_missing_pull_request_to_runtime_exception(): void
+    public function test_maps_missing_pull_request_to_user_facing_exception(): void
     {
         Http::fake([
             '*api.github.com/repos/a/b' => Http::response(['name' => 'b', 'full_name' => 'a/b', 'description' => null, 'default_branch' => 'main']),
@@ -108,31 +109,31 @@ class GitHubServiceFetchTest extends TestCase
             '*api.github.com/repos/a/b/pulls/42' => Http::response(['message' => 'Not Found'], 404),
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(UserFacingRunException::class);
         $this->expectExceptionMessage('Pull request #42 was not found in a/b.');
 
         $this->makeService()->fetch(new GitHubReference('a', 'b', 'pull_request', 42));
     }
 
-    public function test_maps_missing_repository_to_runtime_exception(): void
+    public function test_maps_missing_repository_to_user_facing_exception(): void
     {
         Http::fake([
             '*api.github.com/repos/a/missing' => Http::response(['message' => 'Not Found'], 404),
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(UserFacingRunException::class);
         $this->expectExceptionMessage('Repository a/missing was not found or is private.');
 
         $this->makeService()->fetch(new GitHubReference('a', 'missing', 'repository'));
     }
 
-    public function test_maps_rate_limit_to_runtime_exception(): void
+    public function test_maps_rate_limit_to_user_facing_exception(): void
     {
         Http::fake([
             '*api.github.com/repos/a/b' => Http::response(['message' => 'API rate limit exceeded'], 403),
         ]);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(UserFacingRunException::class);
         $this->expectExceptionMessage('GitHub API rate limit or access denied');
 
         $this->makeService()->fetch(new GitHubReference('a', 'b', 'repository'));

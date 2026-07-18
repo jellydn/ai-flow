@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Contracts\AIProviderInterface;
 use App\Events\RunProgressed;
+use App\Exceptions\UserFacingRunException;
 use App\Models\Run;
 use Illuminate\Http\Client\ConnectionException;
 use InvalidArgumentException;
@@ -24,9 +25,14 @@ class RunExecutor
 
         try {
             $this->progress($run, 'Fetching repository', true);
-            $ref = $this->github->parse($run->source_url);
+            try {
+                $ref = $this->github->parse($run->source_url);
+            } catch (InvalidArgumentException $e) {
+                // Malformed / unsupported GitHub URLs are user input errors, not bugs.
+                throw new UserFacingRunException($e->getMessage(), (int) $e->getCode(), $e);
+            }
             if ($run->launcher->input_type !== $ref->type) {
-                throw new RuntimeException("This launcher requires a {$run->launcher->input_type} URL.");
+                throw new UserFacingRunException("This launcher requires a {$run->launcher->input_type} URL.");
             }
             if ($ref->type === 'pull_request') {
                 $this->progress($run, 'Reading changed files');
@@ -47,16 +53,15 @@ class RunExecutor
                 'completed_at' => now(),
             ]);
             RunProgressed::dispatch($run->fresh());
-        } catch (InvalidArgumentException $e) {
-            // URL parsing errors (malformed GitHub URLs, unsupported paths)
+        } catch (UserFacingRunException $e) {
+            // Expected user/input failures (missing repo, wrong launcher URL, malformed URL, etc.)
             $run->markFailed($e->getMessage(), $e);
-            \Sentry\captureException($e);
         } catch (ConnectionException $e) {
             // Network-level failures reaching GitHub
             $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e);
             \Sentry\captureException($e);
         } catch (RuntimeException $e) {
-            // Domain-specific errors with user-friendly messages
+            // Operational domain errors (AI provider, schema validation, etc.)
             $run->markFailed($e->getMessage(), $e);
             \Sentry\captureException($e);
         } catch (Throwable $e) {
