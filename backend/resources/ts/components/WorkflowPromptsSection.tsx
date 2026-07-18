@@ -130,6 +130,7 @@ export function WorkflowPromptsSection() {
                                                 [entry.slug]: ev.target.value,
                                             }))
                                         }
+                                        aria-label={`Prompt for ${entry.name}`}
                                         aria-describedby={hintId}
                                     />
                                     <div className="workflow-prompt-actions">
