@@ -329,7 +329,9 @@ describe("CredentialList", () => {
 describe("PrivacyNote", () => {
     it("renders the encryption privacy text", () => {
         render(<PrivacyNote />);
-        expect(screen.getByText(/Your API keys are encrypted before storage/)).toBeInTheDocument();
-        expect(screen.getByText(/decrypted only when sending a request/)).toBeInTheDocument();
+        expect(
+            screen.getByText(/Your API keys are encrypted before being stored/),
+        ).toBeInTheDocument();
+        expect(screen.getByText(/decrypted only when an AI request is sent/)).toBeInTheDocument();
     });
 });
