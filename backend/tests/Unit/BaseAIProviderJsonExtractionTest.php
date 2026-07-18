@@ -3,8 +3,10 @@
 namespace Tests\Unit;
 
 use App\Contracts\AIProviderInterface;
+use App\Services\AnthropicProvider;
 use App\Services\BaseAIProvider;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 /**
@@ -82,8 +84,8 @@ class BaseAIProviderJsonExtractionTest extends TestCase
 
     public function test_generate_succeeds_when_anthropic_wraps_json_in_prose(): void
     {
-        \Illuminate\Support\Facades\Http::fake([
-            'api.anthropic.com/*' => \Illuminate\Support\Facades\Http::response([
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
                 'content' => [
                     ['type' => 'text', 'text' => "Here is the report:\n{\"summary\":\"ok\",\"risk\":\"low\",\"findings\":[],\"verification_steps\":[]}"],
                 ],
@@ -92,7 +94,7 @@ class BaseAIProviderJsonExtractionTest extends TestCase
 
         config()->set('services.anthropic.key', 'test-key');
 
-        $provider = new \App\Services\AnthropicProvider('test-key');
+        $provider = new AnthropicProvider('test-key');
         $result = $provider->generate('prompt', $this->sampleSchema());
 
         $this->assertSame('ok', $result['summary']);
@@ -101,8 +103,8 @@ class BaseAIProviderJsonExtractionTest extends TestCase
 
     public function test_generate_fails_when_response_is_garbage(): void
     {
-        \Illuminate\Support\Facades\Http::fake([
-            'api.anthropic.com/*' => \Illuminate\Support\Facades\Http::response([
+        Http::fake([
+            'api.anthropic.com/*' => Http::response([
                 'content' => [['type' => 'text', 'text' => 'I cannot help with that.']],
             ]),
         ]);
@@ -111,7 +113,7 @@ class BaseAIProviderJsonExtractionTest extends TestCase
 
         $this->expectException(\RuntimeException::class);
         $this->expectExceptionMessage('invalid JSON');
-        $provider = new \App\Services\AnthropicProvider('test-key');
+        $provider = new AnthropicProvider('test-key');
         $provider->generate('prompt', $this->sampleSchema());
     }
 
