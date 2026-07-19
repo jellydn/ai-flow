@@ -46,11 +46,11 @@ CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) 
 
 ## API
 
-- Slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor`.
+- Slugs: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor` (built-in); authenticated users can create custom launchers with their own slugs via `POST /api/user/launchers`.
 - Aliases: `/api/flows`=`/api/launchers`, `/api/executions`=`/api/runs` (backward compat).
 - Rate limiters in `AppServiceProvider::boot()`: `runs` (5/hr/IP), `runs-stream` (30/min/IP), `magic-link` (3/min/IP), `auth-login` (10/min/IP), `auth-register` (5/min/IP), `credentials` (10/min/user).
 - `POST /api/runs` returns **202** + UUID; status at `GET /api/runs/{uuid}`; progress via SSE `GET /api/runs/{uuid}/stream` (DB-polled, ~55s window). Do not add synchronous OpenAI/GitHub calls to the HTTP cycle.
-- Authenticated user routes under `auth` middleware: run history (`/api/user/runs`), provider credentials (`/api/user/provider-credentials`).
+- Authenticated user routes under `auth` middleware: run history (`/api/user/runs`), provider credentials (`/api/user/provider-credentials`), custom launcher CRUD (`/api/user/launchers`), launcher visibility toggles (`/api/user/hidden-launchers`), launcher prompt overrides (`/api/user/launcher-prompts`).
 
 ## Architecture map
 
@@ -78,5 +78,5 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 
 - Git remotes: `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
 - After rebasing a feature branch onto `main`, use `git push --force-with-lease` (never `--force`) to update the remote. The PR will automatically track the new commits.
-- New launcher = PHP class + `DatabaseSeeder` entry + feature test; shared `outputSchema` in `BaseLauncher`.
+- New built-in launcher = PHP class + `DatabaseSeeder` entry + feature test; shared `outputSchema` in `BaseLauncher`. Custom launchers are created by authenticated users via the API and stored in `user_launchers` (separate table from built-in `launchers`).
 - Laravel 13 + DB: `turso/libsql-laravel` doesn't support Laravel 13 yet; production uses managed Postgres/MySQL, not SQLite.

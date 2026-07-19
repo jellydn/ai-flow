@@ -1,4 +1,4 @@
-import { ArrowRight, Clock3, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Clock3, Eye, EyeOff, ShieldCheck, Zap } from "lucide-react";
 import type { RunProviderId } from "../services/run.ts";
 import type { ProviderCredential } from "../services/auth.ts";
 import type { ProviderCatalogEntry } from "../lib/runModels.ts";
@@ -30,6 +30,9 @@ interface LaunchAreaProps {
     /** Show step 3 label when the user is signed in (provider / own key). */
     showSignedInStep?: boolean;
     onManageApiKeys?: () => void;
+    /** Public/private visibility toggle (authenticated users only). */
+    isPublic: boolean;
+    setIsPublic: (v: boolean) => void;
 }
 
 export function LaunchArea({
@@ -47,6 +50,8 @@ export function LaunchArea({
     setSelectedCredentialId,
     showSignedInStep = false,
     onManageApiKeys,
+    isPublic,
+    setIsPublic,
 }: LaunchAreaProps) {
     const hasSavedCredentials = credentials.length > 0;
     const usingSavedCredential = selectedCredentialId !== null && selectedCredentialId !== "";
@@ -212,6 +217,26 @@ export function LaunchArea({
                 <Zap size={19} fill="currentColor" />{" "}
                 {isLaunching ? "Starting…" : "Launch workflow"} <ArrowRight size={19} />
             </button>
+            {showSignedInStep && (
+                <div className="visibility-toggle-row">
+                    <button
+                        type="button"
+                        className="visibility-toggle-btn"
+                        onClick={() => setIsPublic(!isPublic)}
+                        title={
+                            isPublic ? "Public — anyone can view" : "Private — only you can view"
+                        }
+                    >
+                        {isPublic ? <Eye size={15} /> : <EyeOff size={15} />}
+                        {isPublic ? "Public run" : "Private run"}
+                    </button>
+                    <span className="visibility-hint">
+                        {isPublic
+                            ? "Anyone with the link can view the results."
+                            : "Only you can view the results."}
+                    </span>
+                </div>
+            )}
             <div className="trust-row">
                 <span>
                     <ShieldCheck size={15} /> Public repositories only

@@ -12,9 +12,15 @@ class RunResource extends JsonResource
     {
         $registry = app(AiProviderRegistry::class);
 
+        // Priority: userLauncher before launcher.
+        // Custom-launcher runs store a placeholder built-in launcher_id (NOT NULL FK),
+        // so launcher->slug would return the wrong value. userLauncher takes precedence.
+        // DO NOT swap these — that would be a regression for custom-launcher runs.
+        $launcherSlug = $this->userLauncher?->slug ?? $this->launcher?->slug;
+
         return [
             'id' => $this->id,
-            'launcher' => $this->launcher?->slug,
+            'launcher' => $launcherSlug,
             'input' => $this->input,
             'status' => $this->status,
             'progress' => $this->progress ?? [],
@@ -22,6 +28,8 @@ class RunResource extends JsonResource
             'provider' => $this->provider,
             'provider_label' => $registry->displayName($this->provider),
             'model' => $this->model,
+            'is_public' => $this->is_public,
+            'is_custom' => $this->relationLoaded('userLauncher') && $this->userLauncher !== null,
             'error' => $this->when($this->status === 'failed', $this->error),
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,

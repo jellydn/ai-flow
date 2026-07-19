@@ -33,6 +33,7 @@ class RunFactory extends Factory
             'progress' => [],
             'input' => [],
             'prompt_snapshot' => 'Review this repository for defects.',
+            'is_public' => true,
         ];
     }
 

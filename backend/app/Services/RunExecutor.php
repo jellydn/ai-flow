@@ -21,7 +21,12 @@ class RunExecutor
 
     public function execute(Run $run, AIProviderInterface $ai): void
     {
-        $run->loadMissing('launcher');
+        $run->loadMissing(['launcher', 'userLauncher']);
+        $launcher = $run->launcherSource();
+
+        if ($launcher === null) {
+            throw new RuntimeException('Run has no associated launcher.');
+        }
 
         try {
             $this->progress($run, 'Fetching repository', true);
@@ -31,8 +36,8 @@ class RunExecutor
                 // Malformed / unsupported GitHub URLs are user input errors, not bugs.
                 throw new UserFacingRunException($e->getMessage(), (int) $e->getCode(), $e);
             }
-            if ($run->launcher->input_type !== $ref->type) {
-                throw new UserFacingRunException("This launcher requires a {$run->launcher->input_type} URL.");
+            if ($launcher->getInputType() !== $ref->type) {
+                throw new UserFacingRunException("This launcher requires a {$launcher->getInputType()} URL.");
             }
             if ($ref->type === 'pull_request') {
                 $this->progress($run, 'Reading changed files');
@@ -40,11 +45,12 @@ class RunExecutor
             $context = $this->github->context($run->source_url);
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
-            $basePrompt = $run->prompt_snapshot ?? $run->launcher?->prompt_template ?? '';
+            $basePrompt = $run->prompt_snapshot ?? $launcher->getPromptTemplate() ?? '';
             $prompt = $basePrompt."\nGitHub context:\n".$this->encoder->encode($context);
             $model = $run->model;
-            $result = $ai->generate($prompt, $run->launcher->output_schema, $model);
-            $this->validator->validate($result, $run->launcher->output_schema);
+            $outputSchema = $launcher->getOutputSchema();
+            $result = $ai->generate($prompt, $outputSchema, $model);
+            $this->validator->validate($result, $outputSchema);
             $this->progress($run, 'Preparing report');
             $run->update([
                 'status' => 'completed',
@@ -55,15 +61,23 @@ class RunExecutor
             RunProgressed::dispatch($run->fresh());
         } catch (UserFacingRunException $e) {
             // Expected user/input failures (missing repo, wrong launcher URL, malformed URL, etc.)
-            $run->markFailed($e->getMessage(), $e);
+            // Log at 'warning' so Sentry ignores these — they are not code bugs.
+            $run->markFailed($e->getMessage(), $e, logLevel: 'warning');
         } catch (ConnectionException $e) {
-            // Network-level failures reaching GitHub
-            $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e);
-            \Sentry\captureException($e);
+            // Network-level failures reaching GitHub — transient, not code bugs.
+            $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e, logLevel: 'warning');
         } catch (RuntimeException $e) {
-            // Operational domain errors (AI provider, schema validation, etc.)
-            $run->markFailed($e->getMessage(), $e);
-            \Sentry\captureException($e);
+            $message = $e->getMessage();
+            // Don't report expected AI-provider operational errors to Sentry.
+            $isOperational = str_contains($message, 'API key is not configured')
+                || str_contains($message, 'Invalid API key')
+                || str_contains($message, 'Unable to reach the AI provider');
+
+            $run->markFailed($message, $e, logLevel: $isOperational ? 'warning' : 'error');
+
+            if (! $isOperational) {
+                \Sentry\captureException($e);
+            }
         } catch (Throwable $e) {
             // Unexpected errors — include the exception class for debugging
             $errorClass = class_basename($e);

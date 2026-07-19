@@ -71,6 +71,7 @@ export function App() {
     const [launchers, setLaunchers] = useState<Launcher[]>([]);
     const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
     const [selectedCredentialId, setSelectedCredentialId] = useState<string | null>(null);
+    const [isPublic, setIsPublic] = useState(false);
     const modelEdited = useRef(false);
 
     const [user, setUser] = useState<User | null>(null);
@@ -283,6 +284,7 @@ export function App() {
                 user && !selectedCredentialId ? apiKey : "",
                 user ? (selectedCredentialId ?? undefined) : undefined,
                 user ? selectedModel || undefined : "openrouter/free",
+                user ? isPublic : undefined,
             );
             goto(`/runs/${body.id}`, navigate);
             dispatch({
@@ -312,6 +314,7 @@ export function App() {
         selectedModel,
         apiKey,
         selectedCredentialId,
+        isPublic,
         navigate,
         user,
     ]);
@@ -360,6 +363,8 @@ export function App() {
                   goto("/user", navigate);
               }
             : undefined,
+        isPublic,
+        setIsPublic,
     };
 
     return (

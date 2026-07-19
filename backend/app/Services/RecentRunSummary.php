@@ -22,12 +22,6 @@ class RecentRunSummary
             $parts = explode('/', $path);
             $repo = count($parts) >= 2 ? "{$parts[0]}/{$parts[1]}" : null;
         }
-        if ($repo === null) {
-            // Fallback for runs created before repo_slug was added to the model.
-            $path = trim((string) parse_url($run->source_url, PHP_URL_PATH), '/');
-            $parts = explode('/', $path);
-            $repo = count($parts) >= 2 ? "{$parts[0]}/{$parts[1]}" : null;
-        }
         $type = match ($run->repo_type) {
             'pull_request' => 'Pull request',
             'issue' => 'Issue',
@@ -43,12 +37,14 @@ class RecentRunSummary
             $durationSeconds = (int) $run->started_at->diffInSeconds($run->completed_at);
         }
 
+        $source = $run->launcherSource();
+
         return [
             'id' => $run->id,
             'repo' => $repo,
             'type' => $type,
-            'launcher_slug' => $run->launcher?->slug,
-            'launcher_name' => $run->launcher?->name,
+            'launcher_slug' => $source?->getSlug(),
+            'launcher_name' => $source?->getName(),
             'risk' => $risk,
             'findings_count' => $findings,
             'has_verification_steps' => ! empty($result['verification_steps']),

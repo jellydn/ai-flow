@@ -68,6 +68,8 @@ export interface HomeProps {
     navigate: (pathname: string) => void;
     user?: User | null;
     onManageApiKeys?: () => void;
+    isPublic: boolean;
+    setIsPublic: (v: boolean) => void;
 }
 
 export function Home({
@@ -93,6 +95,8 @@ export function Home({
     navigate,
     user,
     onManageApiKeys,
+    isPublic,
+    setIsPublic,
 }: HomeProps) {
     const signedIn = Boolean(user);
     return (
@@ -150,6 +154,8 @@ export function Home({
                         setSelectedCredentialId={setSelectedCredentialId}
                         showSignedInStep={signedIn}
                         onManageApiKeys={onManageApiKeys}
+                        isPublic={isPublic}
+                        setIsPublic={setIsPublic}
                     />
                 </div>
 
@@ -180,19 +186,24 @@ export function Home({
                                 }}
                             >
                                 <div className="card-top">
-                                    {meta && (
-                                        <LauncherIcon icon={meta.icon} tone={meta.tone} size={23} />
-                                    )}
+                                    <LauncherIcon
+                                        icon={meta?.icon ?? launcher.icon ?? Sparkles}
+                                        tone={meta?.tone ?? launcher.tone ?? "blue"}
+                                        size={23}
+                                    />
                                     {meta?.popular && <span className="popular">Most popular</span>}
                                     {meta?.badge && (
                                         <span className="laravel-badge">{meta.badge}</span>
+                                    )}
+                                    {launcher.is_custom && (
+                                        <span className="custom-badge">Custom</span>
                                     )}
                                 </div>
                                 <h3>{meta?.title ?? launcher.name}</h3>
                                 <p>{meta?.description ?? launcher.description}</p>
                                 <div className="card-meta">
                                     <span>
-                                        <Clock3 size={14} /> {meta?.time ?? ""}
+                                        <Clock3 size={14} /> {meta?.time ?? "~45 sec"}
                                     </span>
                                     <span>{meta?.accepts ?? launcher.input_type}</span>
                                 </div>

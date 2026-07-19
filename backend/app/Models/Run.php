@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\LauncherSource;
 use App\Events\RunProgressed;
 use Database\Factories\RunFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -28,6 +29,7 @@ class Run extends Model
 
     protected $fillable = [
         'launcher_id',
+        'user_launcher_id',
         'user_id',
         'provider_credential_id',
         'provider',
@@ -42,6 +44,7 @@ class Run extends Model
         'source_context',
         'result',
         'error',
+        'is_public',
         'started_at',
         'completed_at',
     ];
@@ -53,6 +56,7 @@ class Run extends Model
             'input' => 'array',
             'source_context' => 'array',
             'result' => 'array',
+            'is_public' => 'boolean',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
@@ -61,6 +65,25 @@ class Run extends Model
     public function launcher(): BelongsTo
     {
         return $this->belongsTo(Launcher::class);
+    }
+
+    public function userLauncher(): BelongsTo
+    {
+        return $this->belongsTo(UserLauncher::class, 'user_launcher_id');
+    }
+
+    /**
+     * Return the effective launcher — either a built-in Launcher
+     * or a user-created UserLauncher — depending on which FK is set.
+     * Both implement App\Contracts\LauncherSource.
+     */
+    public function launcherSource(): ?LauncherSource
+    {
+        if ($this->user_launcher_id !== null) {
+            return $this->userLauncher;
+        }
+
+        return $this->launcher;
     }
 
     public function user(): BelongsTo
@@ -91,14 +114,27 @@ class Run extends Model
     }
 
     /**
+     * Whether this run is public (viewable by anyone).
+     */
+    public function isPublic(): bool
+    {
+        return (bool) $this->is_public;
+    }
+
+    /**
      * Transition this run to the failed state.
      *
      * Single owner of the run-failure lifecycle: sets status, error,
      * clears source_context, sets completed_at, logs the failure, and
      * dispatches RunProgressed. Called by ExecuteLauncherJob,
      * RunExecutor, and ReapStuckRuns.
+     *
+     * @param  'error'|'warning'|'info'  $logLevel  PSR-3 log level.
+     *                                              Use 'warning' for expected failures (user input errors,
+     *                                              network blips) so Sentry ignores them. Default 'error'
+     *                                              for operational failures that need attention.
      */
-    public function markFailed(string $message, ?Throwable $e = null, string $logContext = 'Launcher run failed'): void
+    public function markFailed(string $message, ?Throwable $e = null, string $logContext = 'Launcher run failed', string $logLevel = 'error'): void
     {
         $this->update([
             'status' => 'failed',
@@ -107,11 +143,17 @@ class Run extends Model
             'completed_at' => now(),
         ]);
 
-        Log::error($logContext, [
+        $context = [
             'run_id' => $this->id,
             'exception' => $e ? get_class($e) : null,
             'exception_message' => $e?->getMessage(),
-        ]);
+        ];
+
+        match ($logLevel) {
+            'warning' => Log::warning($logContext, $context),
+            'info' => Log::info($logContext, $context),
+            default => Log::error($logContext, $context),
+        };
 
         RunProgressed::dispatch($this->fresh());
     }

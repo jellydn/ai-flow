@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\LauncherResolutionService;
 use App\Services\LaunchParameters;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
@@ -25,6 +26,11 @@ class StoreRunRequest extends FormRequest
             $input['model'] = AiProviderRegistry::GUEST_MODEL;
         }
 
+        // Default is_public for unauthenticated runs
+        if (! array_key_exists('is_public', $this->all())) {
+            $input['is_public'] = $this->user() === null;
+        }
+
         $this->merge($input);
     }
 
@@ -38,13 +44,21 @@ class StoreRunRequest extends FormRequest
         $registry = app(AiProviderRegistry::class);
 
         return [
-            'launcher' => ['required', 'string', 'exists:launchers,slug'],
+            'launcher' => ['required', 'string', function ($attribute, $value, $fail) {
+                $launcherResolver = app(LauncherResolutionService::class);
+                if ($launcherResolver->exists($value, $this->user())) {
+                    return;
+                }
+
+                $fail("The selected {$attribute} is invalid.");
+            }],
             'source_url' => ['required', 'url', 'max:2048', 'regex:/^https:\/\/(?:www\.)?github\.com\//i'],
             'provider' => ['sometimes', 'array'],
             'provider.id' => ['nullable', 'string', Rule::in($registry->ids())],
             'provider.api_key' => ['nullable', 'string', 'max:512'],
             'provider.model' => ['nullable', 'string', 'max:128'],
             'model' => ['nullable', 'string', 'max:128'],
+            'is_public' => ['nullable', 'boolean'],
             'provider_credential_id' => [
                 'nullable',
                 'uuid',

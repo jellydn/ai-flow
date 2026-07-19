@@ -11,13 +11,14 @@ export interface Run {
     provider?: string | null;
     provider_label?: string | null;
     model?: string | null;
+    is_public?: boolean;
     started_at: string | null;
     completed_at: string | null;
     created_at?: string;
 }
 
 export interface RunResult {
-    summary: string;
+    summary?: string;
     risk?: string;
     findings?: Finding[];
     verification_steps?: string[];
@@ -36,6 +37,22 @@ export interface Launcher {
     name: string;
     description: string;
     input_type: string;
+    icon?: string;
+    tone?: string;
+    is_custom?: boolean;
+}
+
+export interface UserLauncher {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    prompt_template: string;
+    input_type: string;
+    output_schema: Record<string, unknown>;
+    is_custom: true;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface CreateRunResponse {

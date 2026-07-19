@@ -8,11 +8,12 @@ use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
 use App\Services\GitHubService;
-use App\Services\LauncherPromptResolver;
+use App\Services\LauncherResolutionService;
 use App\Services\LaunchParameters;
 use App\Services\RecentRunSummary;
 use App\Services\RunStreamer;
 use App\Support\AiProviderRegistry;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use InvalidArgumentException;
@@ -22,15 +23,26 @@ class RunController extends Controller
 {
     public function __construct(
         private RunStreamer $streamer,
-        private LauncherPromptResolver $promptResolver,
+        private LauncherResolutionService $launcherResolver,
         private AiProviderRegistry $providerRegistry,
         private GitHubService $gitHubService,
     ) {}
 
     public function store(StoreRunRequest $request): JsonResponse
     {
-        $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
+        $slug = $request->validated('launcher');
+        $user = $request->user();
         $input = ['source_url' => $request->validated('source_url')];
+
+        try {
+            $resolved = $this->launcherResolver->resolve($slug, $user);
+        } catch (ModelNotFoundException) {
+            return response()->json(['message' => 'The selected launcher is invalid.'], 422);
+        }
+
+        if ($resolved->launcherId === null) {
+            return response()->json(['message' => 'No active launchers are available.'], 503);
+        }
 
         $params = LaunchParameters::resolve(
             providerId: $request->validated('provider.id'),
@@ -38,10 +50,8 @@ class RunController extends Controller
             providerCredentialId: $request->validated('provider_credential_id'),
             requestedModel: $request->validated('provider.model') ?? $request->validated('model'),
             registry: $this->providerRegistry,
-            allowCustom: $request->user() !== null,
+            allowCustom: $user !== null,
         );
-
-        $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());
 
         $repoSlug = null;
         $repoType = null;
@@ -53,8 +63,12 @@ class RunController extends Controller
             // Invalid URL — repo metadata stays null.
         }
 
-        $run = $launcher->runs()->create([
-            'user_id' => $request->user()?->id,
+        $isPublic = $user ? (bool) $request->validated('is_public') : true;
+
+        $run = Run::create([
+            'launcher_id' => $resolved->launcherId,
+            'user_launcher_id' => $resolved->userLauncherId,
+            'user_id' => $user?->id,
             'provider_credential_id' => $params->providerCredentialId,
             'provider' => $params->effectiveProvider,
             'model' => $params->resolvedModel,
@@ -62,7 +76,8 @@ class RunController extends Controller
             'repo_slug' => $repoSlug,
             'repo_type' => $repoType,
             'input' => $input,
-            'prompt_snapshot' => $promptSnapshot,
+            'prompt_snapshot' => $resolved->promptSnapshot,
+            'is_public' => $isPublic,
             'status' => 'queued',
             'progress' => [],
         ]);
@@ -79,21 +94,19 @@ class RunController extends Controller
     }
 
     /**
-     * Return recent completed public runs (user_id = null) for the home page.
+     * Return recent completed public runs for the home page.
      * Returns a lightweight summary — no full result, just repo/risk/findings count.
      *
-     * Index coverage: the composite index runs_status_user_completed_at_index
-     * (status, user_id, completed_at) added in migration 2026_07_15_000001
-     * covers the (status = 'completed', user_id IS NULL, completed_at DESC)
-     * predicate below.
+     * Uses is_public (not user_id IS NULL) to include public runs from
+     * authenticated users (e.g. custom-launcher runs marked public).
      */
     public function recent(): JsonResponse
     {
         $runs = Run::query()
             ->where('status', 'completed')
-            ->whereNull('user_id')
+            ->where('is_public', true)
             ->whereNotNull('result')
-            ->with('launcher:id,slug,name')
+            ->with(['launcher:id,slug,name', 'userLauncher:id,slug,name,user_id'])
             ->orderByDesc('completed_at')
             ->limit(6)
             ->get();
@@ -107,7 +120,7 @@ class RunController extends Controller
     {
         $this->authorize('view', $run);
 
-        return new RunResource($run->load('launcher'));
+        return new RunResource($run->load(['launcher', 'userLauncher']));
     }
 
     public function stream(Run $run): StreamedResponse

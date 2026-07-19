@@ -23,8 +23,13 @@ export function LauncherSelector({ launchers, selected, setSelected }: LauncherS
                         className={selected === launcher.slug ? "active" : ""}
                         onClick={() => setSelected(launcher.slug)}
                     >
-                        {meta && <LauncherIcon icon={meta.icon} tone={meta.tone} size={15} />}
+                        <LauncherIcon
+                            icon={meta?.icon ?? launcher.icon}
+                            tone={meta?.tone ?? launcher.tone ?? "blue"}
+                            size={15}
+                        />
                         <span>{meta ? quickLabel(launcher.slug, meta.title) : launcher.name}</span>
+                        {launcher.is_custom && <span className="custom-badge">Custom</span>}
                         {selected === launcher.slug && <Check size={13} />}
                     </button>
                 );

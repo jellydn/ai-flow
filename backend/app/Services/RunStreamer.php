@@ -77,7 +77,7 @@ class RunStreamer
     {
         $run->refresh();
 
-        return json_encode((new RunResource($run->loadMissing('launcher')))->resolve());
+        return json_encode((new RunResource($run->loadMissing(['launcher', 'userLauncher'])))->resolve());
     }
 
     private function isTerminal(Run $run): bool

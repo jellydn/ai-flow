@@ -1,14 +1,15 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\LauncherController;
 use App\Http\Controllers\LauncherPromptController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
 use App\Http\Controllers\RunHistoryController;
 use App\Http\Controllers\TrendingRepositoryController;
+use App\Http\Controllers\UserLauncherController;
 use App\Http\Resources\UserResource;
-use App\Models\Launcher;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -16,9 +17,10 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // unauthenticated requests that lack an Accept: application/json header.
 Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
 
-$launchersResponse = fn () => Launcher::query()->where('active', true)->get()->map(fn ($launcher) => ['id' => $launcher->slug, 'slug' => $launcher->slug, 'name' => $launcher->name, 'description' => $launcher->description, 'input_type' => $launcher->input_type]);
-Route::get('/launchers', $launchersResponse);
-Route::get('/flows', $launchersResponse);
+// web middleware needed so request()->user() is available for custom-launcher
+// listing and hidden-launcher filtering (reads session cookie).
+Route::get('/launchers', [LauncherController::class, 'index'])->middleware('web');
+Route::get('/flows', [LauncherController::class, 'index'])->middleware('web');
 Route::get('/providers', [ProviderController::class, 'index']);
 // Session (`web`) so the SPA cookie session is visible:
 // - POST: attach user_id + allow provider_credential_id ownership checks
@@ -45,6 +47,13 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::get('/launcher-prompts', [LauncherPromptController::class, 'index']);
     Route::put('/launcher-prompts/{slug}', [LauncherPromptController::class, 'update']);
     Route::delete('/launcher-prompts/{slug}', [LauncherPromptController::class, 'destroy']);
+    Route::get('/launchers', [UserLauncherController::class, 'index']);
+    Route::post('/launchers', [UserLauncherController::class, 'store']);
+    Route::put('/launchers/{userLauncher}', [UserLauncherController::class, 'update']);
+    Route::delete('/launchers/{userLauncher}', [UserLauncherController::class, 'destroy']);
+    Route::get('/hidden-launchers', [UserLauncherController::class, 'hidden']);
+    Route::post('/hidden-launchers/{launcher:slug}', [UserLauncherController::class, 'hide']);
+    Route::delete('/hidden-launchers/{launcher:slug}', [UserLauncherController::class, 'unhide']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
