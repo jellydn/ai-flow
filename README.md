@@ -42,9 +42,13 @@
 <td width="25%"><strong>🩺 Laravel Doctor</strong></td>
 <td>Inspect a Laravel project and recommend improvements across conventions, security, and performance.</td>
 </tr>
+<tr>
+<td width="25%"><strong>✨ Custom launchers</strong></td>
+<td>Signed-in users can create their own launchers with custom names, prompts, and JSON output schemas. Custom launchers appear alongside built-in ones on the home page.</td>
+</tr>
 </table>
 
-Every run produces a **structured, schema-validated report** — not a wall of chat text. Each finding carries a severity label, file references, and concrete fix suggestions. Results are shareable by URL.
+Every run produces a **structured, schema-validated report** — not a wall of chat text. Each finding carries a severity label, file references, and concrete fix suggestions. Results are shareable by URL. Signed-in users can mark runs as **private** (default) or **public** via a visibility toggle.
 
 ---
 
@@ -167,7 +171,7 @@ CI runs the backend suite on **PHP 8.4** and the frontend suite on **Node 24**. 
 | Document | What it covers |
 |---|---|
 | [`backend/README.md`](backend/README.md) | Full app setup, API reference, auth, credentials, Docker, cloud deploy |
-| [`doc/adr/`](doc/adr/README.md) | Architecture decision records (21 ADRs) |
+| [`doc/adr/`](doc/adr/README.md) | Architecture decision records (24 ADRs) |
 | [`DESIGN.md`](DESIGN.md) | Visual identity — colors, typography, components, spacing |
 | [`AGENTS.md`](AGENTS.md) | AI coding assistant guide — conventions, gotchas, commands |
 | [`.planning/codebase/`](.planning/codebase/) | Codebase map — stack, architecture, conventions, testing, concerns |

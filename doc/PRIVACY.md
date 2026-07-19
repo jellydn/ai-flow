@@ -11,6 +11,8 @@
 | Saved provider base URLs | Yes | **Yes** | Optional custom endpoint for OpenAI-compatible providers |
 | AI run inputs (GitHub URL) | Yes | No | Run execution and history |
 | AI run outputs (structured reports) | Yes | No | Run results and history |
+| Custom launcher definitions (name, prompt, output schema) | Yes | No | User-created workflow definitions |
+| Run visibility setting (public/private) | Yes | No | Controls who can view the run result |
 | Execution metadata (provider, model, timestamps) | Yes | No | Run history display and filtering |
 | Authentication tokens (magic links) | Yes (hashed, 15-min expiry) | Hashed | Single-use email-link sign-in verification |
 | Session cookies | Yes (HTTP-only, same-site) | N/A | Authentication session maintenance |
@@ -33,6 +35,7 @@ When you run a flow:
 ## User controls
 
 - **Delete saved credentials**: Settings → API Keys → Delete
+- **Delete custom launchers**: Settings → Custom Launchers → Delete (also deletes associated runs)
 - **Delete individual runs**: Run History → Delete
 - **Delete your account**: Settings → Account → Delete account (permanently removes your email, all saved credentials, and all run history)
 - **Sign out**: Dashboard → Sign out (invalidates your session)
