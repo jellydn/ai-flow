@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Contracts\LauncherMetaInterface;
 use App\Events\RunProgressed;
 use App\Listeners\CacheRunProgressedVersion;
+use App\Services\LauncherMetaService;
 use App\Support\AiProviderRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(AiProviderRegistry::class);
+        $this->app->singleton(LauncherMetaInterface::class, LauncherMetaService::class);
     }
 
     /**

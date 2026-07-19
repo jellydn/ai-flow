@@ -2,8 +2,7 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Launcher;
-use App\Models\UserLauncher;
+use App\Services\LauncherResolutionService;
 use App\Services\LaunchParameters;
 use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Http\FormRequest;
@@ -46,13 +45,8 @@ class StoreRunRequest extends FormRequest
 
         return [
             'launcher' => ['required', 'string', function ($attribute, $value, $fail) {
-                // Check built-in launchers first, then user launchers.
-                if (Launcher::where('slug', $value)->where('active', true)->exists()) {
-                    return;
-                }
-
-                $user = $this->user();
-                if ($user && UserLauncher::where('slug', $value)->where('user_id', $user->id)->exists()) {
+                $launcherResolver = app(LauncherResolutionService::class);
+                if ($launcherResolver->exists($value, $this->user())) {
                     return;
                 }
 

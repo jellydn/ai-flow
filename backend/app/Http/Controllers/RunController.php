@@ -7,13 +7,13 @@ use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
-use App\Models\UserLauncher;
 use App\Services\GitHubService;
-use App\Services\LauncherPromptResolver;
+use App\Services\LauncherResolutionService;
 use App\Services\LaunchParameters;
 use App\Services\RecentRunSummary;
 use App\Services\RunStreamer;
 use App\Support\AiProviderRegistry;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\JsonResource;
 use InvalidArgumentException;
@@ -23,7 +23,7 @@ class RunController extends Controller
 {
     public function __construct(
         private RunStreamer $streamer,
-        private LauncherPromptResolver $promptResolver,
+        private LauncherResolutionService $launcherResolver,
         private AiProviderRegistry $providerRegistry,
         private GitHubService $gitHubService,
     ) {}
@@ -34,28 +34,13 @@ class RunController extends Controller
         $user = $request->user();
         $input = ['source_url' => $request->validated('source_url')];
 
-        // Resolve launcher: built-in first, then user custom.
-        $builtInLauncher = Launcher::where('slug', $slug)->where('active', true)->first();
-        $userLauncher = null;
-        $promptSnapshot = null;
-
-        if ($builtInLauncher !== null) {
-            $promptSnapshot = $this->promptResolver->effectivePrompt($builtInLauncher, $user);
-        } else {
-            $userLauncher = UserLauncher::where('slug', $slug)->where('user_id', $user?->id)->firstOrFail();
-            $promptSnapshot = $userLauncher->prompt_template;
+        try {
+            $resolved = $this->launcherResolver->resolve($slug, $user);
+        } catch (ModelNotFoundException) {
+            return response()->json(['message' => 'The selected launcher is invalid.'], 422);
         }
 
-        // launcher_id is NOT NULL (SQLite-compatible). Custom-launcher runs use a
-        // placeholder built-in launcher_id so FK constraints stay intact. The real
-        // launcher is resolved via user_launcher_id → launcherSource() at read time.
-        // NOTE: if the placeholder launcher is ever deleted, cascadeOnDelete will
-        // drop all custom-launcher runs referencing it. Built-in launchers are
-        // seeded and not deleted in normal operation, so this is acceptable.
-        $launcherId = $builtInLauncher?->id
-            ?? Launcher::where('active', true)->value('id');
-
-        if ($launcherId === null) {
+        if ($resolved->launcherId === null) {
             return response()->json(['message' => 'No active launchers are available.'], 503);
         }
 
@@ -81,8 +66,8 @@ class RunController extends Controller
         $isPublic = $user ? (bool) $request->validated('is_public') : true;
 
         $run = Run::create([
-            'launcher_id' => $launcherId,
-            'user_launcher_id' => $userLauncher?->id,
+            'launcher_id' => $resolved->launcherId,
+            'user_launcher_id' => $resolved->userLauncherId,
             'user_id' => $user?->id,
             'provider_credential_id' => $params->providerCredentialId,
             'provider' => $params->effectiveProvider,
@@ -91,7 +76,7 @@ class RunController extends Controller
             'repo_slug' => $repoSlug,
             'repo_type' => $repoType,
             'input' => $input,
-            'prompt_snapshot' => $promptSnapshot,
+            'prompt_snapshot' => $resolved->promptSnapshot,
             'is_public' => $isPublic,
             'status' => 'queued',
             'progress' => [],

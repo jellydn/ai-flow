@@ -23,9 +23,6 @@
         "phpunit/phpunit": "^13.0"
     },
     "autoload": {
-        "files": [
-            "app/Helpers/LauncherMeta.php"
-        ],
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",

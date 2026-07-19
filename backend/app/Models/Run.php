@@ -72,10 +72,9 @@ class Run extends Model
     }
 
     /**
-     * Return the effective launcher model — either a built-in Launcher
+     * Return the effective launcher — either a built-in Launcher
      * or a user-created UserLauncher — depending on which FK is set.
-     *
-     * @return Launcher|UserLauncher|null
+     * Both implement App\Contracts\LauncherSource.
      */
     public function launcherSource(): ?Model
     {

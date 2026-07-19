@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreUserLauncherRequest;
 use App\Http\Requests\UpdateUserLauncherRequest;
 use App\Http\Resources\UserLauncherResource;
+use App\Models\Launcher;
+use App\Models\UserHiddenLauncher;
 use App\Models\UserLauncher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +14,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class UserLauncherController extends Controller
 {
+    /** Custom launcher CRUD */
     public function index(Request $request): AnonymousResourceCollection
     {
         $launchers = UserLauncher::query()
@@ -63,5 +66,36 @@ class UserLauncherController extends Controller
         $userLauncher->delete();
 
         return response()->json(['message' => 'Custom launcher deleted.'], 200);
+    }
+
+    /** Built-in launcher visibility */
+    public function hidden(Request $request): JsonResponse
+    {
+        $hidden = UserHiddenLauncher::query()
+            ->join('launchers', 'launchers.id', '=', 'user_hidden_launchers.launcher_id')
+            ->where('user_hidden_launchers.user_id', $request->user()->id)
+            ->pluck('launchers.slug');
+
+        return response()->json(['data' => $hidden]);
+    }
+
+    public function hide(Request $request, Launcher $launcher): JsonResponse
+    {
+        UserHiddenLauncher::firstOrCreate([
+            'user_id' => $request->user()->id,
+            'launcher_id' => $launcher->id,
+        ]);
+
+        return response()->json(['message' => 'Launcher hidden.'], 201);
+    }
+
+    public function unhide(Request $request, Launcher $launcher): JsonResponse
+    {
+        UserHiddenLauncher::query()
+            ->where('user_id', $request->user()->id)
+            ->where('launcher_id', $launcher->id)
+            ->delete();
+
+        return response()->json(['message' => 'Launcher unhidden.'], 200);
     }
 }
