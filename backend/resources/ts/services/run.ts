@@ -207,10 +207,11 @@ export async function createRun(
     apiKey: string,
     providerCredentialId?: string,
     model?: string,
+    isPublic?: boolean,
 ): Promise<CreateRunResponse> {
     const trimmedKey = apiKey.trim();
     const trimmedModel = model?.trim();
-    const body = await post("/api/runs", {
+    const payload: Record<string, unknown> = {
         launcher,
         source_url: sourceUrl,
         provider: {
@@ -219,7 +220,11 @@ export async function createRun(
             ...(trimmedModel ? { model: trimmedModel } : {}),
         },
         ...(providerCredentialId ? { provider_credential_id: providerCredentialId } : {}),
-    });
+    };
+    if (isPublic !== undefined) {
+        payload.is_public = isPublic;
+    }
+    const body = await post("/api/runs", payload);
     const data = assertObject(body);
     return {
         id: assertString(data.id, "id"),

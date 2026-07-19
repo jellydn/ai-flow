@@ -322,6 +322,8 @@ const launchAreaDefaults = {
     launch: vi.fn(),
     isLaunching: false,
     showSignedInStep: true,
+    isPublic: false,
+    setIsPublic: vi.fn(),
 };
 
 describe("LaunchArea", () => {

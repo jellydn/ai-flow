@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\LauncherController;
 use App\Http\Controllers\LauncherPromptController;
 use App\Http\Controllers\ProviderController;
 use App\Http\Controllers\ProviderCredentialController;
@@ -10,9 +11,6 @@ use App\Http\Controllers\TrendingRepositoryController;
 use App\Http\Controllers\UserHiddenLauncherController;
 use App\Http\Controllers\UserLauncherController;
 use App\Http\Resources\UserResource;
-use App\Models\Launcher;
-use App\Models\UserHiddenLauncher;
-use App\Models\UserLauncher;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -20,68 +18,10 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // unauthenticated requests that lack an Accept: application/json header.
 Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
 
-// Unified launcher list: built-in active launchers + authenticated user's custom launchers.
-// Hidden built-in launchers are filtered out for authenticated users.
-$launchersResponse = function () {
-    $query = Launcher::query()->where('active', true);
-
-    $user = request()->user();
-
-    if ($user) {
-        $hiddenIds = UserHiddenLauncher::query()
-            ->where('user_id', $user->id)
-            ->pluck('launcher_id')
-            ->toArray();
-
-        if ($hiddenIds !== []) {
-            $query->whereNotIn('id', $hiddenIds);
-        }
-    }
-
-    $builtIn = $query->get()->map(function (Launcher $launcher): array {
-        $meta = launcherServerMeta($launcher->slug);
-
-        return [
-            'id' => $launcher->slug,
-            'slug' => $launcher->slug,
-            'name' => $launcher->name,
-            'description' => $launcher->description,
-            'input_type' => $launcher->input_type,
-            'icon' => $meta['icon'],
-            'tone' => $meta['tone'],
-            'is_custom' => false,
-        ];
-    });
-
-    if ($user) {
-        $custom = UserLauncher::query()
-            ->where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function (UserLauncher $launcher): array {
-                $meta = customLauncherMeta($launcher->slug);
-
-                return [
-                    'id' => $launcher->slug,
-                    'slug' => $launcher->slug,
-                    'name' => $launcher->name,
-                    'description' => $launcher->description,
-                    'input_type' => $launcher->input_type,
-                    'icon' => $meta['icon'],
-                    'tone' => $meta['tone'],
-                    'is_custom' => true,
-                ];
-            });
-
-        $builtIn = $builtIn->concat($custom);
-    }
-
-    return $builtIn->values();
-};
 // web middleware needed so request()->user() is available for custom-launcher
 // listing and hidden-launcher filtering (reads session cookie).
-Route::get('/launchers', $launchersResponse)->middleware('web');
-Route::get('/flows', $launchersResponse)->middleware('web');
+Route::get('/launchers', [LauncherController::class, 'index'])->middleware('web');
+Route::get('/flows', [LauncherController::class, 'index'])->middleware('web');
 Route::get('/providers', [ProviderController::class, 'index']);
 // Session (`web`) so the SPA cookie session is visible:
 // - POST: attach user_id + allow provider_credential_id ownership checks

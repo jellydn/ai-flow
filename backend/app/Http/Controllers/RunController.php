@@ -55,6 +55,10 @@ class RunController extends Controller
         $launcherId = $builtInLauncher?->id
             ?? Launcher::where('active', true)->value('id');
 
+        if ($launcherId === null) {
+            return response()->json(['message' => 'No active launchers are available.'], 503);
+        }
+
         $params = LaunchParameters::resolve(
             providerId: $request->validated('provider.id'),
             oneTimeApiKey: $request->validated('provider.api_key'),

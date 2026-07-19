@@ -68,6 +68,8 @@ export interface HomeProps {
     navigate: (pathname: string) => void;
     user?: User | null;
     onManageApiKeys?: () => void;
+    isPublic: boolean;
+    setIsPublic: (v: boolean) => void;
 }
 
 export function Home({
@@ -93,6 +95,8 @@ export function Home({
     navigate,
     user,
     onManageApiKeys,
+    isPublic,
+    setIsPublic,
 }: HomeProps) {
     const signedIn = Boolean(user);
     return (
@@ -150,6 +154,8 @@ export function Home({
                         setSelectedCredentialId={setSelectedCredentialId}
                         showSignedInStep={signedIn}
                         onManageApiKeys={onManageApiKeys}
+                        isPublic={isPublic}
+                        setIsPublic={setIsPublic}
                     />
                 </div>
 

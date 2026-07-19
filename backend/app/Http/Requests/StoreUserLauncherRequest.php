@@ -16,6 +16,7 @@ class StoreUserLauncherRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
+        $builtInSlugs = ['review-pr', 'plan-issue', 'explain-repository', 'laravel-doctor'];
 
         return [
             'slug' => [
@@ -24,12 +25,22 @@ class StoreUserLauncherRequest extends FormRequest
                 'max:64',
                 'regex:/^[a-z0-9]+(?:-[a-z0-9]+)*$/',
                 Rule::unique(UserLauncher::class, 'slug')->where(fn ($q) => $q->where('user_id', $user->id)),
+                Rule::notIn($builtInSlugs),
             ],
             'name' => ['required', 'string', 'max:128'],
             'description' => ['required', 'string', 'max:512'],
             'prompt_template' => ['required', 'string', 'min:20'],
             'input_type' => ['required', 'string', Rule::in(['repository', 'pull_request', 'issue'])],
-            'output_schema' => ['required', 'json'],
+            'output_schema' => [
+                'required',
+                'json',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $decoded = json_decode((string) $value, associative: true);
+                    if (! is_array($decoded) || $decoded === []) {
+                        $fail('The output schema must be a valid JSON object.');
+                    }
+                },
+            ],
         ];
     }
 
@@ -40,6 +51,7 @@ class StoreUserLauncherRequest extends FormRequest
     {
         return [
             'slug.regex' => 'The slug may only contain lowercase letters, numbers, and single hyphens.',
+            'slug.not_in' => 'This slug is reserved for a built-in launcher.',
             'output_schema.json' => 'The output schema must be valid JSON.',
             'prompt_template.min' => 'The prompt must be at least 20 characters.',
         ];

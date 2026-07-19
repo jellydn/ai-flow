@@ -41,9 +41,7 @@ class UserLauncherController extends Controller
 
     public function update(UpdateUserLauncherRequest $request, UserLauncher $userLauncher): UserLauncherResource
     {
-        if ($userLauncher->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        $this->authorize('update', $userLauncher);
 
         $data = array_filter([
             'name' => $request->validated('name'),
@@ -60,9 +58,7 @@ class UserLauncherController extends Controller
 
     public function destroy(Request $request, UserLauncher $userLauncher): JsonResponse
     {
-        if ($userLauncher->user_id !== $request->user()->id) {
-            abort(403);
-        }
+        $this->authorize('delete', $userLauncher);
 
         $userLauncher->delete();
 

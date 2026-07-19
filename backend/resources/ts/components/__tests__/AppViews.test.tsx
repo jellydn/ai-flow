@@ -123,6 +123,8 @@ const baseHomeProps = {
     providerCatalog: [],
     launchers: [],
     navigate: vi.fn<(pathname: string) => void>(),
+    isPublic: false,
+    setIsPublic: vi.fn(),
 };
 
 const baseRunningData = {

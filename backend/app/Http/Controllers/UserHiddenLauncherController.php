@@ -12,10 +12,9 @@ class UserHiddenLauncherController extends Controller
     public function index(Request $request): JsonResponse
     {
         $hidden = UserHiddenLauncher::query()
-            ->where('user_id', $request->user()->id)
-            ->with('launcher')
-            ->get()
-            ->map(fn (UserHiddenLauncher $h) => $h->launcher->slug);
+            ->join('launchers', 'launchers.id', '=', 'user_hidden_launchers.launcher_id')
+            ->where('user_hidden_launchers.user_id', $request->user()->id)
+            ->pluck('launchers.slug');
 
         return response()->json(['data' => $hidden]);
     }

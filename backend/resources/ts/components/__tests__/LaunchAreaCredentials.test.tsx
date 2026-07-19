@@ -33,6 +33,8 @@ const baseProps = {
     launch: vi.fn(),
     isLaunching: false,
     showSignedInStep: true,
+    isPublic: false,
+    setIsPublic: vi.fn(),
 };
 
 function makeCredential(overrides: Partial<ProviderCredential> = {}): ProviderCredential {

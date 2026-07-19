@@ -45,6 +45,11 @@ export function Report({
     const summary = result.summary ?? "";
     const risk = result.risk ?? "medium";
     const checklist = result.verification_steps ?? [];
+
+    // Custom schema launchers may not have the standard fields.
+    const hasStandardSchema = typeof result.summary === "string";
+    const isCustomSchema = !hasStandardSchema && Object.keys(result).length > 0;
+
     const aiAttribution =
         providerLabel && model
             ? `${providerLabel} · ${model}`
@@ -107,113 +112,129 @@ export function Report({
                         Generated with <strong>{aiAttribution}</strong>
                     </p>
                 ) : null}
-                <div className="report-stats">
-                    <div>
-                        <span>Risk level</span>
-                        <strong className="risk">
-                            <CircleDot size={15} /> {risk}
-                        </strong>
+                {hasStandardSchema ? (
+                    <div className="report-stats">
+                        <div>
+                            <span>Risk level</span>
+                            <strong className="risk">
+                                <CircleDot size={15} /> {risk}
+                            </strong>
+                        </div>
+                        <div>
+                            <span>Findings</span>
+                            <strong>{findings.length}</strong>
+                        </div>
                     </div>
-                    <div>
-                        <span>Findings</span>
-                        <strong>{findings.length}</strong>
-                    </div>
-                </div>
+                ) : null}
             </section>
 
-            <div className="report-layout">
-                <aside>
-                    <span>On this page</span>
-                    <a href="#summary" className="active">
-                        Executive summary
-                    </a>
-                    <a href="#findings">
-                        Key findings <b>{findings.length}</b>
-                    </a>
-                    <a href="#checklist">Verification checklist</a>
-                    <div className="ai-card">
-                        <Sparkles size={18} />
-                        <strong>AI-generated report</strong>
-                        {aiAttribution ? <p className="ai-card-provider">{aiAttribution}</p> : null}
-                        <p>Always verify critical findings before merging.</p>
-                    </div>
-                </aside>
+            {isCustomSchema ? (
                 <article className="report-content">
-                    <section id="summary">
+                    <section id="custom-result">
                         <div className="content-heading">
                             <span>01</span>
-                            <h2>Executive summary</h2>
+                            <h2>Custom result</h2>
                         </div>
-                        <div className="summary-box">
-                            <MarkdownBody>{summary}</MarkdownBody>
-                        </div>
-                    </section>
-                    <section id="findings">
-                        <div className="content-heading">
-                            <span>02</span>
-                            <h2>Key findings</h2>
-                            <b>{findings.length} findings</b>
-                        </div>
-                        <div className="findings-list">
-                            {findings.map((finding, index) => (
-                                <div
-                                    className="finding"
-                                    data-testid="finding"
-                                    key={`${finding.title}::${finding.description}`}
-                                >
-                                    <div className="finding-header">
-                                        <span
-                                            className={`severity ${finding.severity}`}
-                                            data-testid="finding-severity"
-                                        >
-                                            {finding.severity}
-                                        </span>
-                                        <span className="finding-number">
-                                            {String(index + 1).padStart(2, "0")}
-                                        </span>
-                                    </div>
-                                    <h3 data-testid="finding-title">{finding.title}</h3>
-                                    <MarkdownBody>{finding.description}</MarkdownBody>
-                                    <div className="suggestion">
-                                        <strong>
-                                            <Sparkles size={14} /> Suggested fix
-                                        </strong>
-                                        <MarkdownBody>{finding.recommendation}</MarkdownBody>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        className="copy-prompt-button"
-                                        onClick={() => copyPrompt(finding, index)}
-                                    >
-                                        {copiedPromptIndex === index ? (
-                                            <Check size={14} />
-                                        ) : (
-                                            <Copy size={14} />
-                                        )}
-                                        {copiedPromptIndex === index ? "Copied" : "Copy prompt"}
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                    <section id="checklist">
-                        <div className="content-heading">
-                            <span>03</span>
-                            <h2>Verification checklist</h2>
-                        </div>
-                        <div className="checklist">
-                            {checklist.map((item) => (
-                                <label key={item}>
-                                    <input type="checkbox" />
-                                    <span className="checklist-text">
-                                        <MarkdownBody>{item}</MarkdownBody>
-                                    </span>
-                                </label>
-                            ))}
-                        </div>
+                        <pre className="custom-schema-json">{JSON.stringify(result, null, 2)}</pre>
                     </section>
                 </article>
-            </div>
+            ) : (
+                <div className="report-layout">
+                    <aside>
+                        <span>On this page</span>
+                        <a href="#summary" className="active">
+                            Executive summary
+                        </a>
+                        <a href="#findings">
+                            Key findings <b>{findings.length}</b>
+                        </a>
+                        <a href="#checklist">Verification checklist</a>
+                        <div className="ai-card">
+                            <Sparkles size={18} />
+                            <strong>AI-generated report</strong>
+                            {aiAttribution ? (
+                                <p className="ai-card-provider">{aiAttribution}</p>
+                            ) : null}
+                            <p>Always verify critical findings before merging.</p>
+                        </div>
+                    </aside>
+                    <article className="report-content">
+                        <section id="summary">
+                            <div className="content-heading">
+                                <span>01</span>
+                                <h2>Executive summary</h2>
+                            </div>
+                            <div className="summary-box">
+                                <MarkdownBody>{summary}</MarkdownBody>
+                            </div>
+                        </section>
+                        <section id="findings">
+                            <div className="content-heading">
+                                <span>02</span>
+                                <h2>Key findings</h2>
+                                <b>{findings.length} findings</b>
+                            </div>
+                            <div className="findings-list">
+                                {findings.map((finding, index) => (
+                                    <div
+                                        className="finding"
+                                        data-testid="finding"
+                                        key={`${finding.title}::${finding.description}`}
+                                    >
+                                        <div className="finding-header">
+                                            <span
+                                                className={`severity ${finding.severity}`}
+                                                data-testid="finding-severity"
+                                            >
+                                                {finding.severity}
+                                            </span>
+                                            <span className="finding-number">
+                                                {String(index + 1).padStart(2, "0")}
+                                            </span>
+                                        </div>
+                                        <h3 data-testid="finding-title">{finding.title}</h3>
+                                        <MarkdownBody>{finding.description}</MarkdownBody>
+                                        <div className="suggestion">
+                                            <strong>
+                                                <Sparkles size={14} /> Suggested fix
+                                            </strong>
+                                            <MarkdownBody>{finding.recommendation}</MarkdownBody>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="copy-prompt-button"
+                                            onClick={() => copyPrompt(finding, index)}
+                                        >
+                                            {copiedPromptIndex === index ? (
+                                                <Check size={14} />
+                                            ) : (
+                                                <Copy size={14} />
+                                            )}
+                                            {copiedPromptIndex === index ? "Copied" : "Copy prompt"}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+                        <section id="checklist">
+                            <div className="content-heading">
+                                <span>03</span>
+                                <h2>Verification checklist</h2>
+                            </div>
+                            <div className="checklist">
+                                {checklist.map((item) => (
+                                    <label key={item}>
+                                        <input type="checkbox" />
+                                        <span className="checklist-text">
+                                            <MarkdownBody>{item}</MarkdownBody>
+                                        </span>
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    </article>
+                </div>
+            )}
         </main>
     );
 }

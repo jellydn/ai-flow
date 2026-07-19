@@ -19,7 +19,17 @@ class UpdateUserLauncherRequest extends FormRequest
             'description' => ['sometimes', 'required', 'string', 'max:512'],
             'prompt_template' => ['sometimes', 'required', 'string', 'min:20'],
             'input_type' => ['sometimes', 'required', 'string', Rule::in(['repository', 'pull_request', 'issue'])],
-            'output_schema' => ['sometimes', 'required', 'json'],
+            'output_schema' => [
+                'sometimes',
+                'required',
+                'json',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    $decoded = json_decode((string) $value, associative: true);
+                    if (! is_array($decoded) || $decoded === []) {
+                        $fail('The output schema must be a valid JSON object.');
+                    }
+                },
+            ],
         ];
     }
 
