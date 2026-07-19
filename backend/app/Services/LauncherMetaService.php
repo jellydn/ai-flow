@@ -27,10 +27,12 @@ class LauncherMetaService
     /** @return array{icon: string, tone: string} */
     public function forCustom(string $slug): array
     {
-        // Deterministic assignment: hash the slug to pick icon/tone.
+        // Deterministic assignment: hash the slug to pick icon and tone.
+        // Use the raw hash for icon and a shifted hash (÷ 7) for tone
+        // so the two selections are independent — avoids icon/tone pairs
+        // that always travel together.
         $hash = crc32($slug);
         $icon = self::CUSTOM_ICONS[abs($hash) % count(self::CUSTOM_ICONS)];
-        // Shift the hash to get a different distribution for tone vs icon.
         $tone = self::CUSTOM_TONES[abs((int) ($hash / 7)) % count(self::CUSTOM_TONES)];
 
         return ['icon' => $icon, 'tone' => $tone];

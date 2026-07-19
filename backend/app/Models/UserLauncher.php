@@ -38,6 +38,10 @@ class UserLauncher extends Model implements LauncherSource
 
     protected static function booted(): void
     {
+        // Cascade-delete associated runs when the launcher is deleted.
+        // Uses a bulk DELETE query — no Run model events fire.
+        // This is intentional: Run currently has no observers that need
+        // to run on cascade, and the bulk query is faster.
         static::deleting(function (UserLauncher $launcher): void {
             $launcher->runs()->delete();
         });

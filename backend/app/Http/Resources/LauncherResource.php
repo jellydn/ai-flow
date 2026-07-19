@@ -8,10 +8,20 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class LauncherResource extends JsonResource
 {
+    /**
+     * Transform the resource into an array.
+     *
+     * Receives a raw array (never an Eloquent model) because the controller
+     * merges built-in Launcher rows with UserLauncher rows into a single
+     * collection, adding the `is_custom` discriminator along the way.
+     */
     public function toArray(Request $request): array
     {
-        $slug = $this->resource['slug'] ?? $this->slug;
-        $isCustom = $this->resource['is_custom'] ?? false;
+        /** @var array{slug: string, name: string, description: string, input_type: string, is_custom: bool} $row */
+        $row = $this->resource;
+
+        $slug = $row['slug'];
+        $isCustom = $row['is_custom'];
 
         $metaService = app(LauncherMetaService::class);
         $meta = $isCustom
@@ -21,12 +31,12 @@ class LauncherResource extends JsonResource
         return [
             'id' => $slug,
             'slug' => $slug,
-            'name' => $this->resource['name'] ?? $this->name,
-            'description' => $this->resource['description'] ?? $this->description,
-            'input_type' => $this->resource['input_type'] ?? $this->input_type,
+            'name' => $row['name'],
+            'description' => $row['description'],
+            'input_type' => $row['input_type'],
             'icon' => $meta['icon'],
             'tone' => $meta['tone'],
-            'is_custom' => $this->resource['is_custom'] ?? false,
+            'is_custom' => $isCustom,
         ];
     }
 }
