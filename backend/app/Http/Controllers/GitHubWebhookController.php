@@ -23,7 +23,7 @@ class GitHubWebhookController extends Controller
         // ── Signature verification ──────────────────────────────────────
         $secret = config('github-bot.webhook_secret');
 
-        if ($secret === null || $secret === '' || $secret === '0') {
+        if (blank($secret)) {
             Log::warning('GitHub webhook received but GITHUB_WEBHOOK_SECRET is not configured.');
 
             return response()->json(['message' => 'Webhook secret not configured.'], 500);

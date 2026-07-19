@@ -16,8 +16,6 @@ use RuntimeException;
  */
 class GitHubBotService
 {
-    public function __construct(private GitHubService $github) {}
-
     // ── Command parsing ────────────────────────────────────────────────
 
     /**
@@ -108,7 +106,7 @@ class GitHubBotService
     {
         $maxLen = config('github-bot.result_max_length', 2000);
 
-        if ($error !== null && $error !== '' && $error !== '0') {
+        if (filled($error)) {
             return implode("\n", array_filter([
                 "<!-- {$label}-comment -->",
                 "## ❌ ai-flow `{$launcherSlug}` failed",
@@ -192,7 +190,7 @@ class GitHubBotService
         $appId = config('github-bot.app_id');
         $privateKey = config('github-bot.app_private_key');
 
-        if ($appId !== null && $appId !== '' && $appId !== '0' && $privateKey !== null && $privateKey !== '' && $privateKey !== '0') {
+        if (filled($appId) && filled($privateKey)) {
             $http = $http->withToken($this->appInstallationToken((int) $appId, $privateKey));
 
             return $http;
