@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Contracts\LauncherSource;
 use App\Events\RunProgressed;
 use Database\Factories\RunFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -76,7 +77,7 @@ class Run extends Model
      * or a user-created UserLauncher — depending on which FK is set.
      * Both implement App\Contracts\LauncherSource.
      */
-    public function launcherSource(): ?Model
+    public function launcherSource(): ?LauncherSource
     {
         if ($this->user_launcher_id !== null) {
             return $this->userLauncher;

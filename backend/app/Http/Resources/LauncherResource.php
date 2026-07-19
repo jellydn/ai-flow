@@ -2,28 +2,21 @@
 
 namespace App\Http\Resources;
 
-use App\Contracts\LauncherMetaInterface;
+use App\Services\LauncherMetaService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class LauncherResource extends JsonResource
 {
-    private static ?LauncherMetaInterface $metaService = null;
-
-    public static function setLauncherMetaService(LauncherMetaInterface $service): void
-    {
-        self::$metaService = $service;
-    }
-
     public function toArray(Request $request): array
     {
         $slug = $this->resource['slug'] ?? $this->slug;
         $isCustom = $this->resource['is_custom'] ?? false;
 
-        $service = self::$metaService ?? app(LauncherMetaInterface::class);
+        $metaService = app(LauncherMetaService::class);
         $meta = $isCustom
-            ? $service->forCustom($slug)
-            : $service->forBuiltIn($slug);
+            ? $metaService->forCustom($slug)
+            : $metaService->forBuiltIn($slug);
 
         return [
             'id' => $slug,

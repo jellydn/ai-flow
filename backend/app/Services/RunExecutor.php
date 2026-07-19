@@ -36,8 +36,8 @@ class RunExecutor
                 // Malformed / unsupported GitHub URLs are user input errors, not bugs.
                 throw new UserFacingRunException($e->getMessage(), (int) $e->getCode(), $e);
             }
-            if ($launcher->input_type !== $ref->type) {
-                throw new UserFacingRunException("This launcher requires a {$launcher->input_type} URL.");
+            if ($launcher->getInputType() !== $ref->type) {
+                throw new UserFacingRunException("This launcher requires a {$launcher->getInputType()} URL.");
             }
             if ($ref->type === 'pull_request') {
                 $this->progress($run, 'Reading changed files');
@@ -45,11 +45,12 @@ class RunExecutor
             $context = $this->github->context($run->source_url);
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
-            $basePrompt = $run->prompt_snapshot ?? $launcher->prompt_template ?? '';
+            $basePrompt = $run->prompt_snapshot ?? $launcher->getPromptTemplate() ?? '';
             $prompt = $basePrompt."\nGitHub context:\n".$this->encoder->encode($context);
             $model = $run->model;
-            $result = $ai->generate($prompt, $launcher->output_schema, $model);
-            $this->validator->validate($result, $launcher->output_schema);
+            $outputSchema = $launcher->getOutputSchema();
+            $result = $ai->generate($prompt, $outputSchema, $model);
+            $this->validator->validate($result, $outputSchema);
             $this->progress($run, 'Preparing report');
             $run->update([
                 'status' => 'completed',

@@ -2,9 +2,7 @@
 
 namespace App\Services;
 
-use App\Contracts\LauncherMetaInterface;
-
-class LauncherMetaService implements LauncherMetaInterface
+class LauncherMetaService
 {
     /** @var array<string, array{icon: string, tone: string}> */
     private const BUILT_IN = [
@@ -20,11 +18,13 @@ class LauncherMetaService implements LauncherMetaInterface
     /** @var list<string> */
     private const CUSTOM_TONES = ['blue', 'purple', 'green', 'orange'];
 
+    /** @return array{icon: string, tone: string} */
     public function forBuiltIn(string $slug): array
     {
         return self::BUILT_IN[$slug] ?? ['icon' => 'Sparkles', 'tone' => 'blue'];
     }
 
+    /** @return array{icon: string, tone: string} */
     public function forCustom(string $slug): array
     {
         // Deterministic assignment: hash the slug to pick icon/tone.
