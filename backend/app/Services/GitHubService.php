@@ -196,4 +196,110 @@ class GitHubService
 
         return $http;
     }
+
+    // ── Bot authentication (GitHub App JWT + installation tokens) ──────
+
+    /**
+     * Build an authenticated HTTP client for the ai-flow bot.
+     *
+     * Priority: GitHub App (installation token) > PAT > unauthenticated.
+     */
+    public function botClient(): PendingRequest
+    {
+        $http = Http::baseUrl('https://api.github.com')
+            ->acceptJson()
+            ->withUserAgent('ai-flow-bot')
+            ->timeout(15)
+            ->retry(2, 200, null, false);
+
+        $appId = config('github-bot.app_id');
+        $privateKey = config('github-bot.app_private_key');
+
+        if (filled($appId) && filled($privateKey)) {
+            return $http->withToken($this->appInstallationToken((int) $appId, $privateKey));
+        }
+
+        if ($token = config('services.github.token')) {
+            return $http->withToken($token);
+        }
+
+        return $http;
+    }
+
+    /**
+     * Generate a GitHub App installation access token.
+     *
+     * Simplified impl: gets the first installation. For multi-installation
+     * apps, extend to resolve by owner/repo.
+     *
+     * @todo Resolve installation by owner/repo for multi-install apps.
+     */
+    private function appInstallationToken(int $appId, string $privateKey): string
+    {
+        $cacheKey = "github-bot:installation-token:{$appId}";
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(50),
+            function () use ($appId, $privateKey) {
+                $jwt = $this->appJwt($appId, $privateKey);
+
+                $installationsResponse = Http::baseUrl('https://api.github.com')
+                    ->acceptJson()
+                    ->withUserAgent('ai-flow-bot')
+                    ->withHeader('Authorization', "Bearer {$jwt}")
+                    ->get('/app/installations');
+
+                if (! $installationsResponse->successful()) {
+                    throw new RuntimeException('Failed to list GitHub App installations.');
+                }
+
+                $installations = $installationsResponse->json();
+
+                if (empty($installations)) {
+                    throw new RuntimeException('The GitHub App is not installed on any repositories.');
+                }
+
+                $installationId = $installations[0]['id'];
+
+                $tokenResponse = Http::baseUrl('https://api.github.com')
+                    ->acceptJson()
+                    ->withUserAgent('ai-flow-bot')
+                    ->withHeader('Authorization', "Bearer {$jwt}")
+                    ->post("/app/installations/{$installationId}/access_tokens");
+
+                if (! $tokenResponse->successful()) {
+                    throw new RuntimeException('Failed to create GitHub App installation token.');
+                }
+
+                return $tokenResponse->json('token');
+            },
+        );
+    }
+
+    /**
+     * Create a JWT for GitHub App authentication (RS256).
+     */
+    private function appJwt(int $appId, string $privateKey): string
+    {
+        $now = time();
+
+        $header = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $payload = base64_encode(json_encode([
+            'iat' => $now - 60,
+            'exp' => $now + 600,
+            'iss' => (string) $appId,
+        ]));
+
+        $signature = '';
+        $key = openssl_get_privatekey($privateKey);
+
+        if ($key === false) {
+            throw new RuntimeException('Invalid GitHub App private key.');
+        }
+
+        openssl_sign("{$header}.{$payload}", $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return "{$header}.{$payload}.".base64_encode($signature);
+    }
 }

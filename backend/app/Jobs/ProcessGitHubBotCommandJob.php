@@ -28,7 +28,7 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
 
     public int $tries = 2;
 
-    public int $timeout = 180;
+    public int $timeout;
 
     public function __construct(
         public string $owner,
@@ -37,7 +37,9 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         public string $sourceUrl,
         public string $launcherSlug,
         public string $commentLabel,
-    ) {}
+    ) {
+        $this->timeout = (int) config('github-bot.job_timeout', 180);
+    }
 
     public function handle(
         GitHubBotService $bot,
@@ -48,89 +50,9 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         $label = $this->commentLabel;
 
         try {
-            // ── Post progress comment ──────────────────────────────────
-            $commentId = $bot->postComment(
-                $this->owner,
-                $this->repo,
-                $this->number,
-                $bot->formatProgressComment($label, $this->launcherSlug, 'queued'),
-            );
-
-            // ── Resolve launcher ───────────────────────────────────────
-            try {
-                $resolved = $launcherResolver->resolve($this->launcherSlug, null);
-            } catch (Throwable) {
-                $bot->updateComment($commentId, $bot->formatProgressComment($label, $this->launcherSlug, 'failed')."\n\n```\nLauncher '{$this->launcherSlug}' is not available.\n```");
-
-                return;
-            }
-
-            if ($resolved->launcherId === null) {
-                $bot->updateComment($commentId, $bot->formatProgressComment($label, $this->launcherSlug, 'failed')."\n\n```\nNo active launchers are available.\n```");
-
-                return;
-            }
-
-            // ── Update progress to running ────────────────────────────
-            $bot->updateComment($commentId, $bot->formatProgressComment($label, $this->launcherSlug, 'running'));
-
-            // ── Create Run ────────────────────────────────────────────
-            $params = LaunchParameters::resolve(
-                providerId: null,
-                oneTimeApiKey: null,
-                providerCredentialId: null,
-                requestedModel: null,
-                registry: $providerRegistry,
-                allowCustom: false,
-            );
-
-            // Extract repo metadata from the source URL (same as RunController::store).
-            $repoSlug = null;
-            $repoType = null;
-            try {
-                $ref = $github->parse($this->sourceUrl);
-                $repoSlug = "{$ref->owner}/{$ref->repo}";
-                $repoType = $ref->type;
-            } catch (InvalidArgumentException) {
-                // Invalid URL — repo metadata stays null.
-            }
-
-            $run = Run::create([
-                'launcher_id' => $resolved->launcherId,
-                'user_launcher_id' => $resolved->userLauncherId,
-                'user_id' => null,
-                'provider' => $params->effectiveProvider,
-                'model' => $params->resolvedModel,
-                'source_url' => $this->sourceUrl,
-                'repo_slug' => $repoSlug,
-                'repo_type' => $repoType,
-                'input' => ['source_url' => $this->sourceUrl],
-                'prompt_snapshot' => $resolved->promptSnapshot,
-                'is_public' => true,
-                'status' => 'queued',
-                'progress' => [],
-            ]);
-
-            ExecuteLauncherJob::dispatch(
-                $run->id,
-                $params->rawProviderId,
-                $params->oneTimeApiKey,
-                $params->providerCredentialId,
-                $params->resolvedModel,
-            );
-
-            // ── Poll for completion ───────────────────────────────────
-            $run = $this->pollForCompletion($run->id);
-
-            // ── Post results ──────────────────────────────────────────
-            $resultComment = $bot->formatResultComment(
-                $label,
-                $this->launcherSlug,
-                array_merge((array) $run->result, ['run_id' => $run->id]),
-                $run->error,
-            );
-
-            $bot->updateComment($commentId, $resultComment);
+            $commentId = $this->postProgressComment($bot, $label);
+            $run = $this->createAndExecuteRun($bot, $label, $commentId, $launcherResolver, $providerRegistry, $github);
+            $this->postResultComment($bot, $label, $commentId, $run);
 
         } catch (Throwable $e) {
             // Best-effort: try to post an error comment if we have a comment ID.
@@ -154,15 +76,120 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         }
     }
 
+    // ── Private steps ────────────────────────────────────────────────────
+
+    /**
+     * Post the initial "queued" progress comment.
+     */
+    private function postProgressComment(GitHubBotService $bot, string $label): int
+    {
+        return $bot->postComment(
+            $this->owner,
+            $this->repo,
+            $this->number,
+            $bot->formatProgressComment($label, $this->launcherSlug, 'queued'),
+        );
+    }
+
+    /**
+     * Resolve the launcher, update progress to "running", create the Run,
+     * dispatch ExecuteLauncherJob, and poll for completion.
+     */
+    private function createAndExecuteRun(
+        GitHubBotService $bot,
+        string $label,
+        int $commentId,
+        LauncherResolutionService $launcherResolver,
+        AiProviderRegistry $providerRegistry,
+        GitHubService $github,
+    ): Run {
+        // ── Resolve launcher ───────────────────────────────────────────
+        $resolved = $launcherResolver->resolve($this->launcherSlug, null);
+
+        if ($resolved->launcherId === null) {
+            throw new RuntimeException('No active launchers are available.');
+        }
+
+        // ── Update progress to running ────────────────────────────────
+        $bot->updateComment($commentId, $bot->formatProgressComment($label, $this->launcherSlug, 'running'));
+
+        // ── Create Run ────────────────────────────────────────────────
+        $params = LaunchParameters::resolve(
+            providerId: null,
+            oneTimeApiKey: null,
+            providerCredentialId: null,
+            requestedModel: null,
+            registry: $providerRegistry,
+            allowCustom: false,
+        );
+
+        // Extract repo metadata from the source URL (same as RunController::store).
+        $repoSlug = null;
+        $repoType = null;
+        try {
+            $ref = $github->parse($this->sourceUrl);
+            $repoSlug = "{$ref->owner}/{$ref->repo}";
+            $repoType = $ref->type;
+        } catch (InvalidArgumentException) {
+            // Invalid URL — repo metadata stays null.
+        }
+
+        $run = Run::create([
+            'launcher_id' => $resolved->launcherId,
+            'user_launcher_id' => $resolved->userLauncherId,
+            'user_id' => null,
+            'provider' => $params->effectiveProvider,
+            'model' => $params->resolvedModel,
+            'source_url' => $this->sourceUrl,
+            'repo_slug' => $repoSlug,
+            'repo_type' => $repoType,
+            'input' => ['source_url' => $this->sourceUrl],
+            'prompt_snapshot' => $resolved->promptSnapshot,
+            'is_public' => true,
+            'status' => 'queued',
+            'progress' => [],
+        ]);
+
+        ExecuteLauncherJob::dispatch(
+            $run->id,
+            $params->rawProviderId,
+            $params->oneTimeApiKey,
+            $params->providerCredentialId,
+            $params->resolvedModel,
+        );
+
+        return $this->pollForCompletion($run->id);
+    }
+
+    /**
+     * Post the final result comment.
+     */
+    private function postResultComment(GitHubBotService $bot, string $label, int $commentId, Run $run): void
+    {
+        $resultComment = $bot->formatResultComment(
+            $label,
+            $this->launcherSlug,
+            array_merge((array) $run->result, ['run_id' => $run->id]),
+            $run->error,
+        );
+
+        $bot->updateComment($commentId, $resultComment);
+    }
+
+    // ── Polling ──────────────────────────────────────────────────────────
+
     /**
      * Poll the run until it reaches a terminal state.
      *
-     * Maximum ~180 seconds (matching the job timeout).
+     * Timeout from config (github-bot.poll_max_seconds) with interval
+     * from config (github-bot.poll_interval_ms). Total job timeout
+     * (github-bot.job_timeout) must exceed poll_max_seconds so there's
+     * budget for the comment-posting steps before/after the loop.
      */
     private function pollForCompletion(string $runId): Run
     {
-        $maxPollSeconds = 150;
-        $pollIntervalMs = 2000;
+        $maxPollSeconds = (int) config('github-bot.poll_max_seconds', 150);
+        $pollIntervalMs = (int) config('github-bot.poll_interval_ms', 2000);
         $elapsed = 0;
 
         while ($elapsed < $maxPollSeconds) {

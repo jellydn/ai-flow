@@ -10,6 +10,7 @@ use App\Http\Controllers\RunController;
 use App\Http\Controllers\RunHistoryController;
 use App\Http\Controllers\TrendingRepositoryController;
 use App\Http\Controllers\UserLauncherController;
+use App\Http\Middleware\VerifyGitHubWebhook;
 use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Route;
 
@@ -17,7 +18,8 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
 // GitHub bot webhook endpoint — receives issue_comment events when users
 // tag @ai-flow in a comment. No auth middleware; verified via HMAC-SHA256.
-Route::post('/github/webhooks', GitHubWebhookController::class);
+Route::post('/github/webhooks', GitHubWebhookController::class)
+    ->middleware([VerifyGitHubWebhook::class, 'throttle:github-webhook']);
 // Named login route prevents the auth middleware from crashing when redirecting
 // unauthenticated requests that lack an Accept: application/json header.
 Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');

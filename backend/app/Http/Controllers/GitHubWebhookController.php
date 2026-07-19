@@ -6,13 +6,13 @@ use App\Jobs\ProcessGitHubBotCommandJob;
 use App\Services\GitHubBotService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Receives GitHub webhook events and dispatches bot commands.
  *
- * Only processes issue_comment.created events that contain @ai-flow commands.
- * Returns 202 immediately — the actual work happens in a queue job.
+ * Signature verification, event filtering, and private-repo rejection
+ * are handled by the VerifyGitHubWebhook middleware — this controller
+ * only parses commands and dispatches jobs.
  */
 class GitHubWebhookController extends Controller
 {
@@ -20,52 +20,6 @@ class GitHubWebhookController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        // ── Signature verification ──────────────────────────────────────
-        $secret = config('github-bot.webhook_secret');
-
-        if (blank($secret)) {
-            Log::warning('GitHub webhook received but GITHUB_WEBHOOK_SECRET is not configured.');
-
-            return response()->json(['message' => 'Webhook secret not configured.'], 500);
-        }
-
-        $signature = $request->header('X-Hub-Signature-256', '');
-        $payload = $request->getContent();
-        $expected = 'sha256='.hash_hmac('sha256', $payload, $secret);
-
-        if (! hash_equals($expected, $signature)) {
-            Log::warning('GitHub webhook signature verification failed.', [
-                'expected' => $expected,
-                'received' => $signature,
-            ]);
-
-            return response()->json(['message' => 'Invalid signature.'], 401);
-        }
-
-        // ── Event type filtering ────────────────────────────────────────
-        $event = $request->header('X-GitHub-Event', '');
-
-        if ($event !== 'issue_comment') {
-            return response()->json(['message' => 'Event type ignored.'], 200);
-        }
-
-        $action = $request->json('action');
-
-        if ($action !== 'created') {
-            return response()->json(['message' => 'Comment action ignored.'], 200);
-        }
-
-        // ── Public repo check ───────────────────────────────────────────
-        $repoData = $request->json('repository', []);
-
-        if (($repoData['private'] ?? false) === true) {
-            Log::info('Ignoring webhook from private repository.', [
-                'repo' => $repoData['full_name'] ?? 'unknown',
-            ]);
-
-            return response()->json(['message' => 'Private repositories are not supported.'], 200);
-        }
-
         // ── Command parsing ─────────────────────────────────────────────
         $commentBody = $request->json('comment.body', '');
         $parsed = $this->bot->parseCommand($commentBody);
@@ -81,10 +35,18 @@ class GitHubWebhookController extends Controller
         }
 
         // ── Extract PR/issue context ────────────────────────────────────
+        $repoData = $request->json('repository', []);
         $owner = $repoData['owner']['login'] ?? '';
         $repo = $repoData['name'] ?? '';
         $issue = $request->json('issue', []);
         $number = (int) ($issue['number'] ?? 0);
+
+        // ── Per-repo config check ──────────────────────────────────────
+        if (! $this->bot->isLauncherEnabled($owner, $repo, $parsed['launcher'])) {
+            return response()->json([
+                'message' => "Launcher '{$parsed['launcher']}' is disabled for this repository.",
+            ], 200);
+        }
 
         // Determine if this is a PR or an issue. GitHub webhooks expose
         // issue.pull_request when the comment is on a PR.

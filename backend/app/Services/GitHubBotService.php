@@ -2,20 +2,19 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
 /**
  * Parses @ai-flow commands from GitHub comments and posts results back.
  *
- * Authentication priority:
- * 1. GitHub App (GITHUB_APP_ID + GITHUB_APP_PRIVATE_KEY) → installation tokens
- * 2. GITHUB_TOKEN fallback → personal access token
+ * Delegates GitHub API authentication to GitHubService::botClient()
+ * so command parsing and comment formatting stay focused on their concern.
  */
 class GitHubBotService
 {
+    public function __construct(private GitHubService $github) {}
+
     // ── Command parsing ────────────────────────────────────────────────
 
     /**
@@ -59,6 +58,110 @@ class GitHubBotService
         return "https://github.com{$path}";
     }
 
+    // ── Per-repo configuration ──────────────────────────────────────────
+
+    /**
+     * Check whether a launcher is enabled for a given repo.
+     *
+     * Fetches .github/ai-flow.yml from the default branch. If the file
+     * doesn't exist or has no `enabled` list, all launchers are enabled.
+     */
+    public function isLauncherEnabled(string $owner, string $repo, string $launcherSlug): bool
+    {
+        $config = $this->fetchRepoConfig($owner, $repo);
+
+        if ($config === null) {
+            return true; // No config file — all launchers enabled by default.
+        }
+
+        $enabled = $config['enabled'] ?? null;
+
+        if (! is_array($enabled)) {
+            return true; // No enabled list — all launchers enabled.
+        }
+
+        return in_array($launcherSlug, $enabled, true);
+    }
+
+    /**
+     * Fetch and parse .github/ai-flow.yml from the repo's default branch.
+     *
+     * @return array|null Parsed config, or null if the file doesn't exist.
+     */
+    private function fetchRepoConfig(string $owner, string $repo): ?array
+    {
+        $cacheKey = "github-bot:repo-config:{$owner}:{$repo}";
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(5),
+            function () use ($owner, $repo) {
+                $response = $this->github->botClient()->get(
+                    "/repos/{$owner}/{$repo}/contents/.github/ai-flow.yml",
+                );
+
+                if ($response->status() === 404) {
+                    return null; // No config file — all launchers enabled.
+                }
+
+                if (! $response->successful()) {
+                    return null; // Silently fall back to defaults.
+                }
+
+                $content = base64_decode($response->json('content', ''), true);
+
+                if ($content === false || $content === '') {
+                    return null;
+                }
+
+                return $this->parseSimpleYaml($content);
+            },
+        );
+    }
+
+    /**
+     * Parse a simple YAML-like key-value list for the `enabled` array.
+     *
+     * Only handles the subset of YAML that .github/ai-flow.yml uses:
+     * a top-level `enabled:` key followed by a list of strings.
+     */
+    private function parseSimpleYaml(string $yaml): array
+    {
+        $result = [];
+        $currentKey = null;
+
+        foreach (explode("\n", $yaml) as $line) {
+            // Skip comments and blank lines.
+            $trimmed = trim($line);
+
+            if ($trimmed === '' || str_starts_with($trimmed, '#')) {
+                continue;
+            }
+
+            // Top-level key: value or key: (without leading spaces).
+            if (preg_match('/^(\w[\w-]*)\s*:\s*(.*)$/', $trimmed, $m)) {
+                $currentKey = $m[1];
+                $value = trim($m[2]);
+
+                if ($value !== '' && $value !== '0') {
+                    $result[$currentKey] = $value;
+                } else {
+                    // Empty value after colon — start a list.
+                    $result[$currentKey] = [];
+                }
+
+                continue;
+            }
+
+            // List item: "- value" (must be inside a list key).
+            if ($currentKey !== null && preg_match('/^-\s+(.+)$/', $trimmed, $m)) {
+                $result[$currentKey][] = trim($m[1]);
+            }
+        }
+
+        return $result;
+    }
+
     // ── Comment posting ─────────────────────────────────────────────────
 
     /**
@@ -68,7 +171,7 @@ class GitHubBotService
      */
     public function postComment(string $owner, string $repo, int $number, string $body): int
     {
-        $response = $this->client()->post(
+        $response = $this->github->botClient()->post(
             "/repos/{$owner}/{$repo}/issues/{$number}/comments",
             ['body' => $body],
         );
@@ -87,7 +190,7 @@ class GitHubBotService
      */
     public function updateComment(int $commentId, string $body): void
     {
-        $response = $this->client()->patch(
+        $response = $this->github->botClient()->patch(
             "/repos/issues/comments/{$commentId}",
             ['body' => $body],
         );
@@ -168,116 +271,5 @@ class GitHubBotService
             '',
             '_This comment will update when the analysis finishes._',
         ]);
-    }
-
-    // ── Private helpers ──────────────────────────────────────────────────
-
-    /**
-     * Build an authenticated HTTP client for the GitHub API.
-     *
-     * Tries GitHub App auth first (installation token), falls back to
-     * GITHUB_TOKEN, then unauthenticated (low rate limit).
-     */
-    private function client(): PendingRequest
-    {
-        $http = Http::baseUrl('https://api.github.com')
-            ->acceptJson()
-            ->withUserAgent('ai-flow-bot')
-            ->timeout(15)
-            ->retry(2, 200, null, false);
-
-        // GitHub App auth: mint a short-lived installation token.
-        $appId = config('github-bot.app_id');
-        $privateKey = config('github-bot.app_private_key');
-
-        if (filled($appId) && filled($privateKey)) {
-            $http = $http->withToken($this->appInstallationToken((int) $appId, $privateKey));
-
-            return $http;
-        }
-
-        // PAT fallback.
-        if ($token = config('services.github.token')) {
-            $http = $http->withToken($token);
-        }
-
-        return $http;
-    }
-
-    /**
-     * Generate a GitHub App installation access token.
-     *
-     * This is a simplified impl that gets the first installation.
-     * For multi-installation apps, extend to resolve by owner/repo.
-     */
-    private function appInstallationToken(int $appId, string $privateKey): string
-    {
-        $cacheKey = "github-bot:installation-token:{$appId}";
-
-        return Cache::remember(
-            $cacheKey,
-            now()->addMinutes(50),  // Tokens expire after 1 hour
-            function () use ($appId, $privateKey) {
-                $jwt = $this->appJwt($appId, $privateKey);
-
-                // List installations for this app.
-                $installationsResponse = Http::baseUrl('https://api.github.com')
-                    ->acceptJson()
-                    ->withUserAgent('ai-flow-bot')
-                    ->withHeader('Authorization', "Bearer {$jwt}")
-                    ->get('/app/installations');
-
-                if (! $installationsResponse->successful()) {
-                    throw new RuntimeException('Failed to list GitHub App installations.');
-                }
-
-                $installations = $installationsResponse->json();
-
-                if (empty($installations)) {
-                    throw new RuntimeException('The GitHub App is not installed on any repositories.');
-                }
-
-                $installationId = $installations[0]['id'];
-
-                // Create an installation access token.
-                $tokenResponse = Http::baseUrl('https://api.github.com')
-                    ->acceptJson()
-                    ->withUserAgent('ai-flow-bot')
-                    ->withHeader('Authorization', "Bearer {$jwt}")
-                    ->post("/app/installations/{$installationId}/access_tokens");
-
-                if (! $tokenResponse->successful()) {
-                    throw new RuntimeException('Failed to create GitHub App installation token.');
-                }
-
-                return $tokenResponse->json('token');
-            },
-        );
-    }
-
-    /**
-     * Create a JWT for GitHub App authentication (RS256).
-     */
-    private function appJwt(int $appId, string $privateKey): string
-    {
-        $now = time();
-
-        $header = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-        $payload = base64_encode(json_encode([
-            'iat' => $now - 60,
-            'exp' => $now + 600,
-            'iss' => (string) $appId,
-        ]));
-
-        $signature = '';
-        $key = openssl_get_privatekey($privateKey);
-
-        if ($key === false) {
-            throw new RuntimeException('Invalid GitHub App private key.');
-        }
-
-        openssl_sign("{$header}.{$payload}", $signature, $key, OPENSSL_ALGO_SHA256);
-
-        return "{$header}.{$payload}.".base64_encode($signature);
     }
 }

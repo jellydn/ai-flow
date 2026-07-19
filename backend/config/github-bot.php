@@ -36,4 +36,22 @@ return [
     // Maximum length of result summary posted as a comment (characters).
     'result_max_length' => 2000,
 
+    // ── Polling (ProcessGitHubBotCommandJob) ───────────────────────────
+    //
+    // The job polls Run.status until it reaches a terminal state.
+    // job_timeout must exceed max_poll_seconds so there's a buffer
+    // for the comment-posting steps before/after the poll loop.
+
+    // Maximum seconds to poll for run completion.
+    'poll_max_seconds' => env('GITHUB_BOT_POLL_MAX_SECONDS', 150),
+
+    // Interval between polls in milliseconds.
+    'poll_interval_ms' => env('GITHUB_BOT_POLL_INTERVAL_MS', 2000),
+
+    // Total job timeout (must be > poll_max_seconds + overhead).
+    'job_timeout' => env('GITHUB_BOT_JOB_TIMEOUT', 180),
+
+    // Webhook rate limit (requests per minute).
+    'webhook_rate_limit' => env('GITHUB_BOT_WEBHOOK_RATE_LIMIT', 60),
+
 ];

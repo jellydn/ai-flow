@@ -1,34 +1,0 @@
-sh -lc 'cd backend && composer run dev'
-[?u[>0q]11;?\[?1049hP+q696e646e\P+q71756572792d6f732d6e616d65\[?1049l[0c]7;file://dunghd/Users/huynhdung/src/tries/2026-07-13-ai-flow-pr-25]0;~/src/tries/2026-07-13-ai-flow-pr-25 - fish\[m]11;?\[6n[0c[?1004h[?2004h[?2031h[>4;1m=[K]133;A;click_events=1\[34m~/src/tries/2026-07-13-ai-flow-pr-25 [90mfeat/custom-user-launchers[90m*[36m ≡
-[35m❯[m ]133;B\[38;2;220;215;186m[K[2Cs[3Ch[4C [5C-[6Cl[7Cc[8C [9C'[10Cc[11Cd[12C [13Cb[14Ca[15Cc[16Ck[17Ce[18Cn[19Cd[20C [21C&[22C&[23C [24Cc[25Co[26Cm[27Cp[28Co[29Cs[30Ce[31Cr[32C [33Cr[34Cu[35Cn[36C [37Cd[38Ce[39Cv[40C'[41C[?1004l[?2004l[?2031l[>4;0m>
-[m]133;C;cmdline_url=sh%20-lc%20%27cd%20backend%20%26%26%20composer%20run%20dev%27\]0;~/src/tries/2026-07-13-ai-flow-pr-25: sh -lc 'cd backend && composer run dev' - sh\[m/Users/huynhdung/.profile: line 6: /Users/huynhdung/.rye/env: No such file or directory
-> Composer\Config::disableProcessTimeout
-> npx concurrently -c "#93c5fd,#c4b5fd,#fb7185,#fdba74" "php artisan serve" "php artisan queue:listen --tries=1 --timeout=0" "php artisan pail --timeout=0" "npm run dev" --names=server,queue,logs,vite --kill-others
-[1mnpm[22m [96mnotice[39m [94mrun[39m npx
-[1mnpm[22m [96mnotice[39m [94mrun[39m 'concurrently' -c #93c5fd,#c4b5fd,#fb7185,#fdba74 php artisan serve php artisan queue:listen --tries=1 --timeout=0 php artisan pail --timeout=0 npm run dev --names=server,queue,logs,vite --kill-others
-[38;2;253;186;116m[vite][39m npm notice run dev
-[38;2;253;186;116m[vite][39m npm notice run vite
-[38;2;253;186;116m[vite][39m
-[38;2;253;186;116m[vite][39m   [32m[1mVITE[22m v8.1.4[39m  [2mready in [0m[1m122[22m[2m[0m ms[22m
-[38;2;253;186;116m[vite][39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mLocal[22m:   [36mhttp://localhost:[1m5173[22m/[39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.1.1:[1m5173[22m/[39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.139.3:[1m5173[22m/[39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mNetwork[22m: [36mhttp://192.168.97.0:[1m5173[22m/[39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mNetwork[22m: [36mhttp://169.254.218.5:[1m5173[22m/[39m
-[38;2;196;181;253m[queue][39m
-[38;2;196;181;253m[queue][39m   [37;44m INFO [39;49m Processing jobs from the [1m[default][22m queue.
-[38;2;196;181;253m[queue][39m
-[38;2;251;113;133m[logs][39m
-[38;2;251;113;133m[logs][39m   [37;44m INFO [39;49m Tailing application logs.                        [90mPress Ctrl+C to exit[39m
-[38;2;251;113;133m[logs][39m                                                [90mUse -v|-vv to show more details[39m
-[38;2;253;186;116m[vite][39m
-[38;2;253;186;116m[vite][39m   [31m[1mLARAVEL[22m v13.20.0[39m  [2mplugin[22m [1mv3.1.3[22m
-[38;2;253;186;116m[vite][39m
-[38;2;253;186;116m[vite][39m   [32m➜[39m  [1mAPP_URL[22m: [36mhttp://localhost:[1m8000[22m[39m
-[38;2;147;197;253m[server][39m
-[38;2;147;197;253m[server][39m   [37;44m INFO [39;49m Server running on [1m[http://127.0.0.1:8000][22m.
-[38;2;147;197;253m[server][39m
-[38;2;147;197;253m[server][39m [33m  [39m[33;1mPress Ctrl+C to stop the server[39;22m
-[38;2;147;197;253m[server][39m
-sleep 0.5
