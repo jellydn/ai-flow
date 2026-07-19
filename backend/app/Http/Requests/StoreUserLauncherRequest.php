@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Launcher;
 use App\Models\UserLauncher;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,7 +17,7 @@ class StoreUserLauncherRequest extends FormRequest
     public function rules(): array
     {
         $user = $this->user();
-        $builtInSlugs = ['review-pr', 'plan-issue', 'explain-repository', 'laravel-doctor'];
+        $builtInSlugs = Launcher::pluck('slug')->toArray();
 
         return [
             'slug' => [

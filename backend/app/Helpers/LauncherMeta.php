@@ -33,6 +33,7 @@ function customLauncherMeta(string $slug): array
     // Deterministic assignment: hash the slug to pick icon/tone.
     $hash = crc32($slug);
     $icon = $icons[abs($hash) % count($icons)];
+    // Shift the hash to get a different distribution for tone vs icon.
     $tone = $tones[abs((int) ($hash / 7)) % count($tones)];
 
     return ['icon' => $icon, 'tone' => $tone];

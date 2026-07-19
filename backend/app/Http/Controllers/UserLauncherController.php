@@ -56,7 +56,7 @@ class UserLauncherController extends Controller
         return new UserLauncherResource($userLauncher->fresh());
     }
 
-    public function destroy(Request $request, UserLauncher $userLauncher): JsonResponse
+    public function destroy(UserLauncher $userLauncher): JsonResponse
     {
         $this->authorize('delete', $userLauncher);
 

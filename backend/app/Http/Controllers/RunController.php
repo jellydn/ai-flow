@@ -109,19 +109,17 @@ class RunController extends Controller
     }
 
     /**
-     * Return recent completed public runs (user_id = null) for the home page.
+     * Return recent completed public runs for the home page.
      * Returns a lightweight summary — no full result, just repo/risk/findings count.
      *
-     * Index coverage: the composite index runs_status_user_completed_at_index
-     * (status, user_id, completed_at) added in migration 2026_07_15_000001
-     * covers the (status = 'completed', user_id IS NULL, completed_at DESC)
-     * predicate below.
+     * Uses is_public (not user_id IS NULL) to include public runs from
+     * authenticated users (e.g. custom-launcher runs marked public).
      */
     public function recent(): JsonResponse
     {
         $runs = Run::query()
             ->where('status', 'completed')
-            ->whereNull('user_id')
+            ->where('is_public', true)
             ->whereNotNull('result')
             ->with('launcher:id,slug,name')
             ->orderByDesc('completed_at')
