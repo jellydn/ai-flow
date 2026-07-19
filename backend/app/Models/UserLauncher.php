@@ -36,6 +36,13 @@ class UserLauncher extends Model implements LauncherSource
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::deleting(function (UserLauncher $launcher): void {
+            $launcher->runs()->delete();
+        });
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

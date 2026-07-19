@@ -138,12 +138,27 @@ class UserLauncherTest extends TestCase
         $user = User::factory()->create();
         $launcher = UserLauncher::factory()->forUser($user)->create();
 
+        // Create a run associated with this launcher to verify cascade.
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'explain-repository')->value('id'),
+            'user_launcher_id' => $launcher->id,
+            'user_id' => $user->id,
+            'source_url' => 'https://github.com/laravel/framework',
+            'input' => ['source_url' => 'https://github.com/laravel/framework'],
+            'status' => 'completed',
+            'progress' => [],
+            'result' => ['summary' => 'Cascade test', 'risk' => 'low', 'findings' => [], 'verification_steps' => []],
+            'is_public' => true,
+            'completed_at' => now(),
+        ]);
+
         $this->actingAs($user)
             ->deleteJson("/api/user/launchers/{$launcher->id}")
             ->assertOk()
             ->assertJson(['message' => 'Custom launcher deleted.']);
 
         $this->assertDatabaseMissing('user_launchers', ['id' => $launcher->id]);
+        $this->assertDatabaseMissing('runs', ['id' => $run->id]);
     }
 
     public function test_user_cannot_delete_another_users_launcher(): void

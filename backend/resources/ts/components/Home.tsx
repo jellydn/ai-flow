@@ -195,6 +195,9 @@ export function Home({
                                     {meta?.badge && (
                                         <span className="laravel-badge">{meta.badge}</span>
                                     )}
+                                    {launcher.is_custom && (
+                                        <span className="custom-badge">Custom</span>
+                                    )}
                                 </div>
                                 <h3>{meta?.title ?? launcher.name}</h3>
                                 <p>{meta?.description ?? launcher.description}</p>
