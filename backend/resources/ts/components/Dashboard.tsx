@@ -4,6 +4,9 @@ import { goto } from "../lib/navigate.ts";
 import { logger } from "../lib/logger.ts";
 import { ProviderSettings } from "./ProviderSettings.tsx";
 import { RunHistory } from "./RunHistory.tsx";
+import { WorkflowPromptsSection } from "./WorkflowPromptsSection.tsx";
+import { CustomLaunchersSection } from "./CustomLaunchersSection.tsx";
+import { LauncherVisibilitySection } from "./LauncherVisibilitySection.tsx";
 
 interface DashboardProps {
     user: User;
@@ -11,7 +14,7 @@ interface DashboardProps {
     navigate: (pathname: string) => void;
 }
 
-type Tab = "providers" | "history" | "account";
+type Tab = "providers" | "history" | "launchers" | "prompts" | "visibility" | "account";
 
 export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
     const [tab, setTab] = useState<Tab>("history");
@@ -36,6 +39,9 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
     const tabs: { key: Tab; label: string }[] = [
         { key: "history", label: "Run History" },
         { key: "providers", label: "API Keys" },
+        { key: "launchers", label: "Custom Launchers" },
+        { key: "prompts", label: "Workflow Prompts" },
+        { key: "visibility", label: "Visibility" },
         { key: "account", label: "Account" },
     ];
 
@@ -82,6 +88,9 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
             <div className="dashboard-content">
                 {tab === "history" && <RunHistory navigate={navigate} />}
                 {tab === "providers" && <ProviderSettings />}
+                {tab === "launchers" && <CustomLaunchersSection />}
+                {tab === "prompts" && <WorkflowPromptsSection />}
+                {tab === "visibility" && <LauncherVisibilitySection />}
                 {tab === "account" && (
                     <div className="account-settings">
                         <h3>Privacy &amp; Data</h3>

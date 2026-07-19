@@ -120,6 +120,7 @@ class RunOwnershipTest extends TestCase
             'status' => 'completed',
             'progress' => [],
             'result' => ['summary' => 'OK', 'risk' => 'low', 'findings' => [], 'verification_steps' => []],
+            'is_public' => true,
         ]);
 
         $this->getJson('/api/runs/'.$run->id)

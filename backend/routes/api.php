@@ -7,8 +7,12 @@ use App\Http\Controllers\ProviderCredentialController;
 use App\Http\Controllers\RunController;
 use App\Http\Controllers\RunHistoryController;
 use App\Http\Controllers\TrendingRepositoryController;
+use App\Http\Controllers\UserHiddenLauncherController;
+use App\Http\Controllers\UserLauncherController;
 use App\Http\Resources\UserResource;
 use App\Models\Launcher;
+use App\Models\UserHiddenLauncher;
+use App\Models\UserLauncher;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
@@ -16,7 +20,64 @@ Route::get('/health', fn () => response()->json(['status' => 'ok']));
 // unauthenticated requests that lack an Accept: application/json header.
 Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
 
-$launchersResponse = fn () => Launcher::query()->where('active', true)->get()->map(fn ($launcher) => ['id' => $launcher->slug, 'slug' => $launcher->slug, 'name' => $launcher->name, 'description' => $launcher->description, 'input_type' => $launcher->input_type]);
+// Unified launcher list: built-in active launchers + authenticated user's custom launchers.
+// Hidden built-in launchers are filtered out for authenticated users.
+$launchersResponse = function () {
+    $query = Launcher::query()->where('active', true);
+
+    $user = request()->user();
+
+    if ($user) {
+        $hiddenIds = UserHiddenLauncher::query()
+            ->where('user_id', $user->id)
+            ->pluck('launcher_id')
+            ->toArray();
+
+        if ($hiddenIds !== []) {
+            $query->whereNotIn('id', $hiddenIds);
+        }
+    }
+
+    $builtIn = $query->get()->map(function (Launcher $launcher): array {
+        $meta = launcherServerMeta($launcher->slug);
+
+        return [
+            'id' => $launcher->slug,
+            'slug' => $launcher->slug,
+            'name' => $launcher->name,
+            'description' => $launcher->description,
+            'input_type' => $launcher->input_type,
+            'icon' => $meta['icon'],
+            'tone' => $meta['tone'],
+            'is_custom' => false,
+        ];
+    });
+
+    if ($user) {
+        $custom = UserLauncher::query()
+            ->where('user_id', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function (UserLauncher $launcher): array {
+                $meta = customLauncherMeta($launcher->slug);
+
+                return [
+                    'id' => $launcher->slug,
+                    'slug' => $launcher->slug,
+                    'name' => $launcher->name,
+                    'description' => $launcher->description,
+                    'input_type' => $launcher->input_type,
+                    'icon' => $meta['icon'],
+                    'tone' => $meta['tone'],
+                    'is_custom' => true,
+                ];
+            });
+
+        $builtIn = $builtIn->concat($custom);
+    }
+
+    return $builtIn->values();
+};
 Route::get('/launchers', $launchersResponse);
 Route::get('/flows', $launchersResponse);
 Route::get('/providers', [ProviderController::class, 'index']);
@@ -45,6 +106,13 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::get('/launcher-prompts', [LauncherPromptController::class, 'index']);
     Route::put('/launcher-prompts/{slug}', [LauncherPromptController::class, 'update']);
     Route::delete('/launcher-prompts/{slug}', [LauncherPromptController::class, 'destroy']);
+    Route::get('/launchers', [UserLauncherController::class, 'index']);
+    Route::post('/launchers', [UserLauncherController::class, 'store']);
+    Route::put('/launchers/{userLauncher}', [UserLauncherController::class, 'update']);
+    Route::delete('/launchers/{userLauncher}', [UserLauncherController::class, 'destroy']);
+    Route::get('/hidden-launchers', [UserHiddenLauncherController::class, 'index']);
+    Route::post('/hidden-launchers/{launcher}', [UserHiddenLauncherController::class, 'store']);
+    Route::delete('/hidden-launchers/{launcher}', [UserHiddenLauncherController::class, 'destroy']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);

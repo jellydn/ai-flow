@@ -6,6 +6,7 @@ use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -35,6 +36,16 @@ class User extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'is_super_admin' => 'boolean',
         ];
+    }
+
+    public function userLaunchers(): HasMany
+    {
+        return $this->hasMany(UserLauncher::class);
+    }
+
+    public function hiddenLaunchers(): HasMany
+    {
+        return $this->hasMany(UserHiddenLauncher::class);
     }
 
     public function canAccessPanel(Panel $panel): bool

@@ -21,7 +21,12 @@ class RunExecutor
 
     public function execute(Run $run, AIProviderInterface $ai): void
     {
-        $run->loadMissing('launcher');
+        $run->loadMissing(['launcher', 'userLauncher']);
+        $launcher = $run->launcherSource();
+
+        if ($launcher === null) {
+            throw new RuntimeException('Run has no associated launcher.');
+        }
 
         try {
             $this->progress($run, 'Fetching repository', true);
@@ -31,8 +36,8 @@ class RunExecutor
                 // Malformed / unsupported GitHub URLs are user input errors, not bugs.
                 throw new UserFacingRunException($e->getMessage(), (int) $e->getCode(), $e);
             }
-            if ($run->launcher->input_type !== $ref->type) {
-                throw new UserFacingRunException("This launcher requires a {$run->launcher->input_type} URL.");
+            if ($launcher->input_type !== $ref->type) {
+                throw new UserFacingRunException("This launcher requires a {$launcher->input_type} URL.");
             }
             if ($ref->type === 'pull_request') {
                 $this->progress($run, 'Reading changed files');
@@ -40,11 +45,11 @@ class RunExecutor
             $context = $this->github->context($run->source_url);
             $run->update(['source_context' => $context]);
             $this->progress($run, 'Running AI analysis');
-            $basePrompt = $run->prompt_snapshot ?? $run->launcher?->prompt_template ?? '';
+            $basePrompt = $run->prompt_snapshot ?? $launcher->prompt_template ?? '';
             $prompt = $basePrompt."\nGitHub context:\n".$this->encoder->encode($context);
             $model = $run->model;
-            $result = $ai->generate($prompt, $run->launcher->output_schema, $model);
-            $this->validator->validate($result, $run->launcher->output_schema);
+            $result = $ai->generate($prompt, $launcher->output_schema, $model);
+            $this->validator->validate($result, $launcher->output_schema);
             $this->progress($run, 'Preparing report');
             $run->update([
                 'status' => 'completed',

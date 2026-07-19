@@ -217,6 +217,7 @@ class RunApiTest extends TestCase
             'status' => 'completed',
             'progress' => ['Preparing report'],
             'result' => ['summary' => 'Ready'],
+            'is_public' => true,
             'completed_at' => now(),
         ]);
 
@@ -240,6 +241,7 @@ class RunApiTest extends TestCase
             'status' => 'completed',
             'progress' => ['Done'],
             'result' => ['summary' => 'OK', 'risk' => 'medium', 'findings' => [['severity' => 'high', 'title' => 'Bug', 'description' => 'd', 'recommendation' => 'r']], 'verification_steps' => []],
+            'is_public' => true,
             'started_at' => now()->subSeconds(34),
             'completed_at' => now(),
         ]);
@@ -262,6 +264,7 @@ class RunApiTest extends TestCase
             'status' => 'failed',
             'progress' => [],
             'error' => 'Something went wrong',
+            'is_public' => true,
             'completed_at' => now(),
         ]);
 

@@ -7,6 +7,7 @@ use App\Http\Resources\RunResource;
 use App\Jobs\ExecuteLauncherJob;
 use App\Models\Launcher;
 use App\Models\Run;
+use App\Models\UserLauncher;
 use App\Services\GitHubService;
 use App\Services\LauncherPromptResolver;
 use App\Services\LaunchParameters;
@@ -29,8 +30,30 @@ class RunController extends Controller
 
     public function store(StoreRunRequest $request): JsonResponse
     {
-        $launcher = Launcher::where('slug', $request->validated('launcher'))->where('active', true)->firstOrFail();
+        $slug = $request->validated('launcher');
+        $user = $request->user();
         $input = ['source_url' => $request->validated('source_url')];
+
+        // Resolve launcher: built-in first, then user custom.
+        $builtInLauncher = Launcher::where('slug', $slug)->where('active', true)->first();
+        $userLauncher = null;
+        $promptSnapshot = null;
+
+        if ($builtInLauncher !== null) {
+            $promptSnapshot = $this->promptResolver->effectivePrompt($builtInLauncher, $user);
+        } else {
+            $userLauncher = UserLauncher::where('slug', $slug)->where('user_id', $user?->id)->firstOrFail();
+            $promptSnapshot = $userLauncher->prompt_template;
+        }
+
+        // launcher_id is NOT NULL (SQLite-compatible). Custom-launcher runs use a
+        // placeholder built-in launcher_id so FK constraints stay intact. The real
+        // launcher is resolved via user_launcher_id → launcherSource() at read time.
+        // NOTE: if the placeholder launcher is ever deleted, cascadeOnDelete will
+        // drop all custom-launcher runs referencing it. Built-in launchers are
+        // seeded and not deleted in normal operation, so this is acceptable.
+        $launcherId = $builtInLauncher?->id
+            ?? Launcher::where('active', true)->value('id');
 
         $params = LaunchParameters::resolve(
             providerId: $request->validated('provider.id'),
@@ -38,10 +61,8 @@ class RunController extends Controller
             providerCredentialId: $request->validated('provider_credential_id'),
             requestedModel: $request->validated('provider.model') ?? $request->validated('model'),
             registry: $this->providerRegistry,
-            allowCustom: $request->user() !== null,
+            allowCustom: $user !== null,
         );
-
-        $promptSnapshot = $this->promptResolver->effectivePrompt($launcher, $request->user());
 
         $repoSlug = null;
         $repoType = null;
@@ -53,8 +74,12 @@ class RunController extends Controller
             // Invalid URL — repo metadata stays null.
         }
 
-        $run = $launcher->runs()->create([
-            'user_id' => $request->user()?->id,
+        $isPublic = $user ? (bool) $request->validated('is_public') : true;
+
+        $run = Run::create([
+            'launcher_id' => $launcherId,
+            'user_launcher_id' => $userLauncher?->id,
+            'user_id' => $user?->id,
             'provider_credential_id' => $params->providerCredentialId,
             'provider' => $params->effectiveProvider,
             'model' => $params->resolvedModel,
@@ -63,6 +88,7 @@ class RunController extends Controller
             'repo_type' => $repoType,
             'input' => $input,
             'prompt_snapshot' => $promptSnapshot,
+            'is_public' => $isPublic,
             'status' => 'queued',
             'progress' => [],
         ]);
@@ -107,7 +133,7 @@ class RunController extends Controller
     {
         $this->authorize('view', $run);
 
-        return new RunResource($run->load('launcher'));
+        return new RunResource($run->load(['launcher', 'userLauncher']));
     }
 
     public function stream(Run $run): StreamedResponse

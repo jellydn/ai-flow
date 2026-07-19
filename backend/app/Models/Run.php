@@ -28,6 +28,7 @@ class Run extends Model
 
     protected $fillable = [
         'launcher_id',
+        'user_launcher_id',
         'user_id',
         'provider_credential_id',
         'provider',
@@ -42,6 +43,7 @@ class Run extends Model
         'source_context',
         'result',
         'error',
+        'is_public',
         'started_at',
         'completed_at',
     ];
@@ -53,6 +55,7 @@ class Run extends Model
             'input' => 'array',
             'source_context' => 'array',
             'result' => 'array',
+            'is_public' => 'boolean',
             'started_at' => 'datetime',
             'completed_at' => 'datetime',
         ];
@@ -61,6 +64,26 @@ class Run extends Model
     public function launcher(): BelongsTo
     {
         return $this->belongsTo(Launcher::class);
+    }
+
+    public function userLauncher(): BelongsTo
+    {
+        return $this->belongsTo(UserLauncher::class, 'user_launcher_id');
+    }
+
+    /**
+     * Return the effective launcher model — either a built-in Launcher
+     * or a user-created UserLauncher — depending on which FK is set.
+     *
+     * @return Launcher|UserLauncher|null
+     */
+    public function launcherSource(): ?Model
+    {
+        if ($this->user_launcher_id !== null) {
+            return $this->userLauncher;
+        }
+
+        return $this->launcher;
     }
 
     public function user(): BelongsTo
@@ -88,6 +111,14 @@ class Run extends Model
     public function isOwnedBy(User $user): bool
     {
         return $this->user_id === $user->id;
+    }
+
+    /**
+     * Whether this run is public (viewable by anyone).
+     */
+    public function isPublic(): bool
+    {
+        return (bool) $this->is_public;
     }
 
     /**

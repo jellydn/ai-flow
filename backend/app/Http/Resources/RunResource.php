@@ -12,9 +12,11 @@ class RunResource extends JsonResource
     {
         $registry = app(AiProviderRegistry::class);
 
+        $launcherSlug = $this->launcher?->slug ?? $this->userLauncher?->slug;
+
         return [
             'id' => $this->id,
-            'launcher' => $this->launcher?->slug,
+            'launcher' => $launcherSlug,
             'input' => $this->input,
             'status' => $this->status,
             'progress' => $this->progress ?? [],
@@ -22,6 +24,7 @@ class RunResource extends JsonResource
             'provider' => $this->provider,
             'provider_label' => $registry->displayName($this->provider),
             'model' => $this->model,
+            'is_public' => $this->is_public,
             'error' => $this->when($this->status === 'failed', $this->error),
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
