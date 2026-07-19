@@ -1,0 +1,20 @@
+# ai-flow GitHub Bot Configuration
+#
+# Place this file at .github/ai-flow.yml in your repository to configure
+# which ai-flow launchers are enabled when users tag @ai-flow in comments.
+#
+# If this file is absent, all launchers are enabled by default.
+
+# Which launchers are enabled for this repo.
+# Comment out or remove any you want to disable.
+# Default: all enabled.
+enabled:
+  - review-pr       # @ai-flow review  — review a pull request
+  - plan-issue      # @ai-flow plan    — create an implementation plan
+  - explain-repository  # @ai-flow explain — explain a codebase
+  - laravel-doctor  # @ai-flow doctor  — assess a Laravel app
+
+# Custom label applied to bot comments on this repo.
+# Controls the HTML comment marker used to find and update progress comments.
+# Default: ai-flow
+# label: ai-flow

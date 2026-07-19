@@ -1,0 +1,22 @@
+version: "1.0"
+project: 2026-07-13-ai-flow-pr-25
+logs_dir: /Users/huynhdung/src/tries/2026-07-13-ai-flow-pr-25/logs
+run_mode: timestamped # timestamped | overwrite
+
+tmux:
+  session: 2026-07-13-ai-flow-pr-25
+  windows:
+    - name: app
+      panes:
+        - cmd: cd backend && composer run dev
+          log: app.log
+
+browser:
+  urls:
+    - "http://localhost:8000/*"
+  file: browser.log
+  levels:
+    - error
+    - warn
+    - info
+    - log

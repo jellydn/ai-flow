@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\GitHubWebhookController;
 use App\Http\Controllers\LauncherController;
 use App\Http\Controllers\LauncherPromptController;
 use App\Http\Controllers\ProviderController;
@@ -13,6 +14,10 @@ use App\Http\Resources\UserResource;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', fn () => response()->json(['status' => 'ok']));
+
+// GitHub bot webhook endpoint — receives issue_comment events when users
+// tag @ai-flow in a comment. No auth middleware; verified via HMAC-SHA256.
+Route::post('/github/webhooks', GitHubWebhookController::class);
 // Named login route prevents the auth middleware from crashing when redirecting
 // unauthenticated requests that lack an Accept: application/json header.
 Route::get('/login', fn () => response()->json(['message' => 'Unauthenticated.'], 401))->name('login');
@@ -56,6 +61,8 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::delete('/hidden-launchers/{launcher:slug}', [UserLauncherController::class, 'unhide']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
+
+// Backward-compat aliases
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
 Route::get('/executions/{run}', [RunController::class, 'show'])->middleware('web');
 Route::get('/executions/{run}/stream', [RunController::class, 'stream'])->middleware(['web', 'throttle:runs-stream']);
