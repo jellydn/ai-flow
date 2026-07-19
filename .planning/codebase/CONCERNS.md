@@ -1,256 +1,83 @@
 # Concerns
 
-## Tech Debt
+## Missing Test Coverage
 
-### T1. ~~Frontend Test Suite Is a CI No-Op~~ (RESOLVED)
+### Custom Launcher Feature Tests
+The custom launcher feature (PR #84) shipped with full implementation code but no automated feature tests for:
+- CRUD lifecycle (create, read, update, delete custom launchers)
+- Slug uniqueness validation (cannot collide with built-in slugs)
+- Unified `/api/launchers` listing (built-in + custom mixed, hidden filtering)
+- Hidden launcher toggle (hide/unhide + persistence)
+- `is_public` run visibility (public/private access control)
+- Custom launcher execution through full queue pipeline
 
-**Severity**: None (resolved)
-**Location**: `backend/package.json` (`test` script), `.github/workflows/ci.yml`
+**Risk**: Regression during future refactors; manual testing burden.
+**Priority**: High — roadmap Phase 2 item.
 
-**Resolved**: The CI `frontend` job already runs `npm run test --if-present`, and the `test` script is `vitest run` (not a no-op). The original concern was based on stale wording in `AGENTS.md` ("test (no-op)") which has been corrected. All 101 frontend tests pass in CI.
+## Architecture Debt
 
-### T2. Only One Model Factory Defined
+### LauncherSource Interface Half-Consumed
+`LauncherSource` is implemented by `Launcher` and `UserLauncher`, and `Run::launcherSource()` returns `?LauncherSource`. However, the contract is only fully consumed in `RunExecutor` (uses interface methods). This is a recent fix — verify no other callers access raw Eloquent properties.
 
-**Severity**: Low-Medium
-**Location**: `backend/database/factories/UserFactory.php`
+**Risk**: Low — addressed in commit `3c2a3f9`.
 
-Only `UserFactory` exists. `Run`, `Launcher`, `ProviderCredential`, `LauncherPromptOverride` are constructed inline in tests. This leads to verbose, repetitive test setup and inconsistent fixtures.
+### Placeholder `launcher_id` for Custom Runs
+Custom-launcher runs use a placeholder `launcher_id` (first active built-in) because the FK is NOT NULL. This means:
+- `Run::launcher` relation may point to a different launcher than what was actually used
+- Reporting/analytics on `launcher_id` will conflate custom runs with their placeholder built-in
 
-**Recommendation**: Add factories for `Run`, `ProviderCredential` at minimum; use factory states for common scenarios (completed, failed, owned, public).
+**Risk**: Medium — documented trade-off; could be resolved with polymorphic relations or making the FK nullable.
 
-### T3. No Dedicated Tests for Several Core Services
+### Duplicated Icon Mapping (PHP + TypeScript)
+`LauncherMetaService` defines built-in icon/tone mappings as PHP constants. The frontend `LauncherIcon.tsx` has equivalent mappings. Adding a built-in launcher requires updating both independently.
 
-**Severity**: Medium
-**Location**: `backend/tests/Unit/`
+**Risk**: Low — 4 built-in launchers today; only changes when new built-in launchers are added.
 
-Missing dedicated unit tests for:
-- `LaunchParameters` (covered indirectly via `RunApiTest`, `RunRequiresProviderKeyTest` — but resolution logic is complex enough to warrant direct tests)
-- `JsonSchemaValidator` (covered indirectly via `ExecuteLauncherJobTest`)
-- `ContextBudget` (covered indirectly via `ContextEncoderTest`)
-- `LauncherPromptResolver` (covered indirectly via `LauncherPromptApiTest`)
+## Security Considerations
 
-**Recommendation**: Add focused unit tests for `LaunchParameters::resolve()` (provider precedence, model validation, guest violations) and `JsonSchemaValidator` (nested validation, enum, additionalProperties).
+### Rate Limiter Configuration
+Rate limits are configured via env vars with defaults in `config/app.php`. Ensure production overrides are documented and tested:
+- `RUNS_RATE_LIMIT_PER_HOUR` (default 5)
+- `AUTH_REGISTER_RATE_LIMIT_PER_MIN` (default 5)
 
-### T4. `ReapStuckRuns` Has a Duplicate `$this->warn()` Line
-
-**Severity**: Low (cosmetic)
-**Location**: `backend/app/Console/Commands/ReapStuckRuns.php`
-
-```php
-$this->warn("Reaped stuck run: {$run->id} (started {$run->started_at?->diffForHumans()}, ttl={$ttl}s)");
-$this->warn("Reaped stuck run: {$run->id}");  // duplicate, less informative
-```
-
-**Recommendation**: Remove the second `$this->warn()` line.
-
-### T5. `assertIntegerId` Duplication Between `run.ts` and `auth.ts`
-
-**Severity**: Low
-**Location**: `backend/resources/ts/services/run.ts`, `backend/resources/ts/services/auth.ts`
-
-`auth.ts` imports `assertArray`, `assertIntegerId`, `assertObject`, `assertString` from `run.ts`. The type-assertion helpers live in `run.ts` but are cross-used by `auth.ts`. This couples the auth service to the run service for utility imports.
-
-**Recommendation**: Extract `assertObject`, `assertString`, `assertArray`, `assertIntegerId` into `lib/decode.ts` or `lib/assert.ts`; import from both services.
-
-### T6. `fetchProviders` in `auth.ts` Returns Unvalidated Cast
-
-**Severity**: Low-Medium
-**Location**: `backend/resources/ts/services/auth.ts`
-
-```typescript
-export async function fetchProviders(): Promise<{ id: string; name: string; models: string[] }[]> {
-    const body = await get("/api/providers");
-    return assertArray(body, "providers") as { id: string; name: string; models: string[] }[];  // unchecked cast
-}
-```
-
-Unlike `decodeRun`, `decodeUser`, `decodeCredential`, the provider list is cast without per-element validation. A malformed provider response would not throw at the boundary.
-
-**Recommendation**: Add a `decodeProvider` function and `.map(decodeProvider)`.
-
-### T7. `retryRun` Returns an Unvalidated Cast
-
-**Severity**: Low
-**Location**: `backend/resources/ts/services/auth.ts`
-
-```typescript
-export async function retryRun(id: string): Promise<{ id: string; status: string }> {
-    const body = await post(`/api/user/runs/${id}/retry`, {});
-    return body as { id: string; status: string };  // unchecked cast
-}
-```
-
-Note: `deleteRun` (in the same file) does **not** have this issue — it returns `Promise<void>` and throws on `!raw.ok`, so no cast is involved.
-
-**Recommendation**: Validate `retryRun` with `assertObject` + `assertString` or document why the cast is safe.
-
-## Bugs
-
-### B1. `GitHubTrendingService` Not Reviewed
-
-**Severity**: Unknown
-**Location**: `backend/app/Services/GitHubTrendingService.php` (referenced by `TrendingRepositoryController`)
-
-This service scrapes GitHub trending. It was not read during this codemap pass. The scraping approach is inherently fragile (HTML structure changes, no API contract). No dedicated unit test was found for it (only `TrendingRepositoriesApiTest` feature test).
-
-**Recommendation**: Review the scraping implementation; add a unit test with a fixture HTML response; consider an official trending API or curated list if scraping breaks.
-
-## Security
-
-### S1. GitHub URL Validation Is Regex + Service Double-Check (Good)
-
-**Severity**: Informational (positive)
-**Location**: `backend/app/Http/Requests/StoreRunRequest.php`, `backend/app/Services/GitHubService.php`
-
-`StoreRunRequest` enforces `regex:/^https:\/\/(?:www\.)?github\.com\//i` and `GitHubService::parse` re-validates scheme + host. Defense in depth — good pattern. SSRF surface is limited to `api.github.com` via the `Http::baseUrl()` call.
-
-### S2. Credential Encryption Key Fallback to `APP_KEY`
-
-**Severity**: Medium
-**Location**: `backend/app/Security/CredentialCipher.php`, `backend/config/credentials.php`
-
-`CREDENTIAL_ENCRYPTION_KEY` falls back to `APP_KEY` if empty. If `APP_KEY` rotates, previously encrypted credentials become undecryptable. The fallback is documented but could surprise operators.
-
-**Recommendation**: Document key rotation procedure explicitly; consider failing loud if `CREDENTIAL_ENCRYPTION_KEY` is unset in production (rather than silent fallback).
-
-### S3. Magic Link Token Storage Hashed (Good)
-
-**Severity**: Informational (positive)
-**Location**: `backend/app/Http/Controllers/Auth/MagicLinkController.php`
-
-Raw token (32 bytes hex) is SHA-256 hashed before DB storage; single-use via `used_at`; 15-min expiry. Good practice — DB compromise doesn't expose valid tokens.
-
-### S4. SSE Session Lock Release (Good)
-
-**Severity**: Informational (positive)
-**Location**: `backend/app/Http/Controllers/RunController.php`
-
-`RunController::stream` calls `request()->session()->save()` before the long-lived SSE loop, releasing the session lock so same-user requests aren't blocked. Good pattern.
-
-### S5. Production Guards (Good)
-
-**Severity**: Informational (positive)
-**Location**: `backend/app/Providers/AppServiceProvider.php`
-
-`boot()` throws on: SQLite in production HTTP, `sync` queue in production, Postgres without TLS for external hosts, `LOG_LEVEL=debug` warning in production. Strong defensive posture.
+### Production Guards
+`AppServiceProvider::boot()` has multiple production guards that throw `RuntimeException`:
+- SQLite forbidden in production
+- `sync` queue forbidden in production
+- PostgreSQL must use TLS for external hosts
+- These guards are defense-in-depth; ensure they survive config caching (`php artisan config:cache`)
 
 ## Performance
 
-### P1. SSE DB Polling Mitigated by Cache Versioning (Good)
+### SSE Polling Without Redis
+The SSE stream uses database polling with cache-version optimization (`CacheRunProgressedVersion`). Without Redis, the cache version check falls back to always-refresh. In production with a database cache driver, this still hits the DB each poll cycle (1s interval, ~55s window = ~55 queries per stream).
 
-**Severity**: Informational (positive)
-**Location**: `backend/app/Services/RunStreamer.php`, `backend/app/Listeners/CacheRunProgressedVersion.php`
+**Risk**: Low — acceptable for current scale; Redis would reduce DB load.
 
-The SSE loop checks a cache version key (`run:version:{id}`) before hitting the DB. When the version is unchanged, it sleeps without a query. This is a meaningful optimization over naive polling. Falls back to unconditional refresh when cache is unavailable (array driver in tests).
+### GitHub Context Caching
+`GitHubService::context()` caches for 10 minutes. No cache busting mechanism for rapidly-changing PRs/Issues within that window.
 
-**Caveat**: The 55-second SSE window means a client must reconnect if a run takes longer. The frontend `useRunSubscription` has polling fallback (1.5s) for this case.
+**Risk**: Low — stale context is acceptable for AI analysis; user can wait 10 minutes or re-run.
 
-### P2. GitHub Context Cached 10 Minutes (Good)
+## Unused Code
 
-**Severity**: Informational (positive)
-**Location**: `backend/app/Services/GitHubService.php`
+### No Known Dead Code
+The recent simplify passes (commits `084c6cd`, `3c2a3f9`) removed:
+- `LauncherMetaInterface` (single-implementation interface)
+- `UserHiddenLauncherController` (merged into `UserLauncherController`)
+- `Helpers/LauncherMeta.php` (replaced by `LauncherMetaService`)
+- Static setter pattern in `LauncherResource`
 
-`Cache::remember('github:'.sha1($url), 10 minutes, ...)` — repeated runs of the same URL skip GitHub API calls. Good for rate limits and latency.
+No remaining dead code identified.
 
-### P3. `ContextEncoder` Truncation Prevents Oversized Prompts (Good)
+## Dependency Risks
 
-**Severity**: Informational (positive)
-**Location**: `backend/app/Services/ContextEncoder.php`, `backend/app/Services/ContextBudget.php`
+### Laravel 13 + Turso
+`turso/libsql-laravel` does not support Laravel 13 yet. Production uses managed Postgres/MySQL — no impact.
 
-Two-stage truncation (fetch-time limits + budget-tier limits) keeps prompts within `MAX_CONTEXT_BYTES`. Prevents token-blowup and provider errors.
+### Filament v5
+Super-admin panel dependency. Breaking changes in minor versions may require migration. Currently on `^5.0` — monitor Filament v6 announcements.
 
-### P4. `Run::recent()` Query Is Unindexed on `completed_at`?
-
-**Severity**: Low-Medium (needs verification)
-**Location**: `backend/app/Http/Controllers/RunController.php`, `backend/database/migrations/`
-
-`Run::recent()` queries `where('status', 'completed')->whereNull('user_id')->whereNotNull('result')->orderByDesc('completed_at')->limit(6)`. Migration `2026_07_15_000001_add_recent_runs_index_to_runs_table.php` suggests an index was added — verify it covers this exact query shape.
-
-**Recommendation**: Confirm the composite index covers `(status, user_id, completed_at)`; consider `EXPLAIN` on the query in production.
-
-### P5. `AiProviderRegistry::list()` Uses Static Cache (Good, with Caveat)
-
-**Severity**: Low
-**Location**: `backend/app/Support/AiProviderRegistry.php`
-
-`private static ?array $cachedList = null` — provider metadata cached for the request lifecycle. Good for repeated calls within a request. Caveat: won't reflect config changes within a long-lived process (e.g., worker) without restart.
-
-## Fragile Areas
-
-### F1. AI Provider JSON Output Parsing
-
-**Severity**: Medium
-**Location**: `backend/app/Services/BaseAIProvider.php`
-
-All providers extract a string from the response, then `json_decode` it. OpenAI/OpenRouter use `json_schema` response format (reliable); Anthropic/Gemini rely on **prompt-only** JSON instructions (`jsonOnlySystemMessage()` — "Output only the JSON, no other text."). If the model wraps JSON in prose, `json_decode` fails and the run fails.
-
-**Recommendation**: Consider a JSON extraction fallback (strip code fences, find first `{` / last `}`) for Anthropic/Gemini before failing.
-
-### F2. GitHub Trending Scrape (No API Contract)
-
-**Severity**: Medium
-**Location**: `backend/app/Services/GitHubTrendingService.php`
-
-Scraping GitHub trending HTML is inherently fragile. Any GitHub HTML structure change breaks `TrendingRepositoryController::index`. No dedicated unit test with a fixture was found.
-
-**Recommendation**: Pin a fixture HTML in a unit test; monitor for breakage; have a fallback (empty list or cached result) on scrape failure.
-
-### F3. `LaunchParameters::resolve()` Provider Precedence Logic
-
-**Severity**: Medium
-**Location**: `backend/app/Services/LaunchParameters.php`
-
-The `rawProviderId` vs `effectiveProvider` distinction is subtle: `rawProviderId` preserves nullable behavior for job dispatch (credential provider when credential selected, raw `providerId` otherwise, `null` when both absent — job resolves `null → 'openai'`). This is correct but easy to break on refactor. ADR-0022 documents the intent.
-
-**Recommendation**: Add a focused unit test for `LaunchParameters::resolve()` covering all precedence combinations (credential+providerId, credential only, providerId only, neither, guest).
-
-### F4. Konsistent Exception for `ErrorBoundary`
-
-**Severity**: Low
-**Location**: `backend/konsistent.json`, `backend/resources/ts/components/ErrorBoundary.tsx`
-
-`ErrorBoundary.tsx` is the only class component (konsistent enforces functional components elsewhere). The exception is explicit in `konsistent.json`. If konsistent rules are tightened or the exception is dropped, the build breaks.
-
-**Recommendation**: Document why the exception exists (React error boundaries require class components) in `konsistent.json` or a comment.
-
-### F5. `Run::TERMINAL_STATUSES` Duplicated in Frontend
-
-**Severity**: Low
-**Location**: `backend/app/Models/Run.php`, `backend/resources/ts/services/run.ts` (`isRunStatus`)
-
-The status enum `['queued', 'running', 'completed', 'failed']` exists in PHP (`Run::STATUSES`, `Run::TERMINAL_STATUSES`) and TypeScript (`isRunStatus`). Changes to one must be mirrored in the other.
-
-**Recommendation**: Acceptable for a small enum, but add a comment in both locations pointing to the other.
-
-## Observability
-
-### O1. Sentry Selective Capture (Good)
-
-**Severity**: Informational (positive)
-**Location**: `backend/app/Services/RunExecutor.php`
-
-`UserFacingRunException` is explicitly NOT reported to Sentry (expected user errors). `RuntimeException`, `ConnectionException`, `Throwable` are captured. Good signal-to-noise ratio.
-
-### O2. `markFailed` Logs Exception Class, Not Stack
-
-**Severity**: Low
-**Location**: `backend/app/Models/Run.php`
-
-`Log::error($logContext, ['run_id' => ..., 'exception' => get_class($e)])` logs the exception class name but not the stack trace. Sentry captures the full exception separately, but the Laravel log entry is thin.
-
-**Recommendation**: Consider logging `$e->getMessage()` alongside the class name for faster log-based debugging.
-
-## Summary
-
-| Area | Count | Severity Mix |
-|---|---|---|
-| Tech Debt | 7 | 1 resolved, 2 medium, 3 low/low-medium, 1 cosmetic |
-| Bugs | 1 | 1 unknown (trending scrape) |
-| Security | 5 | 3 positive (good patterns), 1 medium (key fallback), 1 informational |
-| Performance | 5 | 4 positive (good patterns), 1 needs verification |
-| Fragile Areas | 5 | 2 medium, 3 low |
-| Observability | 2 | 1 positive, 1 low |
-
-**Top priorities**: F1 (Anthropic/Gemini JSON parsing), F2 (trending scrape), S2 (credential key fallback documentation), T3 (LaunchParameters unit tests).
-
-**Resolved in this pass**: T1 (CI already runs tests — was stale info), T2 (factories added), T3 (LaunchParameters + JsonSchemaValidator tests added), T4 (duplicate warn removed), T5 (assert helpers extracted), T6 (decodeProvider added), T7 (retryRun/verifyCredential casts removed), F1 (JSON extraction fallback added), F2 (trending parse unit tests added), F3 (LaunchParameters tests added), F4 (konsistent description enriched), F5 (status enum cross-ref comments added), O2 (markFailed logs message), S2 (rotation doc + prod warning added), P4 (index verified + documented).
+## TODO / FIXME
+No `TODO` or `FIXME` comments found in backend PHP or frontend TypeScript source.
+The codebase is clean of deferred-work markers.

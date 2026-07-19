@@ -128,8 +128,13 @@ class Run extends Model
      * clears source_context, sets completed_at, logs the failure, and
      * dispatches RunProgressed. Called by ExecuteLauncherJob,
      * RunExecutor, and ReapStuckRuns.
+     *
+     * @param  'error'|'warning'|'info'  $logLevel  PSR-3 log level.
+     *                                              Use 'warning' for expected failures (user input errors,
+     *                                              network blips) so Sentry ignores them. Default 'error'
+     *                                              for operational failures that need attention.
      */
-    public function markFailed(string $message, ?Throwable $e = null, string $logContext = 'Launcher run failed'): void
+    public function markFailed(string $message, ?Throwable $e = null, string $logContext = 'Launcher run failed', string $logLevel = 'error'): void
     {
         $this->update([
             'status' => 'failed',
@@ -138,11 +143,17 @@ class Run extends Model
             'completed_at' => now(),
         ]);
 
-        Log::error($logContext, [
+        $context = [
             'run_id' => $this->id,
             'exception' => $e ? get_class($e) : null,
             'exception_message' => $e?->getMessage(),
-        ]);
+        ];
+
+        match ($logLevel) {
+            'warning' => Log::warning($logContext, $context),
+            'info' => Log::info($logContext, $context),
+            default => Log::error($logContext, $context),
+        };
 
         RunProgressed::dispatch($this->fresh());
     }

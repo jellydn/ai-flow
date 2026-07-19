@@ -189,7 +189,7 @@ class ExecuteLauncherJobTest extends TestCase
         (new RunExecutor($github, new ContextEncoder, new JsonSchemaValidator))->execute($run, $ai);
 
         $this->assertSame('Invalid API key.', $run->fresh()->error);
-        Log::shouldHaveReceived('error')->once()->withArgs(function (string $message, array $context) use ($apiKey): bool {
+        Log::shouldHaveReceived('warning')->once()->withArgs(function (string $message, array $context) use ($apiKey): bool {
             return ! str_contains($message.json_encode($context), $apiKey)
                 && ! array_key_exists('message', $context);
         });

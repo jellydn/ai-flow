@@ -61,15 +61,23 @@ class RunExecutor
             RunProgressed::dispatch($run->fresh());
         } catch (UserFacingRunException $e) {
             // Expected user/input failures (missing repo, wrong launcher URL, malformed URL, etc.)
-            $run->markFailed($e->getMessage(), $e);
+            // Log at 'warning' so Sentry ignores these — they are not code bugs.
+            $run->markFailed($e->getMessage(), $e, logLevel: 'warning');
         } catch (ConnectionException $e) {
-            // Network-level failures reaching GitHub
-            $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e);
-            \Sentry\captureException($e);
+            // Network-level failures reaching GitHub — transient, not code bugs.
+            $run->markFailed('Unable to reach GitHub. Check your network connection and try again.', $e, logLevel: 'warning');
         } catch (RuntimeException $e) {
-            // Operational domain errors (AI provider, schema validation, etc.)
-            $run->markFailed($e->getMessage(), $e);
-            \Sentry\captureException($e);
+            $message = $e->getMessage();
+            // Don't report expected AI-provider operational errors to Sentry.
+            $isOperational = str_contains($message, 'API key is not configured')
+                || str_contains($message, 'Invalid API key')
+                || str_contains($message, 'Unable to reach the AI provider');
+
+            $run->markFailed($message, $e, logLevel: $isOperational ? 'warning' : 'error');
+
+            if (! $isOperational) {
+                \Sentry\captureException($e);
+            }
         } catch (Throwable $e) {
             // Unexpected errors — include the exception class for debugging
             $errorClass = class_basename($e);
