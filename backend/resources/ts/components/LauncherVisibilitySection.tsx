@@ -14,8 +14,8 @@ export function LauncherVisibilitySection() {
 
     const load = useCallback(async () => {
         try {
-            // Get all launchers without auth to see unfiltered built-in ones
-            const all = await getLaunchers();
+            // Include hidden launchers so the user can see every built-in and toggle them back.
+            const all = await getLaunchers({ includeHidden: true });
             const builtIn = all.filter((l) => !l.is_custom);
             setBuiltInLaunchers(builtIn);
 

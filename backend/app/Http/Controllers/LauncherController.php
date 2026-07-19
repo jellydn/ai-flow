@@ -21,7 +21,11 @@ class LauncherController extends Controller
 
         $user = $request->user();
 
-        if ($user) {
+        // ?include_hidden=true skips the hidden-launcher filter so the
+        // visibility-settings section can always show every built-in.
+        $includeHidden = (bool) $request->query('include_hidden');
+
+        if ($user && ! $includeHidden) {
             $hiddenIds = UserHiddenLauncher::query()
                 ->where('user_id', $user->id)
                 ->pluck('launcher_id')

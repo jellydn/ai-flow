@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\User;
 use App\Models\UserLauncher;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -17,8 +18,7 @@ class UserLauncherFactory extends Factory
         $slug = $this->faker->unique()->slug(2);
 
         return [
-            'id' => $this->faker->uuid(),
-            'user_id' => null,
+            'user_id' => User::factory(),
             'slug' => $slug,
             'name' => $this->faker->words(3, true),
             'description' => $this->faker->sentence(),
@@ -34,5 +34,10 @@ class UserLauncherFactory extends Factory
                 ],
             ],
         ];
+    }
+
+    public function forUser(User $user): static
+    {
+        return $this->state(fn (): array => ['user_id' => $user->id]);
     }
 }

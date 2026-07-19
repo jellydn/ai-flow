@@ -132,3 +132,32 @@ export function post(
         timeout,
     );
 }
+
+export function put(
+    path: string,
+    payload: unknown,
+    timeout: number = DEFAULT_TIMEOUT,
+): Promise<unknown> {
+    return request(
+        path,
+        {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        },
+        timeout,
+    );
+}
+
+export function del(path: string, timeout: number = DEFAULT_TIMEOUT): Promise<unknown> {
+    return request(
+        path,
+        {
+            method: "DELETE",
+            headers: {},
+        },
+        timeout,
+    );
+}

@@ -18,7 +18,7 @@ export interface Run {
 }
 
 export interface RunResult {
-    summary: string;
+    summary?: string;
     risk?: string;
     findings?: Finding[];
     verification_steps?: string[];

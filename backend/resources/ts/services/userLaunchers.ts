@@ -1,5 +1,5 @@
 import { assertArray, assertObject, assertString } from "../lib/decode.ts";
-import { get, mutationHeaders, post } from "../lib/http.ts";
+import { del, get, post, put } from "../lib/http.ts";
 import type { UserLauncher } from "../types/api.ts";
 
 function decodeUserLauncher(value: unknown): UserLauncher {
@@ -47,32 +47,13 @@ export async function updateUserLauncher(
         output_schema: string;
     }>,
 ): Promise<UserLauncher> {
-    const raw = await fetch(`/api/user/launchers/${id}`, {
-        method: "PUT",
-        headers: mutationHeaders({ "Content-Type": "application/json" }),
-        credentials: "include",
-        body: JSON.stringify(payload),
-    });
-    if (!raw.ok) {
-        const err = await raw.json().catch(() => ({}));
-        const msg =
-            err && typeof err === "object" && "message" in err
-                ? String((err as { message: string }).message)
-                : "Failed to update launcher.";
-        throw new Error(msg);
-    }
-    const body = await raw.json();
+    const body = await put(`/api/user/launchers/${id}`, payload);
     const data = assertObject(body);
     return decodeUserLauncher(data.data ?? body);
 }
 
 export async function deleteUserLauncher(id: string): Promise<void> {
-    const raw = await fetch(`/api/user/launchers/${id}`, {
-        method: "DELETE",
-        headers: mutationHeaders(),
-        credentials: "include",
-    });
-    if (!raw.ok) throw new Error("Failed to delete custom launcher.");
+    await del(`/api/user/launchers/${id}`);
 }
 
 export async function fetchHiddenLaunchers(): Promise<string[]> {
@@ -84,19 +65,9 @@ export async function fetchHiddenLaunchers(): Promise<string[]> {
 }
 
 export async function hideLauncher(slug: string): Promise<void> {
-    const raw = await fetch(`/api/user/hidden-launchers/${slug}`, {
-        method: "POST",
-        headers: mutationHeaders(),
-        credentials: "include",
-    });
-    if (!raw.ok) throw new Error("Failed to hide launcher.");
+    await post(`/api/user/hidden-launchers/${slug}`, {});
 }
 
 export async function unhideLauncher(slug: string): Promise<void> {
-    const raw = await fetch(`/api/user/hidden-launchers/${slug}`, {
-        method: "DELETE",
-        headers: mutationHeaders(),
-        credentials: "include",
-    });
-    if (!raw.ok) throw new Error("Failed to unhide launcher.");
+    await del(`/api/user/hidden-launchers/${slug}`);
 }

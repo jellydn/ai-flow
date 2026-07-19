@@ -106,7 +106,7 @@ class RunController extends Controller
             ->where('status', 'completed')
             ->where('is_public', true)
             ->whereNotNull('result')
-            ->with('launcher:id,slug,name')
+            ->with(['launcher:id,slug,name', 'userLauncher:id,slug,name,user_id'])
             ->orderByDesc('completed_at')
             ->limit(6)
             ->get();

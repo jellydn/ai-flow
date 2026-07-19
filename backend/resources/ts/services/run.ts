@@ -50,9 +50,12 @@ function decodeRunInput(value: unknown): Run["input"] {
 
 function decodeRunResult(value: unknown): RunResult {
     const data = assertObject(value);
-    const result: RunResult = {
-        summary: assertString(data.summary, "result.summary"),
-    };
+    const result: RunResult = {};
+
+    // summary is optional — custom launchers may define arbitrary output schemas
+    if (typeof data.summary === "string") {
+        result.summary = data.summary;
+    }
 
     if (data.risk !== undefined) {
         result.risk = assertString(data.risk, "result.risk");
@@ -97,6 +100,7 @@ export function decodeRun(value: unknown): Run {
         provider: assertStringOrNull(data.provider, "provider") ?? undefined,
         provider_label: assertStringOrNull(data.provider_label, "provider_label") ?? undefined,
         model: assertStringOrNull(data.model, "model") ?? undefined,
+        is_public: typeof data.is_public === "boolean" ? data.is_public : undefined,
         started_at: assertStringOrNull(data.started_at, "started_at"),
         completed_at: assertStringOrNull(data.completed_at, "completed_at"),
         created_at: assertStringOrNull(data.created_at, "created_at") ?? undefined,
@@ -111,11 +115,15 @@ function decodeLauncher(value: unknown): Launcher {
         name: assertString(data.name, "name"),
         description: assertString(data.description, "description"),
         input_type: assertString(data.input_type, "input_type"),
+        icon: typeof data.icon === "string" ? data.icon : undefined,
+        tone: typeof data.tone === "string" ? data.tone : undefined,
+        is_custom: typeof data.is_custom === "boolean" ? data.is_custom : undefined,
     };
 }
 
-export async function getLaunchers(): Promise<Launcher[]> {
-    const body = await get("/api/launchers");
+export async function getLaunchers(opts?: { includeHidden?: boolean }): Promise<Launcher[]> {
+    const path = opts?.includeHidden ? "/api/launchers?include_hidden=1" : "/api/launchers";
+    const body = await get(path);
     const items = assertArray(body, "launchers");
     return items.map(decodeLauncher);
 }

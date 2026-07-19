@@ -29,6 +29,7 @@ class RunResource extends JsonResource
             'provider_label' => $registry->displayName($this->provider),
             'model' => $this->model,
             'is_public' => $this->is_public,
+            'is_custom' => $this->relationLoaded('userLauncher') && $this->userLauncher !== null,
             'error' => $this->when($this->status === 'failed', $this->error),
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
