@@ -78,8 +78,10 @@ $launchersResponse = function () {
 
     return $builtIn->values();
 };
-Route::get('/launchers', $launchersResponse);
-Route::get('/flows', $launchersResponse);
+// web middleware needed so request()->user() is available for custom-launcher
+// listing and hidden-launcher filtering (reads session cookie).
+Route::get('/launchers', $launchersResponse)->middleware('web');
+Route::get('/flows', $launchersResponse)->middleware('web');
 Route::get('/providers', [ProviderController::class, 'index']);
 // Session (`web`) so the SPA cookie session is visible:
 // - POST: attach user_id + allow provider_credential_id ownership checks
@@ -111,8 +113,8 @@ Route::middleware(['web', 'auth'])->prefix('user')->group(function () {
     Route::put('/launchers/{userLauncher}', [UserLauncherController::class, 'update']);
     Route::delete('/launchers/{userLauncher}', [UserLauncherController::class, 'destroy']);
     Route::get('/hidden-launchers', [UserHiddenLauncherController::class, 'index']);
-    Route::post('/hidden-launchers/{launcher}', [UserHiddenLauncherController::class, 'store']);
-    Route::delete('/hidden-launchers/{launcher}', [UserHiddenLauncherController::class, 'destroy']);
+    Route::post('/hidden-launchers/{launcher:slug}', [UserHiddenLauncherController::class, 'store']);
+    Route::delete('/hidden-launchers/{launcher:slug}', [UserHiddenLauncherController::class, 'destroy']);
     Route::delete('/account', [AccountController::class, 'destroy']);
 });
 Route::post('/executions', [RunController::class, 'store'])->middleware(['web', 'throttle:runs']);
