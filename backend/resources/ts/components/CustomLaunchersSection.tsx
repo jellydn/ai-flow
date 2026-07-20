@@ -123,6 +123,7 @@ export function CustomLaunchersSection() {
             setError(
                 "Output schema must be a JSON Schema object with a 'type' or 'properties' key.",
             );
+            setShowAdvanced(true);
             return;
         }
 
