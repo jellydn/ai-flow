@@ -8,7 +8,7 @@ AI-assisted work on **ai-flow**: a single Laravel 13 app that serves a React UI 
 | API         | `backend/`                                                        | PHP 8.4, queue jobs, OpenAI/Anthropic/Gemini |
 | Deploy root | `backend/` (not repo root)                                        | Dokku (staging) or Laravel Cloud             |
 
-ADRs: `doc/adr/README.md`. Backend details: `backend/README.md`. Deploy: `backend/DOKKU_DEPLOY.md` (Dokku) and `backend/CLOUD_DEPLOY.md` (Laravel Cloud).
+ADRs: `doc/adr/README.md`. Backend details: `backend/README.md`. Deploy: `backend/DOKKU_DEPLOY.md` (Dokku) and `backend/CLOUD_DEPLOY.md` (Laravel Cloud). GitHub App setup: `doc/github-app-setup.md` + `scripts/setup-github-app.sh`.
 
 ## Commands (all run inside `backend/`)
 

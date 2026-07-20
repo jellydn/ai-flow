@@ -122,6 +122,7 @@ limit), preventing SIGKILL and freeing workers between polls.
 
 ## References
 
+- Setup guide: `doc/github-app-setup.md` + `scripts/setup-github-app.sh`
 - Inspired by `jellydn/my-ai-tools` PR #323 (`feat: add self-hosted GitHub coding bot`)
 - Existing ADRs: 0008 (queue-backed jobs), 0010 (GitHub REST context), 0011 (AI provider interface)
 - GitHub docs: [Webhook events and payloads](https://docs.github.com/en/webhooks/webhook-events-and-payloads), [GitHub App authentication](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/about-authentication-with-a-github-app)
