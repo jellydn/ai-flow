@@ -10,6 +10,7 @@ use App\Services\LaunchParameters;
 use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
+use Illuminate\Support\Facades\Date;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -17,16 +18,32 @@ use Throwable;
 /**
  * Processes an @ai-flow command from a GitHub comment.
  *
- * 1. Posts a progress comment on the issue/PR.
- * 2. Creates a Run via the existing launcher resolution pipeline.
- * 3. Dispatches ExecuteLauncherJob for the actual AI work.
- * 4. Polls for completion and updates the progress comment with results.
+ * Runs in two phases to avoid blocking a queue worker while the AI run
+ * executes (the previous implementation polled with a `while`/`usleep` loop,
+ * which starved workers):
+ *
+ *  1. Initialization — post a "queued" comment, resolve the launcher, create
+ *     the Run, dispatch ExecuteLauncherJob, then re-dispatch THIS job as a
+ *     delayed continuation carrying the commentId/runId/installationId.
+ *
+ *  2. Continuation — check the Run status. If terminal, post the result
+ *     comment. Otherwise re-dispatch another continuation until the overall
+ *     deadline (github-bot.poll_max_seconds) elapses, at which point a generic
+ *     timeout comment is posted.
+ *
+ * Each phase is short (per-execution timeout well below the 120s worker
+ * limit), so the worker is free between polls. Exceptions are re-thrown so the
+ * queue logs them internally; GitHub comments only ever show generic messages
+ * to avoid leaking internals.
  */
 class ProcessGitHubBotCommandJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $tries = 2;
+    /**
+     * Each phase is a single attempt — continuations re-dispatch a fresh job.
+     */
+    public int $tries = 1;
 
     public int $timeout;
 
@@ -37,8 +54,13 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         public string $sourceUrl,
         public string $launcherSlug,
         public string $commentLabel,
+        public ?int $installationId = null,
+        public ?int $commentId = null,
+        public ?string $runId = null,
     ) {
-        $this->timeout = (int) config('github-bot.job_timeout', 180);
+        // Per-execution timeout — safely below the production worker's 120s
+        // limit so the process is never SIGKILLed mid-phase.
+        $this->timeout = (int) config('github-bot.job_timeout', 60);
     }
 
     public function handle(
@@ -47,32 +69,79 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         AiProviderRegistry $providerRegistry,
         GitHubService $github,
     ): void {
+        if ($this->runId === null) {
+            $this->initialize($bot, $launcherResolver, $providerRegistry, $github);
+        } else {
+            $this->continue($bot);
+        }
+    }
+
+    // ── Phase 1: initialization ──────────────────────────────────────────
+
+    /**
+     * Post the progress comment, create the Run, dispatch ExecuteLauncherJob,
+     * then re-dispatch a delayed continuation to poll for completion.
+     */
+    private function initialize(
+        GitHubBotService $bot,
+        LauncherResolutionService $launcherResolver,
+        AiProviderRegistry $providerRegistry,
+        GitHubService $github,
+    ): void {
         $label = $this->commentLabel;
+        $commentId = null;
 
         try {
             $commentId = $this->postProgressComment($bot, $label);
             $run = $this->createAndExecuteRun($bot, $label, $commentId, $launcherResolver, $providerRegistry, $github);
-            $this->postResultComment($bot, $label, $commentId, $run);
 
+            // Re-dispatch a delayed continuation to poll for completion,
+            // freeing the worker while ExecuteLauncherJob runs.
+            $this->dispatchContinuation($commentId, $run->id);
         } catch (Throwable $e) {
-            // Best-effort: try to post an error comment if we have a comment ID.
-            if (isset($commentId)) {
-                try {
-                    $bot->updateComment(
-                        $commentId,
-                        $bot->formatResultComment(
-                            $label,
-                            $this->launcherSlug,
-                            [],
-                            'Internal error: '.$e->getMessage(),
-                        ),
-                    );
-                } catch (Throwable) {
-                    // Can't even post the error comment — nothing more to do.
-                }
+            $this->handleFailure($bot, $e, $commentId);
+        }
+    }
+
+    // ── Phase 2: continuation (polling) ───────────────────────────────────
+
+    /**
+     * Check Run status: terminal → post result, deadline → post timeout,
+     * otherwise re-dispatch another continuation.
+     */
+    private function continue(GitHubBotService $bot): void
+    {
+        $label = $this->commentLabel;
+
+        try {
+            /** @var Run|null $run */
+            $run = Run::find($this->runId);
+
+            if ($run === null) {
+                throw new RuntimeException("Run {$this->runId} not found during polling.");
             }
 
-            throw $e;
+            if (in_array($run->status, Run::TERMINAL_STATUSES, true)) {
+                $this->postResultComment($bot, $label, $this->commentId ?? 0, $run);
+
+                return;
+            }
+
+            if ($this->deadlineExceeded($run)) {
+                $bot->updateComment(
+                    $this->owner,
+                    $this->repo,
+                    $this->commentId ?? 0,
+                    $bot->formatResultComment($label, $this->launcherSlug, [], $this->timeoutErrorMessage()),
+                    $this->installationId,
+                );
+
+                return;
+            }
+
+            $this->dispatchContinuation($this->commentId ?? 0, $run->id);
+        } catch (Throwable $e) {
+            $this->handleFailure($bot, $e, $this->commentId);
         }
     }
 
@@ -88,12 +157,13 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
             $this->repo,
             $this->number,
             $bot->formatProgressComment($label, $this->launcherSlug, 'queued'),
+            $this->installationId,
         );
     }
 
     /**
-     * Resolve the launcher, update progress to "running", create the Run,
-     * dispatch ExecuteLauncherJob, and poll for completion.
+     * Resolve the launcher, update progress to "running", create the Run, and
+     * dispatch ExecuteLauncherJob. Returns the created Run (does NOT poll).
      */
     private function createAndExecuteRun(
         GitHubBotService $bot,
@@ -111,7 +181,13 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
         }
 
         // ── Update progress to running ────────────────────────────────
-        $bot->updateComment($commentId, $bot->formatProgressComment($label, $this->launcherSlug, 'running'));
+        $bot->updateComment(
+            $this->owner,
+            $this->repo,
+            $commentId,
+            $bot->formatProgressComment($label, $this->launcherSlug, 'running'),
+            $this->installationId,
+        );
 
         // ── Create Run ────────────────────────────────────────────────
         $params = LaunchParameters::resolve(
@@ -158,7 +234,7 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
             $params->resolvedModel,
         );
 
-        return $this->pollForCompletion($run->id);
+        return $run;
     }
 
     /**
@@ -173,41 +249,72 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
             $run->error,
         );
 
-        $bot->updateComment($commentId, $resultComment);
+        $bot->updateComment($this->owner, $this->repo, $commentId, $resultComment, $this->installationId);
     }
 
-    // ── Polling ──────────────────────────────────────────────────────────
+    // ── Continuation / polling helpers ───────────────────────────────────
 
     /**
-     * Poll the run until it reaches a terminal state.
-     *
-     * Timeout from config (github-bot.poll_max_seconds) with interval
-     * from config (github-bot.poll_interval_ms). Total job timeout
-     * (github-bot.job_timeout) must exceed poll_max_seconds so there's
-     * budget for the comment-posting steps before/after the loop.
+     * Re-dispatch a delayed continuation job carrying the commentId/runId.
      */
-    private function pollForCompletion(string $runId): Run
+    private function dispatchContinuation(int $commentId, string $runId): void
     {
-        $maxPollSeconds = (int) config('github-bot.poll_max_seconds', 150);
-        $pollIntervalMs = (int) config('github-bot.poll_interval_ms', 2000);
-        $elapsed = 0;
+        $delay = (int) config('github-bot.poll_interval_seconds', 5);
 
-        while ($elapsed < $maxPollSeconds) {
-            /** @var Run $run */
-            $run = Run::find($runId);
+        self::dispatch(
+            owner: $this->owner,
+            repo: $this->repo,
+            number: $this->number,
+            sourceUrl: $this->sourceUrl,
+            launcherSlug: $this->launcherSlug,
+            commentLabel: $this->commentLabel,
+            installationId: $this->installationId,
+            commentId: $commentId,
+            runId: $runId,
+        )->delay(Date::now()->addSeconds($delay));
+    }
 
-            if ($run === null) {
-                throw new RuntimeException("Run {$runId} not found during polling.");
+    /**
+     * Whether the run has exceeded the overall polling deadline.
+     */
+    private function deadlineExceeded(Run $run): bool
+    {
+        $maxSeconds = (int) config('github-bot.poll_max_seconds', 150);
+
+        return $run->created_at !== null && abs(Date::now()->diffInSeconds($run->created_at)) >= $maxSeconds;
+    }
+
+    private function timeoutErrorMessage(): string
+    {
+        return 'The analysis did not complete within the configured time limit.';
+    }
+
+    /**
+     * Log the exception internally and post a generic error comment so no
+     * internals (DB queries, API keys, infrastructure) leak into public GitHub
+     * comments. The exception is re-thrown so the queue records the failure.
+     */
+    private function handleFailure(GitHubBotService $bot, Throwable $e, ?int $commentId): void
+    {
+        if ($commentId !== null) {
+            try {
+                $bot->updateComment(
+                    $this->owner,
+                    $this->repo,
+                    $commentId,
+                    $bot->formatResultComment(
+                        $this->commentLabel,
+                        $this->launcherSlug,
+                        [],
+                        'Internal error: An unexpected exception occurred while processing the command.',
+                    ),
+                    $this->installationId,
+                );
+            } catch (Throwable) {
+                // Can't even post the error comment — nothing more to do.
             }
-
-            if (in_array($run->status, Run::TERMINAL_STATUSES, true)) {
-                return $run;
-            }
-
-            usleep($pollIntervalMs * 1000);
-            $elapsed += ($pollIntervalMs / 1000);
         }
 
-        throw new RuntimeException("Run {$runId} did not complete within {$maxPollSeconds}s.");
+        throw $e;
     }
 }

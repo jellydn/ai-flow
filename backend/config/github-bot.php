@@ -38,18 +38,20 @@ return [
 
     // ── Polling (ProcessGitHubBotCommandJob) ───────────────────────────
     //
-    // The job polls Run.status until it reaches a terminal state.
-    // job_timeout must exceed max_poll_seconds so there's a buffer
-    // for the comment-posting steps before/after the poll loop.
+    // The job runs in two phases (initialization + delayed continuations) so
+    // a worker is never blocked while ExecuteLauncherJob runs. The deadline
+    // below bounds the TOTAL wall-clock wait across continuations.
 
-    // Maximum seconds to poll for run completion.
+    // Maximum wall-clock seconds to wait for run completion (across all
+    // continuation polls).
     'poll_max_seconds' => env('GITHUB_BOT_POLL_MAX_SECONDS', 150),
 
-    // Interval between polls in milliseconds.
-    'poll_interval_ms' => env('GITHUB_BOT_POLL_INTERVAL_MS', 2000),
+    // Seconds to delay each continuation poll (frees the worker between checks).
+    'poll_interval_seconds' => env('GITHUB_BOT_POLL_INTERVAL_SECONDS', 5),
 
-    // Total job timeout (must be > poll_max_seconds + overhead).
-    'job_timeout' => env('GITHUB_BOT_JOB_TIMEOUT', 180),
+    // Per-execution job timeout for each phase — safely below the production
+    // worker's 120s limit so the process is never SIGKILLed mid-phase.
+    'job_timeout' => env('GITHUB_BOT_JOB_TIMEOUT', 60),
 
     // Webhook rate limit (requests per minute).
     'webhook_rate_limit' => env('GITHUB_BOT_WEBHOOK_RATE_LIMIT', 60),
