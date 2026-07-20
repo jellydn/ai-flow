@@ -87,7 +87,7 @@ export function AppViews({
 
     return (
         <>
-            {onCheckEmail && (
+            {onCheckEmail && !user && (
                 <main className="auth-page">
                     <div className="auth-card">
                         <p className="auth-kicker">Account</p>
