@@ -1857,6 +1857,25 @@ footer > span {
   transform: translateY(-1px);
   background: var(--tertiary-action-hover);
 }
+/* Secondary action placed inside a settings header (e.g. "Cancel"). */
+.settings-header .settings-header-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  background: #fff;
+  color: var(--secondary);
+  border: 1px solid #d6d2c9;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 11px;
+  transition: 0.15s;
+}
+.settings-header .settings-header-secondary:hover {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
 
 /* credential form */
 .credential-form {

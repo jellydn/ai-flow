@@ -191,7 +191,7 @@ export function CustomLaunchersSection() {
                 </div>
                 <button
                     type="button"
-                    className={showForm ? "" : "workflow-prompt-save"}
+                    className={showForm ? "settings-header-secondary" : "workflow-prompt-save"}
                     onClick={() => {
                         if (showForm) {
                             resetForm();
