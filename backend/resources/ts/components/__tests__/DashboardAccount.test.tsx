@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dashboard } from "../Dashboard.tsx";
 import type { User } from "../../services/auth.ts";
@@ -40,15 +40,20 @@ describe("Dashboard — Account tab", () => {
         vi.clearAllMocks();
     });
 
-    it("does not render account settings on default tab (history)", () => {
+    it("does not render account settings on default tab (history)", async () => {
         render(<Dashboard {...baseProps} />);
         expect(screen.queryByText("Delete account")).not.toBeInTheDocument();
         expect(screen.queryByText("Privacy & Data")).not.toBeInTheDocument();
+        // Dashboard renders RunHistory on the history tab; its useEffect fires
+        // an async fetchUserRuns that resolves after this synchronous test
+        // returns. Flush it inside act() to avoid the warning.
+        await waitFor(() => {});
     });
 
-    it("renders account tab button", () => {
+    it("renders account tab button", async () => {
         render(<Dashboard {...baseProps} />);
         expect(screen.getByRole("tab", { name: "Account" })).toBeInTheDocument();
+        await waitFor(() => {});
     });
 
     it("switches to account tab on click and shows privacy panel", async () => {

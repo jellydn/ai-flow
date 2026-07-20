@@ -1,154 +1,191 @@
 # Testing
 
-## Frameworks
+Framework, structure, mocking patterns, and coverage for ai-flow.
 
-| Layer | Framework | Config |
-|-------|-----------|--------|
-| PHP unit/feature | PHPUnit 13 | `phpunit.xml` |
-| Frontend unit | Vitest 4 | `vitest.config.ts` |
-| E2E | Playwright 1.61 | `playwright.config.ts` |
+## Backend — PHPUnit 13
 
-## Test Commands
+### Config (`backend/phpunit.xml`)
 
-```bash
-# Backend
-cd backend
-php artisan test                    # All PHP tests
-php artisan test --filter=SomeTest  # Focused test
-
-# Frontend
-npm run test                        # Vitest (unit)
-npm run test:e2e                    # Playwright (--project=real-backend)
-
-# Full CI gate
-just ci                             # pint-check + test + typecheck + lint-js + konsistent + build
-```
-
-## PHP Testing
+| Setting | Value |
+|---------|-------|
+| Env | `APP_ENV=testing` |
+| DB | SQLite `:memory:` |
+| Cache | `array` |
+| Queue | `sync` |
+| Session | `array` |
+| Mail | `array` |
+| Sentry | disabled (empty DSN) |
+| API keys | `OPENAI_API_KEY=phpunit-test-openai-key`, `OPENROUTER_API_KEY=phpunit-test-openrouter-key` |
+| BCRYPT_ROUNDS | 4 (fast) |
 
 ### Structure
+
 ```
 tests/
-├── Unit/                          # Unit tests (no database)
-│   ├── GitHubServiceTest.php
+├── TestCase.php                       # Base (extends Illuminate\Foundation\Testing\TestCase)
+├── Unit/  (15 files)                  # Isolated unit tests
 │   ├── AiProviderRegistryTest.php
+│   ├── AnthropicProviderTest.php
+│   ├── BaseAIProviderJsonExtractionTest.php
+│   ├── CacheRunProgressedVersionTest.php
+│   ├── ContextEncoderTest.php
+│   ├── CredentialCipherTest.php
+│   ├── GeminiProviderTest.php
+│   ├── GitHubServiceFetchTest.php
+│   ├── GitHubServiceTest.php
+│   ├── GitHubTrendingServiceParseTest.php
 │   ├── JsonSchemaValidatorTest.php
-│   ├── RunStreamerTest.php
-│   └── ... (per-provider tests)
-├── Feature/                       # Feature tests (with database)
-│   ├── RunApiTest.php
-│   ├── RunOwnershipTest.php
-│   ├── TrendingRepositoriesApiTest.php
-│   ├── ProviderCredentialApiTest.php
-│   └── ... (auth, account deletion, etc.)
-└── TestCase.php                   # Base test case
+│   ├── LaunchParametersTest.php
+│   ├── OpenAIProviderTest.php
+│   ├── OpenRouterProviderTest.php
+│   └── RunStreamerTest.php
+└── Feature/  (19 files)               # Integration tests with RefreshDatabase
+    ├── AccountDeletionTest.php
+    ├── ExecuteLauncherJobTest.php
+    ├── FilamentPanelAccessTest.php
+    ├── LauncherPromptApiTest.php
+    ├── MagicLinkAuthTest.php
+    ├── PasswordAuthTest.php
+    ├── ProviderCredentialApiTest.php
+    ├── ProviderCredentialBaseUrlValidationTest.php
+    ├── ReapStuckRunsTest.php
+    ├── RunApiTest.php
+    ├── RunHistoryTest.php
+    ├── RunOwnershipTest.php
+    ├── RunPromptSnapshotTest.php
+    ├── RunRequiresProviderKeyTest.php
+    ├── SavedCredentialLaunchTest.php
+    ├── SessionRunCsrfTest.php
+    ├── SuperAdminBootstrapSeederTest.php
+    ├── TrendingRepositoriesApiTest.php
+    └── UserLauncherTest.php
 ```
 
 ### Patterns
 
-- **RefreshDatabase** trait on feature tests — fresh DB per test
-- **Seed**: `DatabaseSeeder` runs for feature tests (seeds built-in launchers + super admin)
-- **Queue::fake()** for dispatch — never executes jobs in HTTP tests
-- **Mock GitHub/AI**: `Http::fake()` for external API calls
-- **Database assertions**: `assertDatabaseHas()`, `assertDatabaseMissing()`, `assertModelExists()`
-- **JSON assertions**: `assertJsonPath()`, `assertJsonFragment()`
+| Pattern | How |
+|---------|-----|
+| Database | `RefreshDatabase` trait + `$this->seed()` in `setUp()` |
+| Queue | `Queue::fake()` for dispatch assertions; `sync` driver for job execution tests |
+| GitHub mock | Mock `GitHubService` or use `GitHubServiceFetchTest` with mocked HTTP |
+| AI mock | Mock `AIProviderInterface` — providers have unit tests with mocked Http facade |
+| Factories | `LauncherFactory`, `UserLauncherFactory`, `RunFactory`, `User::factory()`, `ProviderCredential::factory()` |
+| Rate limiting | Tests set higher limits via env or test-specific config |
 
-### Key Test Patterns
+### Commands
 
-```php
-// Feature test: run creation
-public function test_authenticated_user_can_create_run(): void
-{
-    $user = User::factory()->create();
-    $response = $this->actingAs($user)->postJson('/api/runs', [
-        'launcher' => 'review-pr',
-        'source_url' => 'https://github.com/owner/repo/pull/1',
-    ]);
-    $response->assertStatus(202);
-    $this->assertDatabaseHas('runs', ['user_id' => $user->id]);
-}
-
-// Unit test: provider generation
-public function test_openai_provider_generates_report(): void
-{
-    Http::fake(['api.openai.com/*' => Http::response(['choices' => [...]]), 200]);
-    $provider = new OpenAIProvider();
-    $result = $provider->generate('prompt', $schema, 'gpt-4o-mini');
-    $this->assertIsArray($result);
-}
+```bash
+php artisan test                          # full suite
+php artisan test --filter=SomeTest        # focused
+./vendor/bin/pint --test && ./vendor/bin/pint  # CI: --test fails on violations
 ```
 
-## Frontend Testing (Vitest)
+## Frontend — Vitest 4
+
+### Config (`backend/vitest.config.ts`)
+
+| Setting | Value |
+|---------|-------|
+| Environment | `jsdom` |
+| Globals | `true` |
+| Setup | `resources/ts/test/setup.ts` (Testing Library jest-dom matchers) |
+| Include | `resources/ts/**/*.test.{ts,tsx}` |
 
 ### Structure
+
 ```
-resources/ts/components/__tests__/
-├── AppViews.test.tsx
-├── HomeSubComponents.test.tsx
-└── LaunchAreaCredentials.test.tsx
+resources/ts/
+├── test/setup.ts                              # Vitest setup (jest-dom)
+├── components/__tests__/  (7 files)           # Component tests
+│   ├── AppViews.test.tsx
+│   ├── DashboardAccount.test.tsx
+│   ├── HomeSubComponents.test.tsx
+│   ├── LaunchAreaCredentials.test.tsx
+│   ├── ProviderSettingsComponents.test.tsx
+│   ├── Report.test.tsx
+│   └── RunHistory.test.tsx
+└── lib/__tests__/runModels.test.ts            # Utility tests
 ```
 
 ### Patterns
 
-- **@testing-library/react** for component rendering
-- **@testing-library/user-event** for interactions
-- **jsdom** environment for DOM simulation
-- **vi.mock** for service module mocking
+- **Testing Library** (`@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`).
+- Component tests render React components, simulate user events, assert DOM.
+- `act()` warnings in `RunHistory.test.tsx` and `DashboardAccount.test.tsx` (known, non-blocking).
+- Mock fetch via `vi.fn()` / `vi.mock()` for API calls.
 
-```typescript
-// Component test
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+### Command
 
-test('submit button triggers createRun', async () => {
-    const user = userEvent.setup();
-    render(<LaunchArea createRun={vi.fn()} />);
-    await user.click(screen.getByRole('button', { name: /run/i }));
-    expect(createRunMock).toHaveBeenCalled();
-});
+```bash
+npm run test          # vitest run
+npm run test:watch    # vitest (watch mode)
 ```
 
-## E2E Testing (Playwright)
+## E2E — Playwright 1.61
+
+### Config (`backend/playwright.config.ts`)
+
+| Setting | Value |
+|---------|-------|
+| Test dir | `./tests/E2E` |
+| Test match | `**/*.real.spec.ts` |
+| Project | `real-backend` (Desktop Chrome) |
+| Web server | `bash scripts/e2e/serve-real.sh` (port 8000, 180s timeout) |
+| CI | `retries: 1`, `reporter: github`, `forbidOnly: true` |
+| Trace | `on-first-retry` |
+| Screenshot | `only-on-failure` |
 
 ### Structure
-```
-tests/E2E/flows/
-├── real-api-flow.real.spec.ts
-├── launcher-prompts.real.spec.ts
-└── all-launchers.real.spec.ts
-```
 
-### Setup
-- **Serve script**: `scripts/e2e/serve-real.sh` — starts Laravel with `QUEUE_CONNECTION=sync`
-- **Project**: `real-backend` (configured in `playwright.config.ts`)
-- **Database**: Fresh SQLite, seeded
+```
+tests/E2E/
+├── flows/
+│   ├── all-launchers.real.spec.ts
+│   ├── launcher-prompts.real.spec.ts
+│   ├── real-api-flow.real.spec.ts
+│   └── ... (other flow specs)
+└── helpers/
+    ├── authCard.ts
+    └── uniqueEmail.ts              # E2E_PASSWORD, uniqueEmail() helper
+```
 
 ### Patterns
 
-```typescript
-// E2E test
-test('user can launch a review-pr run', async ({ page }) => {
-    await page.goto('/');
-    await page.fill('[data-testid="source-url"]', 'https://github.com/owner/repo/pull/1');
-    await page.click('[data-testid="run-button"]');
-    await expect(page.locator('[data-testid="run-status"]')).toContainText('completed');
-});
+- Serial mode (`test.describe.configure({ mode: "serial" })`).
+- Real backend (Laravel serve + `QUEUE_CONNECTION=sync`).
+- Auth via registration (unique email + `E2E_PASSWORD`).
+- Tab navigation by role (`page.getByRole("tab", { name: "..." })`).
+
+### Command
+
+```bash
+npm run test:e2e     # npx playwright test --project=real-backend
 ```
 
-## What's NOT Tested Yet
+## CI gate (`.github/workflows/ci.yml`)
 
-- **Custom launcher CRUD lifecycle**: Create, update, delete, slug uniqueness, unified listing (roadmap Phase 2)
-- **Hidden launcher toggle behavior**: End-to-end visibility filtering
-- **`is_public` run visibility**: Public/private access control in API
-- **Custom launcher execution**: Running a custom launcher through the full queue pipeline
+| Job | Runner | Steps |
+|-----|--------|-------|
+| Backend | PHP 8.4 | `composer validate`, `php artisan test`, `pint --test` |
+| Frontend | Node 24 | `typecheck`, `lint`, `konsistent`, `build`, `test` (vitest) |
 
-## CI Pipeline
+## Pre-commit hooks (`.pre-commit-config.yaml`)
 
-`.github/workflows/ci.yml` runs on push/PR:
+Run via prek: `just prek` or `prek run --all-files`.
 
-| Job | Commands | Environment |
-|-----|----------|-------------|
-| `backend` | `composer validate`, `pint --test`, `php artisan test` | PHP 8.4, SQLite + PgSQL ext |
-| `frontend` | `typecheck`, `lint`, `konsistent`, `build`, `test` (vitest) | Node 24 |
-| `e2e` | Playwright `--project=real-backend` | PHP 8.4 + Node 24 |
-| `deploy` | Dokku staging deploy | On push to `main` |
+| Hook | Scope |
+|------|-------|
+| trailing-whitespace | all files |
+| end-of-file-fixer | all files |
+| check-yaml | YAML files |
+| check-added-large-files | all files |
+| composer-validate | `composer.json`/`composer.lock` |
+| pint | `*.php` |
+| frontend-typecheck | TS/TSX |
+| oxlint | TS/TSX |
+| oxfmt check | TS/TSX |
+| konsistent | TS/TSX |
+
+## Local gate
+
+`just ci` = `pint-check test typecheck lint-js konsistent build` (full backend + frontend).

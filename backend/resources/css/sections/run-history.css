@@ -1,0 +1,123 @@
+/* ── Run history ────────────────────────────────────────────── */
+.history-filters {
+  margin-bottom: 20px;
+}
+.history-filters select {
+  height: 42px;
+  padding: 0 11px;
+  border: 1px solid #d6d3ca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  outline: 0;
+  font-size: 12px;
+  font-weight: 600;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none'%3E%3Cpath d='M4 5.5l3 3 3-3' stroke='%236f6c64' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+.run-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  overflow: hidden;
+  background: #fff;
+}
+.run-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 15px 18px;
+  border-bottom: 1px solid #e9e6df;
+  transition: 0.15s;
+}
+.run-item:last-child {
+  border-bottom: 0;
+}
+.run-item:hover {
+  background: #faf8f3;
+}
+.run-error {
+  display: block;
+  flex-basis: 100%;
+  padding: 9px 14px;
+  margin: 0 0 12px;
+  background: #fef4f4;
+  border: 1px solid #f0d0d0;
+  border-radius: 7px;
+  color: #b93838;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.run-meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  flex: 1;
+}
+.status-badge {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #efede7;
+  color: #77736c;
+  white-space: nowrap;
+}
+.status-badge.completed {
+  background: #e7f5ee;
+  color: #278161;
+}
+.status-badge.failed {
+  background: #ffe8e4;
+  color: #c74436;
+}
+.status-badge.running {
+  background: #fff0ea;
+  color: #dc572a;
+}
+.status-badge.queued {
+  background: #eaf4ff;
+  color: #397fc2;
+}
+.run-launcher {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.run-date {
+  color: #969188;
+  font: 400 9px "DM Mono";
+  white-space: nowrap;
+}
+.run-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 16px;
+  flex-shrink: 0;
+}
+.run-actions button {
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 11px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6f6c64;
+  transition: 0.15s;
+}
+.run-actions button:hover {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}

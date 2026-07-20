@@ -1,71 +1,91 @@
 # Integrations
 
-## AI Providers
+External services, APIs, and third-party providers used by ai-flow.
 
-Four providers implement `AIProviderInterface` via `BaseAIProvider` (abstract base):
+## AI Providers (multi-provider registry)
 
-| Provider | Adapter | Auth | Key Features |
-|----------|---------|------|-------------|
-| OpenAI | `OpenAIProvider` | `Bearer` token | JSON schema response format |
-| OpenRouter | `OpenRouterProvider` | `Bearer` token + `HTTP-Referer`/`X-Title` | OpenAI-compatible, free tier |
-| Anthropic | `AnthropicProvider` | `x-api-key` + `anthropic-version` | Prompt-only JSON (no schema) |
-| Gemini | `GeminiProvider` | `?key=` in URL | System instructions in payload |
+All implement `App\Contracts\AIProviderInterface` and extend `App\Services\BaseAIProvider`. Provider IDs sourced from `App\Support\AiProviderRegistry::ids()`, not a config array.
 
-**Key resolution priority** (`AiProviderRegistry::resolveApiKey`):
-1. One-time key (in-memory, transient)
-2. Saved credential (`ProviderCredential`, encrypted at rest)
-3. Server config (`OPENAI_API_KEY`, etc.)
+| Provider | Class | Config block | Default model | Auth |
+|----------|-------|-------------|---------------|------|
+| OpenAI | `OpenAIProvider` | `services.openai` | `gpt-4o-mini` (`.env.example`: `gpt-5`) | Bearer token |
+| OpenRouter | `OpenRouterProvider` | `services.openai.openrouter_*` | `openrouter/free` | Bearer token + `HTTP-Referer`/`X-Title` headers |
+| Anthropic | `AnthropicProvider` | `services.anthropic` | `claude-sonnet-4-20250514` | `x-api-key` + `anthropic-version` header |
+| Gemini | `GeminiProvider` | `services.gemini` | `gemini-2.0-flash` | API key in URL query param |
 
-**Provider IDs** sourced from `AiProviderRegistry::ids()`, not a config array.
+### Key resolution (`AiProviderRegistry::resolveApiKey`)
+
+1. Injected key (from request `provider.api_key`)
+2. Saved BYOK credential (`provider_credential_id` → `ProviderCredential` model, decrypted with `CREDENTIAL_ENCRYPTION_KEY`)
+3. Server config fallback (`config('services.openai.key')`, etc.)
+
+> Provider keys are never stored on runs, never logged. Stored credentials encrypted with dedicated `CREDENTIAL_ENCRYPTION_KEY` (falls back to `APP_KEY`).
+
+### Shared lifecycle (`BaseAIProvider`)
+
+- `generate()`: key resolution → request building (auth + timeout + retry) → status mapping (401/403 → "Invalid API key.") → JSON extraction → json_decode
+- `verifyCredential()`: lightweight GET to `verifyEndpoint()` — key resolution, status mapping, result structure
+- `extractJson()`: tolerates markdown fences (```json...```) and leading/trailing prose
 
 ## GitHub REST API
 
-- **Purpose**: Parse GitHub URLs, fetch repository/PR/issue context
-- **Auth**: `GITHUB_TOKEN` (optional, avoids rate limiting)
-- **Caching**: 10-minute cache for context fetches
-- **URL validation**: HTTPS-only enforced; malformed URLs → `UserFacingRunException`
-- **Error mapping**: `GitHubService::mapRequestException()` maps HTTP status → typed exception
-  - 404 → `UserFacingRunException` (PR/Issue/Repo not found)
-  - 403 → `UserFacingRunException` (rate limit, suggests `GITHUB_TOKEN`)
-  - 401 → `UserFacingRunException` (auth failed)
-  - Other → `RuntimeException`
+| Concern | Detail |
+|---------|--------|
+| Service | `App\Services\GitHubService` |
+| Base URL | `https://api.github.com` |
+| Auth | `GITHUB_TOKEN` env (optional but recommended for rate limits) |
+| Caching | 10 min via `Cache::remember('github:'.sha1($url), ...)` |
+| Timeout | 15s, retry 2x with 200ms delay |
+| URL parsing | HTTPS-only, `github.com`/`www.github.com`, repo/PR/issue types |
 
-## Email (Magic Links)
+### Fetches per reference type
 
-- **Provider**: Resend (`resend/resend-php` ^1.5)
-- **Config**: `RESEND_API_KEY`
-- **Flow**: `POST /auth/magic-link` → email with signed token → `GET /auth/magic-link/{token}` → session cookie
+- **Repository**: repo metadata, languages, README (base64-decoded), file tree (recursive)
+- **Pull request**: PR metadata, changed files (patches, 50/page), PR comments (30/page)
+- **Issue**: issue metadata, issue comments (30/page)
 
-## Error Monitoring
+### Error mapping (`mapRequestException`)
 
-- **Provider**: Sentry (`sentry/sentry-laravel` ^4.26)
-- **Config**: `SENTRY_LARAVEL_DSN`, `SENTRY_TRACES_SAMPLE_RATE`
-- **Frontend**: `@sentry/react` ^10.65.0, 0.1 sample rate prod, 0 dev
-- **Excluded from Sentry**: `UserFacingRunException` (expected user errors)
-- **Reported**: `RuntimeException`, `ConnectionException`, `Throwable`
+- 404 → `UserFacingRunException` (repo/PR/issue not found)
+- 403 → rate limit / access denied
+- 401 → auth failed
 
-## Admin Panel
+### Context budget (`App\Services\ContextBudget`)
 
-- **Provider**: Filament (`filament/filament` ^5.0)
-- **Access**: `User::is_super_admin === true` only
-- **Panel**: `/admin` route, `admin` guard
+Limits on README length, file tree size, diff length, comment bodies — applied in `GitHubService::assemble()`.
 
-## BYOK Credential Storage
+## Email — Resend
 
-- **Encryption**: `CredentialCipher` (AES-256-CBC)
-- **Key hierarchy**: `CREDENTIAL_ENCRYPTION_KEY` → `APP_KEY` fallback
-- **Masked display**: `sk-abcd...9X2A` (prefix 4 + suffix 4)
-- **Never exposed**: `encrypted_api_key`, `encrypted_base_url` in `$hidden`
+| Concern | Detail |
+|---------|--------|
+| Mailer | `resend` (config `services.resend.key`) |
+| From | `noreply@itman.fyi` |
+| Use | Magic-link auth emails (queued; needs worker) |
+| Env | `MAIL_MAILER=resend`, `RESEND_API_KEY`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` |
 
-## Rate Limiters
+## Error Monitoring — Sentry
 
-Defined in `AppServiceProvider::boot()`:
+| Concern | Detail |
+|---------|--------|
+| Backend | `sentry/sentry-laravel ^4.26` — `SENTRY_LARAVEL_DSN` |
+| Frontend | `@sentry/react ^10` — `VITE_SENTRY_DSN` |
+| Filtering | Expected user/input failures and AI operational errors logged at `warning` (Sentry ignores). Unexpected `Throwable` → `Sentry\captureException()`. |
 
-| Limiter | Limit | Key |
-|---------|-------|-----|
-| `runs` | 5/hr (configurable) | Per IP |
-| `runs-stream` | 30/min (configurable) | Per IP |
-| `magic-link` | 3/min (configurable) | Per IP + email |
-| `auth-login` | 10/min (configurable) | Per IP + email |
-| `auth-register` | 5/min (configurable) | Per IP |
-| `credentials` | 10/min (configurable) | Per user ID |
+## Authentication
+
+| Method | Detail |
+|--------|--------|
+| Password | `PasswordAuthController` — register/login, `throttle:auth-login` (10/min), `throttle:auth-register` (5/min) |
+| Magic link | `MagicLinkController` — email link, `throttle:magic-link` (3/min), queued mail |
+| Session | `database` driver, 120 min lifetime |
+
+## Rate Limiters (`AppServiceProvider::boot`)
+
+| Limiter | Scope | Default |
+|---------|-------|---------|
+| `runs` | per IP / hour | 5 (`RUNS_RATE_LIMIT_PER_HOUR`) |
+| `runs-stream` | per IP / min | 30 (`RUNS_STREAM_RATE_LIMIT_PER_MIN`) |
+| `magic-link` | per IP+email / min | 3 (`MAGIC_LINK_RATE_LIMIT_PER_MIN`) |
+| `auth-login` | per IP+email / min | 10 (`AUTH_LOGIN_RATE_LIMIT_PER_MIN`) |
+| `auth-register` | per IP / min | 5 (`AUTH_REGISTER_RATE_LIMIT_PER_MIN`) |
+| `credentials` | per user / min | 10 (`CREDENTIALS_RATE_LIMIT_PER_MIN`) |

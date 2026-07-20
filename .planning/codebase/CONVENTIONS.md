@@ -1,149 +1,102 @@
-# Coding Conventions
+# Conventions
+
+Code style, patterns, error handling, and conventions for ai-flow.
+
+> Source of truth: `AGENTS.md` (repo root) + `doc/adr/` (24 ADRs). This document summarizes the enforced conventions.
 
 ## PHP / Laravel
 
-### Style & Formatting
+### Style
 
-- **PSR-12** enforced via Laravel Pint (`backend/vendor/bin/pint`); CI fails on `pint --test` violations
-- **Explicit return types** on all methods (`public function store(...): JsonResponse`)
-- **Constructor property promotion** for DI: `public function __construct(private RunStreamer $streamer) {}`
-- **Readonly properties** for value objects: `public readonly ?string $providerId`
-- **No nested ternaries** — prefer `match()` or early returns
+- **PSR-12** via Laravel Pint (`./vendor/bin/pint`). CI fails on `pint --test` violations.
+- **Explicit return types** on all methods.
+- **No nested ternaries** — prefer `match` or early returns.
 
-### Controllers — Thin, Delegate
+### Patterns
 
-Controllers validate, delegate to services/jobs, and format responses. No business logic.
+| Pattern | Where | Example |
+|---------|-------|---------|
+| Form Requests for validation | `app/Http/Requests/` | `StoreUserLauncherRequest`, `UpdateUserLauncherRequest` |
+| API Resources for JSON | `app/Http/Resources/` | `RunResource`, `LauncherResource` |
+| Contracts + container binding | `app/Contracts/` + `AppServiceProvider` | `AIProviderInterface`, `LauncherSource` |
+| Jobs for slow/IO work | `app/Jobs/` | `ExecuteLauncherJob` (GitHub + AI calls never in HTTP cycle) |
+| Thin routes | `routes/api.php` | Controllers delegate to services/jobs |
+| Singletons for registries | `AppServiceProvider::register()` | `AiProviderRegistry`, `LauncherMetaService` |
 
-```php
-// RunController::store — delegates to LauncherResolutionService, prompt resolver, job dispatch
-public function store(StoreRunRequest $request): JsonResponse
-{
-    $resolved = $this->launcherResolver->resolve($slug, $user);
-    // ... Run::create() + ExecuteLauncherJob::dispatch()
-    return response()->json([...], 202);
-}
-```
+### Launchers
 
-### Form Requests — Validation + Cross-Field Rules
+- One class per workflow under `app/Launchers/`, extending `BaseLauncher`.
+- Metadata via `BaseLauncher::make($slug, $name, $description, $inputType, $prompt)`.
+- Shared `outputSchema()` in `BaseLauncher` (all built-in launchers use the same schema: `summary`, `risk`, `findings`, `verification_steps`).
+- Seeded in `DatabaseSeeder` — `Launcher::updateOrCreate(['slug' => ...], [...])`.
+- New built-in launcher = PHP class + `DatabaseSeeder` entry + feature test.
+- Custom launchers: created by authenticated users via API, stored in `user_launchers` (separate table).
 
-`Store*Request` for validation; `withValidator($validator)->after()` for cross-field rules; `prepareForValidation()` mutates input before rules run.
+### Error handling
 
-```php
-// StoreUserLauncherRequest — closure validation for output_schema JSON structure
-$validator->after(function (Validator $validator) {
-    $data = json_decode($this->output_schema, true);
-    if (!is_array($data) || $data === []) {
-        $validator->errors()->add('output_schema', 'Must decode to a non-empty array or object.');
-    }
-});
-```
+| Error type | Pattern | Log level |
+|-----------|---------|-----------|
+| User/input errors | `UserFacingRunException` | `warning` (Sentry ignores) |
+| Network failures | `ConnectionException` → `markFailed()` | `warning` |
+| AI operational errors | "API key not configured", "Invalid API key", "Unable to reach AI provider" | `warning` |
+| Unexpected errors | `Throwable` → `markFailed()` + `Sentry\captureException()` | `error` |
+| Run failure lifecycle | `Run::markFailed()` — single owner | configurable (`error`/`warning`/`info`) |
 
-### API Resources — JSON Shape
+### Production guards (`AppServiceProvider::boot`)
 
-`*Resource extends JsonResource` for response formatting; use `->resolve()` for raw arrays (not `->response()` which wraps in `{data: ...}`).
-
-### Jobs — Queue + Encryption
-
-`Execute*Job implements ShouldQueue, ShouldBeEncrypted` for slow/IO work. Properties typed, `tries`/`timeout` declared.
-
-### Services — Constructor-Injected Dependencies
-
-Services own business logic and external API boundaries:
-
-```php
-class RunExecutor
-{
-    public function __construct(
-        private GitHubService $github,
-        private ContextEncoder $encoder,
-        private JsonSchemaValidator $validator,
-    ) {}
-}
-```
-
-### Contracts + Container Binding — Only When Needed
-
-Interfaces only when multiple implementations exist. Single-implementation interfaces are removed (precedent: `RunExecutorInterface`, `LauncherMetaInterface` were deleted).
-
-### Authorization — Policies
-
-- Policies in `app/Policies/`; `$this->authorize('view', $run)` in controllers
-- `RunPolicy::view`: public runs viewable by anyone; private runs owner-only
-- `UserLauncherPolicy`: ownership-based CRUD
-
-### Security Conventions
-
-- **Provider keys never stored on runs** — BYOK keys transient (in-memory only)
-- **Saved credentials encrypted at rest** via `CredentialCipher` (`CREDENTIAL_ENCRYPTION_KEY`)
-- **Masked keys** for display: `sk-abcd...9X2A` (prefix 4 + suffix 4)
-- **HTTPS-only GitHub URLs** enforced
-- **Production guards** in `AppServiceProvider::boot()`: sqlite forbidden, `sync` queue forbidden, TLS required
-
-### Error Handling
-
-- `UserFacingRunException`: expected user errors (no Sentry)
-- `RuntimeException`: operational errors (Sentry)
-- `ConnectionException`: network unreachable (Sentry)
-- `Throwable`: unexpected (Sentry, wrapped with class name)
-- `Run::markFailed()` — single owner of failure lifecycle
-
-### Rate Limiting
-
-Defined in `AppServiceProvider::boot()` via `RateLimiter::for()`; attached to routes.
+Throws `RuntimeException` in production (HTTP only) when:
+- `DB_CONNECTION=sqlite` (must use Postgres/MySQL)
+- pgsql host has `.` but no TLS (`DB_SSLMODE` not `require`/`verify-ca`/`verify-full`)
+- `QUEUE_CONNECTION=sync` (must use database/redis)
+- Warns when `LOG_LEVEL=debug` in production
+- Warns when `CREDENTIAL_ENCRYPTION_KEY` unset (BYOK falls back to `APP_KEY`)
 
 ## React / TypeScript
 
-### Style & Formatting
+### Style
 
-- **Functional components + hooks** only (except `ErrorBoundary` class)
-- **Strict mode** (`tsconfig.json`: `strict: true`, `noEmit: true`)
-- **Avoid broad `any`** — use `unknown` + runtime assertions
-- **oxlint + oxfmt** for lint/format (`.oxlintrc.json`, `.oxfmtrc.json`)
-- **konsistent** structural enforcement:
-  - `components/*.tsx` → PascalCase component matching filename
-  - `hooks/*.ts` → `use*` function matching filename
+- **Functional components + hooks** only (exception: `ErrorBoundary.tsx` is a class component — the only one in the tree).
+- **Strict mode** (`tsconfig.json` `strict: true`, `allowJs: false`).
+- **Avoid broad `any`**.
+- **Lint/format**: oxlint + oxfmt (config at repo root `.oxlintrc.json`/`.oxfmtrc.json`). No Prettier.
+  - `correctness: error`, `no-console: error`.
+- **Structural lint**: `konsistent` (`konsistent.json`):
+  - `components/*.tsx` must export a PascalCase component matching the filename.
+  - `hooks/*.ts` must export `use*` functions.
+  - `ErrorBoundary.tsx` is the only allowed class component.
+- **Pin versions**: React/Vite/`lucide-react` pinned (no `^` for core deps).
 
-### Component Conventions
+### Folder structure
 
-- **PascalCase** names matching filenames
-- **Props via interfaces** typed inline or in `types/`
-- **Hooks for stateful logic**: `useRunSubscription`, `useRunFromPath`
+| Folder | Convention |
+|--------|-----------|
+| `components/` | PascalCase `.tsx`, export matching component |
+| `hooks/` | `use*.ts`, export `use*` function |
+| `services/` | API clients (`run.ts`, `auth.ts`, `userLaunchers.ts`) |
+| `lib/` | Utilities (`http.ts`, `logger.ts`, `decode.ts`, etc.) |
+| `types/` | Shared types (`api.ts` — `RunStatus` synced with `Run::STATUSES`) |
+| `data/` | Static data (`launcherMeta.ts`) |
 
-### Type Safety Boundary
+### Frontend-backend sync
 
-Runtime assertions on API JSON via `decode*` / `assert*` functions:
+- `Run::STATUSES` (`queued`, `running`, `completed`, `failed`) is kept in sync with the frontend `RunStatus` enum in `resources/ts/types/api.ts` and the runtime guard `isRunStatus` in `resources/ts/services/run.ts`. Comment in `Run.php` marks this coupling.
 
-```typescript
-// lib/decode.ts — shared assert helpers
-export function assertObject(value: unknown): Record<string, unknown> { ... }
-export function assertString(value: unknown, field: string): string { ... }
-// services/run.ts — run-specific decoders
-export function decodeRun(value: unknown): Run { ... }
-```
+### CSS
 
-### HTTP Client (`lib/http.ts`)
+- Single file: `backend/resources/css/app.css`.
+- Uses DESIGN.md design tokens (`var(--ink)`, `var(--orange)`, `var(--success)`, `var(--secondary)`, `var(--line)`, `var(--radius-md)`, etc.).
+- No CSS modules, no CSS-in-JS, no Tailwind.
 
-- `get(path, timeout?)` / `post(path, payload, timeout?)` wrappers
-- **CSRF**: `XSRF-TOKEN` cookie → `X-XSRF-TOKEN` header; fallback `X-CSRF-TOKEN` from `<meta>`
-- **Credentials**: `credentials: "include"` (session cookies)
-- **Timeout**: 10s default via `AbortController`
+## API conventions
 
-### State Management
+- **Slugs**: `review-pr`, `plan-issue`, `explain-repository`, `laravel-doctor` (built-in); authenticated users create custom slugs via `POST /api/user/launchers`.
+- **Aliases**: `/api/flows` = `/api/launchers`, `/api/executions` = `/api/runs` (backward compat).
+- **Run lifecycle**: `POST /api/runs` returns **202** + UUID; status at `GET /api/runs/{uuid}`; progress via SSE `GET /api/runs/{uuid}/stream` (DB-polled, ~55s window).
+- **No synchronous OpenAI/GitHub calls in the HTTP cycle** — always queued.
+- **Provider keys**: never stored on runs, never logged. User-supplied HTTPS GitHub URLs only.
 
-- **State lifting**: `App.tsx` holds top-level state (`user`, `view`, `currentRunId`); prop-drilled
-- **No router library**: path-based view switching via `useRunFromPath` + `AppViews`
-- **Error boundary**: `ErrorBoundary.tsx` wraps `<App />` in `app.tsx`
+## Git conventions
 
-## Git & Commit Conventions
-
-- **Conventional commits**: `feat(scope):`, `fix(scope):`, `refactor:`, `docs:`, `chore:`
-- **Force-with-lease**: `git push --force-with-lease` after rebasing (never `--force`)
-- **Remotes**: `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging
-- **Pre-commit hooks**: trailing ws, EOF, YAML check, large files, composer-validate, pint, typecheck, oxlint, oxfmt, konsistent
-
-## ADR Process
-
-Architecture decisions recorded in `doc/adr/` (currently 24 ADRs). New decisions follow:
-1. Draft ADR in `doc/adr/` with sequential number
-2. Document alternatives considered, consequences, and trade-offs
-3. Update `doc/adr/README.md` index
+- Git remotes: `origin` = `github.com/jellydn/ai-flow`, `dokku` = staging deploy target.
+- After rebasing a feature branch onto `main`, use `git push --force-with-lease` (never `--force`).
+- Commit messages: conventional commits (`feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `test:`).
