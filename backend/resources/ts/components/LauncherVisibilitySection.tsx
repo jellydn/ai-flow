@@ -84,10 +84,18 @@ export function LauncherVisibilitySection() {
         return <p className="workflow-prompts-loading">Loading launcher visibility…</p>;
     }
 
+    const visibleCount = builtInLaunchers.length - hiddenSlugs.size;
+
     return (
-        <section className="workflow-prompts" aria-labelledby="launcher-visibility-heading">
+        <section className="launcher-visibility" aria-labelledby="launcher-visibility-heading">
             <div className="settings-header workflow-prompts-header">
-                <h3 id="launcher-visibility-heading">Launcher visibility</h3>
+                <div>
+                    <span className="section-kicker">Home page</span>
+                    <h3 id="launcher-visibility-heading">Launcher visibility</h3>
+                </div>
+                <span className="visibility-count">
+                    {visibleCount}/{builtInLaunchers.length} visible
+                </span>
             </div>
             <p className="workflow-prompts-hint">
                 Choose which built-in launchers appear on your home page. Hidden launchers are not
@@ -105,16 +113,25 @@ export function LauncherVisibilitySection() {
                     const hidden = isHidden(launcher.slug);
                     const isBusy = toggling.has(launcher.slug);
                     return (
-                        <li key={launcher.slug} className="visibility-item">
+                        <li
+                            key={launcher.slug}
+                            className={`visibility-item${hidden ? " is-hidden" : ""}`}
+                        >
                             <div className="visibility-info">
-                                <span className="visibility-name">{launcher.name}</span>
-                                <span className="visibility-slug">{launcher.slug}</span>
+                                <div className="visibility-name-row">
+                                    <span className="visibility-name">{launcher.name}</span>
+                                    <code className="visibility-slug">{launcher.slug}</code>
+                                </div>
+                                {launcher.description && (
+                                    <p className="visibility-desc">{launcher.description}</p>
+                                )}
                             </div>
                             <button
                                 type="button"
-                                className="visibility-toggle"
+                                className={`visibility-toggle${hidden ? " is-hidden" : ""}`}
                                 onClick={() => handleToggle(launcher)}
                                 disabled={isBusy}
+                                aria-pressed={!hidden}
                                 aria-label={
                                     hidden ? `Show ${launcher.name}` : `Hide ${launcher.name}`
                                 }
@@ -123,11 +140,11 @@ export function LauncherVisibilitySection() {
                                     <span className="visibility-spinner" />
                                 ) : hidden ? (
                                     <>
-                                        <EyeOff size={16} /> Hidden
+                                        <EyeOff size={15} /> Hidden
                                     </>
                                 ) : (
                                     <>
-                                        <Eye size={16} /> Visible
+                                        <Eye size={15} /> Visible
                                     </>
                                 )}
                             </button>

@@ -11,7 +11,6 @@ import { logger } from "../lib/logger.ts";
 import { CredentialForm } from "./CredentialForm.tsx";
 import { CredentialList } from "./CredentialList.tsx";
 import { PrivacyNote } from "./PrivacyNote.tsx";
-import { WorkflowPromptsSection } from "./WorkflowPromptsSection.tsx";
 
 export function ProviderSettings() {
     const [credentials, setCredentials] = useState<ProviderCredential[]>([]);
@@ -116,8 +115,6 @@ export function ProviderSettings() {
                 onVerify={handleVerify}
                 onDelete={handleDelete}
             />
-
-            <WorkflowPromptsSection />
 
             <PrivacyNote />
         </div>
