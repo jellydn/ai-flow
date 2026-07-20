@@ -1,0 +1,364 @@
+/* ── Provider settings ──────────────────────────────────────── */
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+}
+.settings-header h3 {
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+.settings-header button {
+  border: 0;
+  background: var(--ink);
+  color: #fff;
+  border-radius: 7px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  transition: 0.15s;
+}
+.settings-header button:hover {
+  background: #2c2a26;
+}
+/* Primary CTA placed inside a settings header keeps its orange fill. */
+.settings-header .workflow-prompt-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  background: var(--tertiary-action);
+  color: #fff;
+  border: 0;
+  border-radius: var(--radius-md);
+  font-weight: 800;
+  font-size: 11px;
+  box-shadow: 0 4px 14px rgba(242, 99, 52, 0.2);
+  transition: 0.2s;
+}
+.settings-header .workflow-prompt-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--tertiary-action-hover);
+}
+/* Secondary action placed inside a settings header (e.g. "Cancel"). */
+.settings-header .settings-header-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 18px;
+  background: #fff;
+  color: var(--secondary);
+  border: 1px solid #d6d2c9;
+  border-radius: var(--radius-md);
+  font-weight: 700;
+  font-size: 11px;
+  transition: 0.15s;
+}
+.settings-header .settings-header-secondary:hover {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
+
+/* credential form */
+.credential-form {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 22px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.credential-form select,
+.credential-form input {
+  width: 100%;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid #d6d3ca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  outline: 0;
+  font-size: 12px;
+  transition: 0.2s;
+}
+.credential-form select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' fill='none'%3E%3Cpath d='M4 5.5l3 3 3-3' stroke='%236f6c64' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 30px;
+  cursor: pointer;
+}
+.credential-form select:focus,
+.credential-form input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(242, 99, 52, 0.1);
+}
+.credential-form button[type="submit"] {
+  height: 46px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--tertiary-action);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: 0 4px 14px rgba(242, 99, 52, 0.2);
+  transition: 0.2s;
+}
+.credential-form button[type="submit"]:hover {
+  transform: translateY(-1px);
+  background: var(--tertiary-action-hover);
+}
+
+/* credential list */
+.credential-list {
+  display: grid;
+  gap: 10px;
+}
+.credential-item {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 18px 20px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  transition: 0.15s;
+}
+.credential-item:hover {
+  border-color: #bcb7ab;
+  box-shadow: 0 4px 14px rgba(30, 28, 24, 0.05);
+}
+.credential-item > strong {
+  font-size: 13px;
+  min-width: 100px;
+}
+.provider-tag {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #f0eee8;
+  color: #6d6962;
+}
+.default-tag {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: #e7f5ee;
+  color: #248461;
+}
+.credential-item > code {
+  color: #86827a;
+  font: 400 10px "DM Mono";
+  flex: 1;
+  min-width: 140px;
+}
+.verify-result {
+  font-size: 10px;
+}
+.verify-result.success {
+  color: #278161;
+}
+.verify-result.fail {
+  color: #b93838;
+}
+.credential-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+.credential-actions button {
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 6px;
+  padding: 6px 11px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6f6c64;
+  transition: 0.15s;
+}
+.credential-actions button:hover {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
+
+/* danger (delete) action */
+.credential-actions button.danger,
+.run-actions button.danger {
+  color: #b93838;
+  border-color: #f0d0d0;
+}
+.credential-actions button.danger:hover,
+.run-actions button.danger:hover {
+  background: #fef4f4;
+  color: #a32c2c;
+}
+
+/* workflow prompts (dashboard tab) */
+.workflow-prompts-header {
+  margin-bottom: 12px;
+}
+.workflow-prompts-loading {
+  margin-top: 28px;
+  color: #8c8981;
+  font-size: 12px;
+}
+.workflow-prompts-hint {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  background: #faf8f3;
+  border: 1px solid #ebe8e0;
+  border-radius: 8px;
+  color: #8c8981;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.workflow-prompts-error {
+  margin-bottom: 16px;
+}
+.workflow-prompts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 14px;
+}
+.workflow-prompt-card {
+  margin: 0;
+}
+.workflow-prompt-form {
+  margin: 0;
+}
+.workflow-prompt-fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.workflow-prompt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+.workflow-prompt-title {
+  margin: 0;
+}
+.workflow-prompt-badge {
+  text-transform: uppercase;
+  font: 500 8px "DM Mono";
+  letter-spacing: 0.08em;
+  padding: 4px 7px;
+  border-radius: 4px;
+  background: var(--tone-blue-bg);
+  color: var(--tone-blue-text);
+}
+.workflow-prompt-card .workflow-prompt-fieldset {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  padding: 20px 22px;
+  transition: 0.15s;
+}
+.workflow-prompt-card:hover .workflow-prompt-fieldset {
+  border-color: #bcb7ab;
+  box-shadow: 0 4px 14px rgba(30, 28, 24, 0.05);
+}
+.workflow-prompt-label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #8c8981;
+  margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.workflow-prompt-textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 12px 14px;
+  border: 1px solid #d6d3ca;
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.55;
+  resize: vertical;
+  outline: 0;
+  transition: 0.2s;
+}
+.workflow-prompt-textarea:focus-visible {
+  border-color: var(--orange);
+  box-shadow: var(--shadow-focus);
+}
+.workflow-prompt-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+  align-items: center;
+}
+.workflow-prompt-save {
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--tertiary-action);
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  box-shadow: 0 4px 14px rgba(242, 99, 52, 0.2);
+  transition: 0.2s;
+}
+.workflow-prompt-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--tertiary-action-hover);
+}
+.workflow-prompt-save:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+.workflow-prompt-reset {
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6f6c64;
+  transition: 0.15s;
+}
+.workflow-prompt-reset:hover:not(:disabled) {
+  border-color: #bcb7ab;
+  color: var(--ink);
+}
+.workflow-prompt-reset:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.workflow-prompt-reset.danger {
+  color: #b93838;
+  border-color: #f0d0d0;
+}
+.workflow-prompt-reset.danger:hover:not(:disabled) {
+  background: #fef4f4;
+  color: #a32c2c;
+}

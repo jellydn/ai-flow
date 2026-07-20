@@ -101,6 +101,49 @@ class BaseAIProviderJsonExtractionTest extends TestCase
         $this->assertSame('low', $result['risk']);
     }
 
+    public function test_extract_json_handles_extra_whitespace_around_code_fence(): void
+    {
+        $provider = $this->makeExposedProvider();
+        $raw = "  \n```json\n  {\"summary\":\"ok\"}  \n```  \n";
+        $this->assertSame(['summary' => 'ok'], $provider->exposedExtractJson($raw));
+    }
+
+    public function test_extract_json_handles_deeply_nested_object(): void
+    {
+        $provider = $this->makeExposedProvider();
+        $raw = '{"a":{"b":{"c":{"d":"deep"}}}}';
+        $this->assertSame(['a' => ['b' => ['c' => ['d' => 'deep']]]], $provider->exposedExtractJson($raw));
+    }
+
+    public function test_extract_json_returns_array_for_json_array_root(): void
+    {
+        $provider = $this->makeExposedProvider();
+        // json_decode with assoc=true returns a list array for JSON arrays.
+        // extractJson passes it through — the downstream JsonSchemaValidator
+        // catches shape mismatches (object expected, array received).
+        $result = $provider->exposedExtractJson('[1, 2, 3]');
+        $this->assertSame([1, 2, 3], $result);
+    }
+
+    public function test_extract_json_handles_unicode_in_json(): void
+    {
+        $provider = $this->makeExposedProvider();
+        $raw = '{"summary":"Caf\u00e9 review","risk":"low"}';
+        $this->assertSame(['summary' => 'Café review', 'risk' => 'low'], $provider->exposedExtractJson($raw));
+    }
+
+    public function test_extract_json_returns_null_when_prose_contains_braces(): void
+    {
+        // Documents a known limitation of the extractJson heuristic (CONCERNS #11):
+        // when prose contains { and } characters, the slicer finds the first '{'
+        // (in the prose) and the last '}', producing a span that is not valid JSON.
+        // All three strategies fail, so extractJson returns null.
+        // The downstream error message includes a 200-char preview for debugging.
+        $provider = $this->makeExposedProvider();
+        $raw = "Here is {something}. The JSON:\n{\"summary\":\"ok\",\"risk\":\"low\"}\nDone.";
+        $this->assertNull($provider->exposedExtractJson($raw));
+    }
+
     public function test_generate_fails_when_response_is_garbage(): void
     {
         Http::fake([

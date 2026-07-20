@@ -1,0 +1,120 @@
+@media (max-width: 800px) {
+  .topbar {
+    padding: 0 18px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .nav {
+    justify-self: auto;
+  }
+  .header-end {
+    justify-self: auto;
+  }
+  .header-cta {
+    display: none;
+  }
+  .mobile-menu {
+    display: block;
+  }
+  .nav {
+    display: none;
+  }
+  .nav.open {
+    display: flex;
+    position: absolute;
+    transform: none;
+    left: 15px;
+    right: 15px;
+    top: 66px;
+    padding: 20px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    flex-direction: column;
+    align-items: flex-start;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1);
+  }
+  .hero {
+    padding-top: 60px;
+  }
+  .hero h1 {
+    font-size: 48px;
+  }
+  .desktop-only {
+    display: none;
+  }
+  .launcher-card {
+    padding: 17px;
+  }
+  .trust-row {
+    gap: 8px;
+    font-size: 8px;
+  }
+  .workflow-section {
+    padding: 75px 18px;
+  }
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+  .workflow-card {
+    min-height: 240px;
+  }
+  .features-section {
+    padding: 75px 18px;
+  }
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
+  .cta-band {
+    padding: 75px 18px;
+  }
+  .how-section {
+    grid-template-columns: 1fr;
+    gap: 50px;
+  }
+  .report-layout {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .report-layout aside {
+    position: static;
+  }
+  .report-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .auth-card {
+    padding: 28px 22px;
+  }
+  .dashboard {
+    padding: 32px 18px 80px;
+  }
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+  .run-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .run-meta {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .run-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .credential-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .credential-actions {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

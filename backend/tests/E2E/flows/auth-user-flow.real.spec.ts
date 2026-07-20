@@ -111,7 +111,10 @@ test.describe("Auth user flow (real backend)", () => {
         await expect(page.getByText(email)).toBeVisible();
 
         await page.getByRole("button", { name: "Back to sign in" }).click();
-        await page.getByRole("button", { name: "Sign in" }).click();
+        // "Back to sign in" now navigates to /login (dedicated route), so the
+        // auth card is already visible — no need to click the header "Sign in"
+        // button again (which would be ambiguous with the form submit button).
+        await expect(page).toHaveURL(/\/login\/?$/);
         await expect(authCard(page)).toBeVisible();
         await expect(authCard(page).getByRole("tab", { name: "Password" })).toBeVisible();
     });

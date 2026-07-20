@@ -1,7 +1,12 @@
+import { ShieldCheck } from "lucide-react";
+
 export function PrivacyNote() {
     return (
         <div className="privacy-note">
-            <h4>How your API keys are handled</h4>
+            <h4>
+                <ShieldCheck size={14} />
+                How your API keys are handled
+            </h4>
             <ul>
                 <li>Your API keys are encrypted before being stored.</li>
                 <li>
