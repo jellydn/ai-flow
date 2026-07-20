@@ -2482,7 +2482,7 @@ footer > span {
   padding: 7px 13px;
   font-size: 10px;
   font-weight: 700;
-  color: #248461;
+  color: var(--success);
   transition: 0.15s;
   white-space: nowrap;
   flex-shrink: 0;

@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { FolderPlus, Pencil, Trash2, Code2, ChevronDown, Sparkles } from "lucide-react";
 import {
     createUserLauncher,
@@ -53,6 +53,15 @@ const DEFAULT_OUTPUT_SCHEMA = JSON.stringify(
 const inputTypeLabel = (value: string): string =>
     INPUT_TYPES.find((t) => t.value === value)?.label ?? value;
 
+const isValidJson = (raw: string): boolean => {
+    try {
+        JSON.parse(raw);
+        return true;
+    } catch {
+        return false;
+    }
+};
+
 export function CustomLaunchersSection() {
     const [launchers, setLaunchers] = useState<UserLauncher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,45 +107,30 @@ export function CustomLaunchersSection() {
         setShowAdvanced(false);
     };
 
-    const validateOutputSchema = (raw: string): boolean => {
-        try {
-            JSON.parse(raw);
-            return true;
-        } catch {
-            return false;
-        }
-    };
-
-    const schemaValid = validateOutputSchema(outputSchema);
+    const schemaValid = useMemo(() => isValidJson(outputSchema), [outputSchema]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError("");
 
-        if (!validateOutputSchema(outputSchema)) {
+        if (!schemaValid) {
             setError("Output schema must be valid JSON.");
             return;
         }
 
+        const sharedPayload = {
+            name,
+            description,
+            prompt_template: promptTemplate,
+            input_type: inputType,
+            output_schema: outputSchema,
+        };
         setSaving(true);
         try {
             if (editingId) {
-                await updateUserLauncher(editingId, {
-                    name,
-                    description,
-                    prompt_template: promptTemplate,
-                    input_type: inputType,
-                    output_schema: outputSchema,
-                });
+                await updateUserLauncher(editingId, sharedPayload);
             } else {
-                await createUserLauncher({
-                    slug,
-                    name,
-                    description,
-                    prompt_template: promptTemplate,
-                    input_type: inputType,
-                    output_schema: outputSchema,
-                });
+                await createUserLauncher({ slug, ...sharedPayload });
             }
             resetForm();
             await load();
@@ -191,7 +185,7 @@ export function CustomLaunchersSection() {
                 </div>
                 <button
                     type="button"
-                    className="workflow-prompt-save"
+                    className={showForm ? "" : "workflow-prompt-save"}
                     onClick={() => {
                         if (showForm) {
                             resetForm();
