@@ -66,9 +66,9 @@ class GitHubBotService
      * Fetches .github/ai-flow.yml from the default branch. If the file
      * doesn't exist or has no `enabled` list, all launchers are enabled.
      */
-    public function isLauncherEnabled(string $owner, string $repo, string $launcherSlug): bool
+    public function isLauncherEnabled(string $owner, string $repo, string $launcherSlug, ?int $installationId = null): bool
     {
-        $config = $this->fetchRepoConfig($owner, $repo);
+        $config = $this->fetchRepoConfig($owner, $repo, $installationId);
 
         if ($config === null) {
             return true; // No config file — all launchers enabled by default.
@@ -88,35 +88,37 @@ class GitHubBotService
      *
      * @return array|null Parsed config, or null if the file doesn't exist.
      */
-    private function fetchRepoConfig(string $owner, string $repo): ?array
+    private function fetchRepoConfig(string $owner, string $repo, ?int $installationId = null): ?array
     {
         $cacheKey = "github-bot:repo-config:{$owner}:{$repo}";
 
-        return Cache::remember(
+        $cached = Cache::remember(
             $cacheKey,
             now()->addMinutes(5),
-            function () use ($owner, $repo) {
-                $response = $this->github->botClient()->get(
+            function () use ($owner, $repo, $installationId) {
+                $response = $this->github->botClient($installationId)->get(
                     "/repos/{$owner}/{$repo}/contents/.github/ai-flow.yml",
                 );
 
-                if ($response->status() === 404) {
-                    return null; // No config file — all launchers enabled.
-                }
-
-                if (! $response->successful()) {
-                    return null; // Silently fall back to defaults.
+                // Missing file or fetch failure: cache an empty sentinel so
+                // Cache::remember() actually retains it. Returning null would
+                // be treated as a cache miss and re-hit GitHub on every command.
+                if ($response->status() === 404 || ! $response->successful()) {
+                    return [];
                 }
 
                 $content = base64_decode($response->json('content', ''), true);
 
                 if ($content === false || $content === '') {
-                    return null;
+                    return [];
                 }
 
                 return $this->parseSimpleYaml($content);
             },
         );
+
+        // Convert the "no config" sentinel back to null for callers.
+        return $cached === [] ? null : $cached;
     }
 
     /**
@@ -153,8 +155,8 @@ class GitHubBotService
                 continue;
             }
 
-            // List item: "- value" (must be inside a list key).
-            if ($currentKey !== null && preg_match('/^-\s+(.+)$/', $trimmed, $m)) {
+            // List item: "- value" (only valid inside a list key).
+            if ($currentKey !== null && is_array($result[$currentKey] ?? null) && preg_match('/^-\s+(.+)$/', $trimmed, $m)) {
                 $result[$currentKey][] = trim($m[1]);
             }
         }
@@ -169,9 +171,9 @@ class GitHubBotService
      *
      * @throws RuntimeException
      */
-    public function postComment(string $owner, string $repo, int $number, string $body): int
+    public function postComment(string $owner, string $repo, int $number, string $body, ?int $installationId = null): int
     {
-        $response = $this->github->botClient()->post(
+        $response = $this->github->botClient($installationId)->post(
             "/repos/{$owner}/{$repo}/issues/{$number}/comments",
             ['body' => $body],
         );
@@ -184,14 +186,17 @@ class GitHubBotService
     }
 
     /**
-     * Update an existing comment.
+     * Update an existing issue/PR comment.
+     *
+     * GitHub requires owner/repo in the path: PATCH
+     * /repos/{owner}/{repo}/issues/comments/{commentId}.
      *
      * @throws RuntimeException
      */
-    public function updateComment(int $commentId, string $body): void
+    public function updateComment(string $owner, string $repo, int $commentId, string $body, ?int $installationId = null): void
     {
-        $response = $this->github->botClient()->patch(
-            "/repos/issues/comments/{$commentId}",
+        $response = $this->github->botClient($installationId)->patch(
+            "/repos/{$owner}/{$repo}/issues/comments/{$commentId}",
             ['body' => $body],
         );
 

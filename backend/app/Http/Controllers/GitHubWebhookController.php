@@ -41,8 +41,15 @@ class GitHubWebhookController extends Controller
         $issue = $request->json('issue', []);
         $number = (int) ($issue['number'] ?? 0);
 
+        // GitHub App installation ID — present on issue_comment webhooks as
+        // installation.id. Threaded through to token generation so multi-
+        // installation apps mint tokens for the correct installation.
+        $installationId = $request->json('installation.id') !== null
+            ? (int) $request->json('installation.id')
+            : null;
+
         // ── Per-repo config check ──────────────────────────────────────
-        if (! $this->bot->isLauncherEnabled($owner, $repo, $parsed['launcher'])) {
+        if (! $this->bot->isLauncherEnabled($owner, $repo, $parsed['launcher'], $installationId)) {
             return response()->json([
                 'message' => "Launcher '{$parsed['launcher']}' is disabled for this repository.",
             ], 200);
@@ -61,6 +68,7 @@ class GitHubWebhookController extends Controller
             sourceUrl: $sourceUrl,
             launcherSlug: $parsed['launcher'],
             commentLabel: config('github-bot.comment_label', 'ai-flow'),
+            installationId: $installationId,
         );
 
         return response()->json(['message' => 'Bot command queued.'], 202);
