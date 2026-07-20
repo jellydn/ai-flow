@@ -14,6 +14,7 @@ import {
     type User,
 } from "../services/auth.ts";
 import { logger } from "../lib/logger.ts";
+import { SIGNUP_PATH } from "../lib/appPaths.ts";
 
 type AuthMode = "sign-in" | "sign-up" | "magic";
 
@@ -39,9 +40,33 @@ function AuthError({ message }: { message: string }) {
     );
 }
 
+/** Derive the initial auth mode from the current route. */
+function initialAuthMode(): AuthMode {
+    const pathname = window.location.pathname;
+    if (pathname === SIGNUP_PATH) {
+        return "sign-up";
+    }
+    // /login with ?auth=link|magic → magic link tab (back-compat with the
+    // old query-param behaviour, now on a dedicated path).
+    const auth = new URLSearchParams(window.location.search).get("auth");
+    if (auth === "link" || auth === "magic") {
+        return "magic";
+    }
+    return "sign-in";
+}
+
 export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
     const baseId = useId();
-    const [mode, setMode] = useState<AuthMode>("sign-in");
+    const [mode, setMode] = useState<AuthMode>(initialAuthMode);
+
+    // Keep the tab in sync with the URL on back/forward navigation (popstate).
+    // useState(initialAuthMode) only runs on mount, so without this the tab
+    // would go stale if the browser navigates between /login and /signup.
+    const pathname = window.location.pathname;
+    const search = window.location.search;
+    useEffect(() => {
+        setMode(initialAuthMode());
+    }, [pathname, search]);
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [passwordConfirmation, setPasswordConfirmation] = useState("");
@@ -62,25 +87,24 @@ export function SignIn({ onRequested, onAuthenticated }: SignInProps) {
     const switchMode = (next: AuthMode) => {
         setMode(next);
         setError("");
+        // Reflect the selected tab in the URL so a refresh keeps the same
+        // tab. /signup is its own path; the magic-link tab on /login uses
+        // ?auth=link (back-compat with the old query-param behaviour).
+        let path = window.location.pathname;
+        if (next === "sign-up") {
+            path = SIGNUP_PATH;
+        } else if (path === SIGNUP_PATH) {
+            path = "/login";
+        }
         const params = new URLSearchParams(window.location.search);
-        if (next === "sign-in") {
-            params.delete("auth");
+        if (next === "magic") {
+            params.set("auth", "link");
         } else {
-            params.set("auth", next === "magic" ? "link" : "signup");
+            params.delete("auth");
         }
         const qs = params.toString();
-        const path = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
-        window.history.replaceState({}, "", path);
+        window.history.replaceState({}, "", `${path}${qs ? `?${qs}` : ""}${window.location.hash}`);
     };
-
-    useEffect(() => {
-        const auth = new URLSearchParams(window.location.search).get("auth");
-        if (auth === "link" || auth === "magic") {
-            setMode("magic");
-        } else if (auth === "signup" || auth === "sign-up") {
-            setMode("sign-up");
-        }
-    }, []);
 
     const focusField = (ref: RefObject<HTMLInputElement | null>) => {
         requestAnimationFrame(() => ref.current?.focus());

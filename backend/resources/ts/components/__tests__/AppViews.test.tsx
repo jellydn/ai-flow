@@ -77,14 +77,11 @@ vi.mock("../SignIn.tsx", () => ({
 const baseAuthState = {
     user: null,
     checked: false,
-    checkEmail: "",
-    showSignIn: false,
     deepLinkLoading: false,
 };
 
 // Use explicit generic types so vi.fn() matches AuthActions function signatures.
-let setShowSignIn: ReturnType<typeof vi.fn<(v: boolean) => void>>;
-let setCheckEmail: ReturnType<typeof vi.fn<(v: string) => void>>;
+let onRequested: ReturnType<typeof vi.fn<(email: string) => void>>;
 let onAuthenticated: ReturnType<
     typeof vi.fn<
         (user: {
@@ -99,8 +96,8 @@ let onAuthenticated: ReturnType<
 let onLogout: ReturnType<typeof vi.fn<() => void>>;
 
 beforeEach(() => {
-    setShowSignIn = vi.fn();
-    setCheckEmail = vi.fn();
+    window.history.replaceState({}, "", "/");
+    onRequested = vi.fn();
     onAuthenticated = vi.fn();
     onLogout = vi.fn();
 });
@@ -149,7 +146,7 @@ function renderAppViews(overrides: Record<string, unknown> = {}) {
     return render(
         <AppViews
             authState={mergedAuthState}
-            authActions={{ setShowSignIn, setCheckEmail, onAuthenticated, onLogout }}
+            authActions={{ onRequested, onAuthenticated, onLogout }}
             view={(overrides.view ?? { type: "home" }) as never}
             homeProps={baseHomeProps}
             runningData={(overrides.runningData as typeof baseRunningData) ?? baseRunningData}
@@ -171,40 +168,58 @@ describe("AppViews", () => {
         expect(screen.getByText("Loading…")).toBeInTheDocument();
     });
 
-    it("renders check email screen when checkEmail is set", () => {
-        renderAppViews({ authState: { checked: true, checkEmail: "a@b.com" } });
+    it("renders check email screen on /check-email with email query", () => {
+        window.history.replaceState({}, "", "/check-email?email=a%40b.com");
+        renderAppViews({ authState: { checked: true } });
         expect(screen.getByText("Check your email")).toBeInTheDocument();
         expect(screen.getByText("a@b.com")).toBeInTheDocument();
     });
 
-    it("clears checkEmail when Back is clicked", async () => {
-        renderAppViews({ authState: { checked: true, checkEmail: "a@b.com" } });
-        await userEvent.setup().click(screen.getByRole("button", { name: "Back to sign in" }));
-        expect(setCheckEmail).toHaveBeenCalledWith("");
+    it("renders check email screen on /check-email without email (generic message)", () => {
+        window.history.replaceState({}, "", "/check-email");
+        renderAppViews({ authState: { checked: true } });
+        expect(screen.getByText("Check your email")).toBeInTheDocument();
+        expect(screen.getByText(/sent to your email/)).toBeInTheDocument();
     });
 
-    it("renders SignIn when showSignIn is true and user is null", () => {
-        renderAppViews({ authState: { checked: true, showSignIn: true } });
+    it("renders SignIn on /login for unauthenticated user", () => {
+        window.history.replaceState({}, "", "/login");
+        renderAppViews({ authState: { checked: true } });
         expect(screen.getByTestId("sign-in")).toBeInTheDocument();
     });
 
-    it("calls setCheckEmail when sign-in link is requested", async () => {
-        renderAppViews({ authState: { checked: true, showSignIn: true } });
+    it("renders SignIn on /signup for unauthenticated user", () => {
+        window.history.replaceState({}, "", "/signup");
+        renderAppViews({ authState: { checked: true } });
+        expect(screen.getByTestId("sign-in")).toBeInTheDocument();
+    });
+
+    it("does not render SignIn on /login when user is already authenticated", () => {
+        window.history.replaceState({}, "", "/login");
+        renderAppViews({
+            authState: { user: { email: "a@b.com" }, checked: true },
+            view: { type: "home" },
+        });
+        expect(screen.queryByTestId("sign-in")).not.toBeInTheDocument();
+    });
+
+    it("calls onRequested when sign-in link is requested", async () => {
+        window.history.replaceState({}, "", "/login");
+        renderAppViews({ authState: { checked: true } });
         await userEvent.setup().click(screen.getByRole("button", { name: "Send link" }));
-        expect(setShowSignIn).toHaveBeenCalledWith(false);
-        expect(setCheckEmail).toHaveBeenCalledWith("a@b.com");
+        expect(onRequested).toHaveBeenCalledWith("a@b.com");
     });
 
     it("calls onAuthenticated when password sign-in succeeds", async () => {
-        renderAppViews({ authState: { checked: true, showSignIn: true } });
+        window.history.replaceState({}, "", "/login");
+        renderAppViews({ authState: { checked: true } });
         await userEvent.setup().click(screen.getByRole("button", { name: "Password sign-in" }));
-        expect(setShowSignIn).toHaveBeenCalledWith(false);
         expect(onAuthenticated).toHaveBeenCalledWith(
             expect.objectContaining({ email: "pw@b.com" }),
         );
     });
 
-    it("renders Home for unauthenticated user with home view", () => {
+    it("renders Home for unauthenticated user with home view on /", () => {
         renderAppViews({ authState: { user: null, checked: true }, view: { type: "home" } });
         expect(screen.getByTestId("home")).toBeInTheDocument();
     });
@@ -227,6 +242,13 @@ describe("AppViews", () => {
         });
         expect(screen.getByTestId("dashboard")).toBeInTheDocument();
         expect(screen.getByText("a@b.com")).toBeInTheDocument();
+    });
+
+    it("renders Sign in to continue prompt on /user when unauthenticated", () => {
+        window.history.replaceState({}, "", "/user");
+        renderAppViews({ authState: { user: null, checked: true }, view: { type: "home" } });
+        expect(screen.getByText("Sign in to continue")).toBeInTheDocument();
+        expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     });
 
     it("renders deep link loading state", () => {

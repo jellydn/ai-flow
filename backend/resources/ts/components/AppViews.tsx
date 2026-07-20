@@ -1,4 +1,10 @@
-import { isUserAccountPath } from "../lib/appPaths.ts";
+import {
+    getEmailFromQuery,
+    isCheckEmailPath,
+    isSignInPath,
+    isUserAccountPath,
+} from "../lib/appPaths.ts";
+import { goto } from "../lib/navigate.ts";
 import type { User } from "../services/auth.ts";
 import type { RunResult } from "../types/api.ts";
 import type { ViewState } from "./appUiState.ts";
@@ -11,14 +17,11 @@ import { SignIn } from "./SignIn.tsx";
 interface AuthState {
     user: User | null;
     checked: boolean;
-    checkEmail: string;
-    showSignIn: boolean;
     deepLinkLoading: boolean;
 }
 
 interface AuthActions {
-    setShowSignIn: (v: boolean) => void;
-    setCheckEmail: (v: string) => void;
+    onRequested: (email: string) => void;
     onAuthenticated: (user: User) => void;
     onLogout: () => void;
 }
@@ -62,34 +65,50 @@ export function AppViews({
     onReset,
     onNavigate,
 }: AppViewsProps) {
-    const { user, checked, checkEmail, showSignIn, deepLinkLoading } = authState;
-    const { setShowSignIn, setCheckEmail, onAuthenticated, onLogout } = authActions;
+    const { user, checked, deepLinkLoading } = authState;
+    const { onRequested, onAuthenticated, onLogout } = authActions;
 
-    const onUserRoute = isUserAccountPath(window.location.pathname);
+    const pathname = window.location.pathname;
+    const onUserRoute = isUserAccountPath(pathname);
+    const onCheckEmail = isCheckEmailPath(pathname);
+    const onSignInRoute = isSignInPath(pathname);
+    // An authenticated user on /login, /signup, or /check-email is redirected to
+    // /user by an effect in App.tsx — but render Home meanwhile to avoid a flash.
+    const showSignIn = onSignInRoute && !user && checked;
+    const checkEmail = onCheckEmail ? getEmailFromQuery() : "";
     const showDashboard = Boolean(user && checked && onUserRoute && !deepLinkLoading);
     const showHome =
         view.type === "home" &&
         !deepLinkLoading &&
         !showSignIn &&
-        !checkEmail &&
+        !onCheckEmail &&
         checked &&
         !onUserRoute;
 
     return (
         <>
-            {checkEmail && (
+            {onCheckEmail && (
                 <main className="auth-page">
                     <div className="auth-card">
                         <p className="auth-kicker">Account</p>
                         <h2>Check your email</h2>
                         <p className="auth-check-message" role="status" aria-live="polite">
-                            A sign-in link was sent to <strong>{checkEmail}</strong>. Open the email
-                            and click the link to continue.
+                            {checkEmail ? (
+                                <>
+                                    A sign-in link was sent to <strong>{checkEmail}</strong>. Open
+                                    the email and click the link to continue.
+                                </>
+                            ) : (
+                                <>
+                                    A sign-in link was sent to your email. Open the email and click
+                                    the link to continue.
+                                </>
+                            )}
                         </p>
                         <button
                             type="button"
                             className="auth-card-back"
-                            onClick={() => setCheckEmail("")}
+                            onClick={() => goto("/login", onNavigate)}
                         >
                             Back to sign in
                         </button>
@@ -97,7 +116,7 @@ export function AppViews({
                 </main>
             )}
 
-            {!checked && !checkEmail && (
+            {!checked && !onCheckEmail && (
                 <main className="running-page">
                     <div className="error-fallback">
                         <p>Loading…</p>
@@ -105,22 +124,11 @@ export function AppViews({
                 </main>
             )}
 
-            {showSignIn && !user && !checkEmail && (
-                <SignIn
-                    onRequested={(email) => {
-                        setShowSignIn(false);
-                        setCheckEmail(email);
-                    }}
-                    onAuthenticated={(signedIn) => {
-                        setShowSignIn(false);
-                        onAuthenticated(signedIn);
-                    }}
-                />
-            )}
+            {showSignIn && <SignIn onRequested={onRequested} onAuthenticated={onAuthenticated} />}
 
             {showDashboard && <Dashboard user={user!} navigate={onNavigate} onLogout={onLogout} />}
 
-            {onUserRoute && checked && !user && !showSignIn && !checkEmail && (
+            {onUserRoute && checked && !user && !showSignIn && !onCheckEmail && (
                 <main className="auth-page">
                     <div className="auth-card">
                         <p className="auth-kicker">Account</p>
@@ -129,7 +137,7 @@ export function AppViews({
                         <button
                             type="button"
                             className="auth-card-back"
-                            onClick={() => setShowSignIn(true)}
+                            onClick={() => goto("/login", onNavigate)}
                         >
                             Sign in
                         </button>
