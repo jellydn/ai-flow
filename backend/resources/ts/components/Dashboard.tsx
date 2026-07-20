@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { deleteAccount, logout, type User } from "../services/auth.ts";
 import { goto } from "../lib/navigate.ts";
 import { logger } from "../lib/logger.ts";
@@ -93,7 +94,13 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
                 {tab === "visibility" && <LauncherVisibilitySection />}
                 {tab === "account" && (
                     <div className="account-settings">
-                        <h3>Privacy &amp; Data</h3>
+                        <div>
+                            <span className="section-kicker">
+                                <ShieldCheck size={11} />
+                                Your data
+                            </span>
+                            <h3>Privacy &amp; Data</h3>
+                        </div>
                         <div className="privacy-panel">
                             <p>
                                 Your API keys are encrypted before being stored. They are decrypted
@@ -110,7 +117,10 @@ export function Dashboard({ user, onLogout, navigate }: DashboardProps) {
                         </div>
 
                         <div className="danger-zone">
-                            <h4>Delete account</h4>
+                            <h4>
+                                <AlertTriangle size={16} />
+                                Delete account
+                            </h4>
                             <p>
                                 Permanently delete your account, all saved credentials, and all run
                                 history. This action cannot be undone.

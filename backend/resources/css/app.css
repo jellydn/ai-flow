@@ -15,5 +15,6 @@
 @import "sections/provider-settings.css";
 @import "sections/custom-launchers.css";
 @import "sections/launcher-visibility.css";
+@import "sections/account.css";
 @import "sections/run-history.css";
 @import "sections/responsive.css";
