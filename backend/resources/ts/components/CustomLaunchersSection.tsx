@@ -56,7 +56,12 @@ const inputTypeLabel = (value: string): string =>
 const isValidJsonObject = (raw: string): boolean => {
     try {
         const parsed = JSON.parse(raw);
-        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
+        return (
+            typeof parsed === "object" &&
+            parsed !== null &&
+            !Array.isArray(parsed) &&
+            Object.keys(parsed).length > 0
+        );
     } catch {
         return false;
     }
