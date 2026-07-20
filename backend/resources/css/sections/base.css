@@ -499,6 +499,55 @@ em {
   transform: translateY(-1px);
   background: var(--tertiary-action-hover);
 }
+
+/* Public/private run toggle — sits between the launch button and the trust
+   row. Pill shape mirrors the dashboard .visibility-toggle (launcher tab):
+   green for public (anyone can view), muted for private (only you). */
+.visibility-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.visibility-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 9999px;
+  padding: 8px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--success);
+  transition: 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.visibility-toggle-btn:hover:not(:disabled) {
+  border-color: #bcb7ab;
+}
+.visibility-toggle-btn:focus-visible {
+  outline: 0;
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(242, 99, 52, 0.1);
+}
+.visibility-toggle-btn.is-private {
+  color: #8c8981;
+  background: #faf9f6;
+}
+.visibility-toggle-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.visibility-toggle-btn svg {
+  flex-shrink: 0;
+}
+.visibility-hint {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
 .trust-row {
   display: flex;
   justify-content: center;

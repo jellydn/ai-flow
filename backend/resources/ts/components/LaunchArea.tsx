@@ -221,7 +221,8 @@ export function LaunchArea({
                 <div className="visibility-toggle-row">
                     <button
                         type="button"
-                        className="visibility-toggle-btn"
+                        className={`visibility-toggle-btn${isPublic ? "" : " is-private"}`}
+                        aria-pressed={isPublic}
                         onClick={() => setIsPublic(!isPublic)}
                         title={
                             isPublic ? "Public — anyone can view" : "Private — only you can view"
