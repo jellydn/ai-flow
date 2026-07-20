@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Rules\JsonObjectSchemaRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -23,12 +24,7 @@ class UpdateUserLauncherRequest extends FormRequest
                 'sometimes',
                 'required',
                 'json',
-                function (string $attribute, mixed $value, \Closure $fail): void {
-                    $decoded = json_decode((string) $value, associative: true);
-                    if (! is_array($decoded) || $decoded === []) {
-                        $fail('The output schema must be a valid JSON object.');
-                    }
-                },
+                new JsonObjectSchemaRule,
             ],
         ];
     }
@@ -41,6 +37,16 @@ class UpdateUserLauncherRequest extends FormRequest
         return [
             'output_schema.json' => 'The output schema must be valid JSON.',
             'prompt_template.min' => 'The prompt must be at least 20 characters.',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'output_schema' => 'output schema',
         ];
     }
 
