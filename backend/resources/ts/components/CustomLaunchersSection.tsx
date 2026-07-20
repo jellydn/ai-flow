@@ -7,6 +7,7 @@ import {
     updateUserLauncher,
 } from "../services/userLaunchers.ts";
 import type { UserLauncher } from "../types/api.ts";
+import { isValidJsonObjectSchema } from "../lib/jsonSchema.ts";
 import { logger } from "../lib/logger.ts";
 
 const INPUT_TYPES = [
@@ -52,20 +53,6 @@ const DEFAULT_OUTPUT_SCHEMA = JSON.stringify(
 
 const inputTypeLabel = (value: string): string =>
     INPUT_TYPES.find((t) => t.value === value)?.label ?? value;
-
-const isValidJsonObjectSchema = (raw: string): boolean => {
-    try {
-        const parsed = JSON.parse(raw);
-        return (
-            typeof parsed === "object" &&
-            parsed !== null &&
-            !Array.isArray(parsed) &&
-            ("type" in parsed || "properties" in parsed)
-        );
-    } catch {
-        return false;
-    }
-};
 
 export function CustomLaunchersSection() {
     const [launchers, setLaunchers] = useState<UserLauncher[]>([]);
