@@ -2,10 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Jobs\ExecuteLauncherJob;
 use App\Jobs\ProcessGitHubBotCommandJob;
+use App\Models\Launcher;
+use App\Models\Run;
 use App\Services\GitHubBotService;
+use App\Services\GitHubService;
+use App\Services\LauncherResolutionService;
+use App\Support\AiProviderRegistry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
+use Mockery;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class GitHubBotTest extends TestCase
@@ -17,6 +29,7 @@ class GitHubBotTest extends TestCase
         parent::setUp();
         $this->seed();
         config(['github-bot.webhook_secret' => 'test-secret']);
+        Cache::flush();
     }
 
     // ── Webhook signature verification ──────────────────────────────────
@@ -41,6 +54,7 @@ class GitHubBotTest extends TestCase
     public function test_accepts_valid_signature(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload();
         $payloadJson = json_encode($payload);
         $signature = 'sha256='.hash_hmac('sha256', $payloadJson, 'test-secret');
@@ -123,6 +137,7 @@ class GitHubBotTest extends TestCase
     public function test_parses_review_command_on_pull_request(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(
             body: '@ai-flow review this PR please',
             hasPr: true,
@@ -143,6 +158,7 @@ class GitHubBotTest extends TestCase
     public function test_parses_plan_command_on_issue(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(
             body: 'Lets get a plan for this @ai-flow plan',
             hasPr: false,
@@ -163,6 +179,7 @@ class GitHubBotTest extends TestCase
     public function test_parses_explain_command(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(body: '@ai-flow explain');
 
         $this->postJson('/api/github/webhooks', $payload, [
@@ -179,6 +196,7 @@ class GitHubBotTest extends TestCase
     public function test_parses_doctor_command(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(body: '@ai-flow doctor please');
 
         $this->postJson('/api/github/webhooks', $payload, [
@@ -195,6 +213,7 @@ class GitHubBotTest extends TestCase
     public function test_command_parsing_is_case_insensitive(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(body: '@AI-FLOW REVIEW');
 
         $this->postJson('/api/github/webhooks', $payload, [
@@ -319,6 +338,7 @@ class GitHubBotTest extends TestCase
     public function test_webhook_dispatches_job_with_correct_parameters(): void
     {
         Queue::fake();
+        $this->fakeRepoConfig404();
         $payload = $this->commentPayload(
             body: '@ai-flow review',
             owner: 'test-owner',
@@ -338,11 +358,293 @@ class GitHubBotTest extends TestCase
                 && $job->repo === 'test-repo'
                 && $job->number === 123
                 && $job->sourceUrl === 'https://github.com/test-owner/test-repo/pull/123'
-                && $job->launcherSlug === 'review-pr';
+                && $job->launcherSlug === 'review-pr'
+                && $job->installationId === 42;
         });
     }
 
+    // ─── GitHubBotService config / URL / YAML behavior ──────────────────
+
+    public function test_is_launcher_enabled_caches_missing_config_so_subsequent_calls_skip_http(): void
+    {
+        // Use unique owner/repo to avoid interference from cache entries
+        // left by other tests.
+        Http::fake([
+            'api.github.com/*' => Http::response('', 404),
+        ]);
+
+        $bot = app(GitHubBotService::class);
+        $cacheKey = 'github-bot:repo-config:cachetest:cached-repo';
+
+        $this->assertTrue($bot->isLauncherEnabled('cachetest', 'cached-repo', 'review-pr'));
+
+        // The sentinel (empty array, not null) must be cached so
+        // Cache::remember() doesn't re-call GitHub on the next lookup.
+        $this->assertTrue(Cache::has($cacheKey), 'Empty config sentinel must be cached.');
+    }
+
+    public function test_is_launcher_enabled_does_not_fatal_on_malformed_scalar_then_list_yaml(): void
+    {
+        // "enabled: yes" is a scalar; the following "- review-pr" list item
+        // used to fatal with a TypeError by appending to a string.
+        Http::fake([
+            'api.github.com/repos/owner/repo/contents/.github/ai-flow.yml' => Http::response([
+                'content' => base64_encode("enabled: yes\n- review-pr"),
+            ], 200),
+        ]);
+
+        $bot = app(GitHubBotService::class);
+
+        // Scalar `enabled` => no enabled list => all launchers enabled.
+        $this->assertTrue($bot->isLauncherEnabled('owner', 'repo', 'review-pr'));
+    }
+
+    public function test_update_comment_patches_the_owner_repo_scoped_url(): void
+    {
+        $requests = [];
+        Http::fake(function (Request $request) use (&$requests) {
+            $requests[] = $request->method().' '.$request->url();
+
+            return Http::response(['id' => 1], 200);
+        });
+
+        $bot = app(GitHubBotService::class);
+        $bot->updateComment('jellydn', 'ai-flow', 12345, 'updated body');
+
+        $this->assertContains(
+            'PATCH https://api.github.com/repos/jellydn/ai-flow/issues/comments/12345',
+            $requests,
+            'updateComment must PATCH /repos/{owner}/{repo}/issues/comments/{commentId}',
+        );
+
+        // Build the URL string that the old (buggy) code would have used.
+        $buggy = 'PATCH https://api.github.com/repos/issues/comments/12345';
+        $this->assertNotContains($buggy, $requests, 'The old owner/repo-less URL must not be used.');
+    }
+
+    // ─── GitHub App auth: base64url JWT + installation token ────────────
+
+    public function test_app_jwt_segments_are_base64url_encoded(): void
+    {
+        $service = app(GitHubService::class);
+        $jwt = $this->callPrivate($service, 'appJwt', [123, $this->privateKey()]);
+
+        $segments = explode('.', $jwt);
+        $this->assertCount(3, $segments);
+
+        foreach ($segments as $segment) {
+            $this->assertMatchesRegularExpression(
+                '/^[A-Za-z0-9_-]+$/',
+                $segment,
+                "JWT segment must be base64url (no +, /, or =): {$segment}",
+            );
+        }
+    }
+
+    public function test_installation_token_uses_provided_installation_id_without_listing(): void
+    {
+        $privateKey = $this->privateKey();
+        config(['github-bot.app_id' => '99999', 'github-bot.app_private_key' => $privateKey]);
+        Cache::flush();
+
+        $hits = [];
+        Http::fake(function (Request $request) use (&$hits) {
+            $hits[] = $request->method().' '.$request->url();
+
+            if ($request->method() === 'POST' && str_ends_with($request->url(), '/app/installations/42/access_tokens')) {
+                return Http::response(['token' => 'ghs_install_42'], 200);
+            }
+
+            return Http::response('', 404);
+        });
+        Http::preventStrayRequests();
+
+        $service = app(GitHubService::class);
+        $token = $this->callPrivate($service, 'appInstallationToken', [99999, $privateKey, 42]);
+
+        $this->assertSame('ghs_install_42', $token);
+
+        $listCall = array_filter($hits, fn (string $hit): bool => str_contains($hit, 'GET') && str_ends_with($hit, '/app/installations'));
+        $this->assertEmpty($listCall, 'Must not list installations when installationId is provided');
+    }
+
+    // ─── ProcessGitHubBotCommandJob two-phase execution ──────────────────
+
+    public function test_job_initialization_posts_progress_and_dispatches_delayed_continuation(): void
+    {
+        Queue::fake();
+
+        $bot = Mockery::mock(GitHubBotService::class, [app(GitHubService::class)])->makePartial();
+        $bot->expects('postComment')->with('jellydn', 'ai-flow', 1, Mockery::any(), null)->andReturn(999);
+        // "running" progress update.
+        $bot->expects('updateComment')->with('jellydn', 'ai-flow', 999, Mockery::any(), null)->once();
+
+        $job = new ProcessGitHubBotCommandJob(
+            owner: 'jellydn',
+            repo: 'ai-flow',
+            number: 1,
+            sourceUrl: 'https://github.com/jellydn/ai-flow/pull/1',
+            launcherSlug: 'review-pr',
+            commentLabel: 'ai-flow',
+        );
+        $job->handle(
+            $bot,
+            app(LauncherResolutionService::class),
+            app(AiProviderRegistry::class),
+            app(GitHubService::class),
+        );
+
+        // The AI run job is dispatched...
+        Queue::assertPushed(ExecuteLauncherJob::class);
+        // ...and a delayed continuation carrying commentId + runId.
+        Queue::assertPushed(ProcessGitHubBotCommandJob::class, function (ProcessGitHubBotCommandJob $c): bool {
+            return $c->runId !== null && $c->commentId === 999;
+        });
+    }
+
+    public function test_job_continuation_posts_result_when_run_is_terminal(): void
+    {
+        Queue::fake();
+
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'review-pr')->value('id'),
+            'source_url' => 'https://github.com/jellydn/ai-flow/pull/1',
+            'input' => ['source_url' => 'https://github.com/jellydn/ai-flow/pull/1'],
+            'status' => 'completed',
+            'result' => ['summary' => 'Done!'],
+            'progress' => [],
+        ]);
+
+        $bot = Mockery::mock(GitHubBotService::class, [app(GitHubService::class)])->makePartial();
+        $bot->expects('updateComment')
+            ->with('jellydn', 'ai-flow', 999, Mockery::on(fn (string $body): bool => str_contains($body, 'Done!')), null)
+            ->once();
+
+        $job = new ProcessGitHubBotCommandJob(
+            owner: 'jellydn',
+            repo: 'ai-flow',
+            number: 1,
+            sourceUrl: 'https://github.com/jellydn/ai-flow/pull/1',
+            launcherSlug: 'review-pr',
+            commentLabel: 'ai-flow',
+            commentId: 999,
+            runId: $run->id,
+        );
+        $job->handle($bot, app(LauncherResolutionService::class), app(AiProviderRegistry::class), app(GitHubService::class));
+
+        Queue::assertNotPushed(ProcessGitHubBotCommandJob::class);
+    }
+
+    public function test_job_continuation_redispatches_when_run_still_pending(): void
+    {
+        Queue::fake();
+
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'review-pr')->value('id'),
+            'source_url' => 'https://github.com/jellydn/ai-flow/pull/1',
+            'input' => ['source_url' => 'https://github.com/jellydn/ai-flow/pull/1'],
+            'status' => 'running',
+            'progress' => [],
+        ]);
+
+        $bot = Mockery::mock(GitHubBotService::class, [app(GitHubService::class)])->makePartial();
+        $bot->shouldNotReceive('updateComment');
+
+        $job = new ProcessGitHubBotCommandJob(
+            owner: 'jellydn',
+            repo: 'ai-flow',
+            number: 1,
+            sourceUrl: 'https://github.com/jellydn/ai-flow/pull/1',
+            launcherSlug: 'review-pr',
+            commentLabel: 'ai-flow',
+            commentId: 999,
+            runId: $run->id,
+        );
+        $job->handle($bot, app(LauncherResolutionService::class), app(AiProviderRegistry::class), app(GitHubService::class));
+
+        Queue::assertPushed(ProcessGitHubBotCommandJob::class, function (ProcessGitHubBotCommandJob $c) use ($run): bool {
+            return $c->runId === $run->id && $c->commentId === 999;
+        });
+    }
+
+    public function test_job_continuation_posts_timeout_comment_after_deadline(): void
+    {
+        Queue::fake();
+        config(['github-bot.poll_max_seconds' => 0]);
+
+        $run = Run::create([
+            'launcher_id' => Launcher::where('slug', 'review-pr')->value('id'),
+            'source_url' => 'https://github.com/jellydn/ai-flow/pull/1',
+            'input' => ['source_url' => 'https://github.com/jellydn/ai-flow/pull/1'],
+            'status' => 'running',
+            'progress' => [],
+        ]);
+        // Push created_at into the past via a raw update so deadlineExceeded
+        // sees a non-zero elapsed time (Eloquent $fillable excludes timestamps).
+        \DB::table('runs')
+            ->where('id', $run->id)
+            ->update(['created_at' => now()->subMinutes(10)]);
+
+        $bot = Mockery::mock(GitHubBotService::class, [app(GitHubService::class)])->makePartial();
+        $bot->expects('updateComment')
+            ->with('jellydn', 'ai-flow', 999, Mockery::on(fn (string $body): bool => str_contains($body, 'did not complete within the configured time limit')), null)
+            ->once();
+
+        $job = new ProcessGitHubBotCommandJob(
+            owner: 'jellydn',
+            repo: 'ai-flow',
+            number: 1,
+            sourceUrl: 'https://github.com/jellydn/ai-flow/pull/1',
+            launcherSlug: 'review-pr',
+            commentLabel: 'ai-flow',
+            commentId: 999,
+            runId: $run->id,
+        );
+
+        // Sanity-check: the config and run state must trigger the deadline.
+        $this->assertSame(0, (int) config('github-bot.poll_max_seconds'));
+        $refreshed = Run::find($run->id);
+        $this->assertNotNull($refreshed->created_at, 'created_at must survive the raw update');
+
+        // Verify deadlineExceeded returns true before relying on it in the job loop.
+        $elapsed = abs(Date::now()->diffInSeconds($refreshed->created_at));
+        $this->assertGreaterThanOrEqual(0, $elapsed, "elapsed seconds: {$elapsed}, max: 0");
+        $this->assertTrue(
+            $this->callPrivate($job, 'deadlineExceeded', [$refreshed]),
+            'deadlineExceeded must return true (elapsed='.$elapsed.', max=0)',
+        );
+
+        $job->handle($bot, app(LauncherResolutionService::class), app(AiProviderRegistry::class), app(GitHubService::class));
+
+        Queue::assertNotPushed(ProcessGitHubBotCommandJob::class);
+    }
+
     // ─── Helpers ────────────────────────────────────────────────────────
+
+    private function callPrivate(object $object, string $method, array $args): mixed
+    {
+        $reflection = new ReflectionMethod($object, $method);
+
+        return $reflection->invokeArgs($reflection->isStatic() ? null : $object, $args);
+    }
+
+    private function privateKey(): string
+    {
+        $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
+        openssl_pkey_export($key, $out);
+
+        return $out;
+    }
+
+    private function fakeRepoConfig404(): void
+    {
+        // Stub the .github/ai-flow.yml lookup so every dispatch-path test
+        // stays offline. A missing config (404) is treated as "all launchers
+        // enabled". Targeted tests override this with their own Http::fake().
+        Http::fake([
+            'api.github.com/*' => Http::response('', 404),
+        ]);
+    }
 
     private function sign(array $payload): string
     {
@@ -380,6 +682,7 @@ class GitHubBotTest extends TestCase
                     'type' => $userType,
                 ],
             ],
+            'installation' => ['id' => 42],
             'repository' => [
                 'name' => $repo,
                 'full_name' => "{$owner}/{$repo}",
