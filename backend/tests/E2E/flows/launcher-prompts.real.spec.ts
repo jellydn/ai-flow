@@ -11,7 +11,10 @@ import { E2E_PASSWORD, uniqueEmail } from "../helpers/uniqueEmail.ts";
 test.describe.configure({ mode: "serial" });
 
 test.describe("Launcher prompts (real backend)", () => {
-    async function registerAndOpenApiKeys(page: import("@playwright/test").Page, email: string) {
+    async function registerAndOpenWorkflowPrompts(
+        page: import("@playwright/test").Page,
+        email: string,
+    ) {
         const password = E2E_PASSWORD;
 
         await page.goto("/");
@@ -26,14 +29,14 @@ test.describe("Launcher prompts (real backend)", () => {
         await signUp.getByRole("button", { name: "Create account" }).click();
 
         await expect(page).toHaveURL(/\/user\/?$/, { timeout: 15_000 });
-        await page.getByRole("tab", { name: "API Keys" }).click();
+        await page.getByRole("tab", { name: "Workflow Prompts" }).click();
         await expect(page.getByRole("heading", { name: "Workflow prompts" })).toBeVisible({
             timeout: 15_000,
         });
     }
 
-    test("API Keys shows four workflow prompts with defaults", async ({ page }) => {
-        await registerAndOpenApiKeys(page, uniqueEmail("prompts-list"));
+    test("Workflow Prompts tab shows four workflow prompts with defaults", async ({ page }) => {
+        await registerAndOpenWorkflowPrompts(page, uniqueEmail("prompts-list"));
 
         const section = page.locator(".workflow-prompts");
         await expect(section.getByRole("heading", { name: "Workflow prompts" })).toBeVisible();
@@ -46,7 +49,7 @@ test.describe("Launcher prompts (real backend)", () => {
     });
 
     test("save custom prompt shows Custom badge and reset restores default", async ({ page }) => {
-        await registerAndOpenApiKeys(page, uniqueEmail("prompts-save"));
+        await registerAndOpenWorkflowPrompts(page, uniqueEmail("prompts-save"));
 
         const custom = trimRepeat("E2E custom Laravel doctor workflow prompt. ", 3);
         const textarea = page.getByRole("textbox", {
