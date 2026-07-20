@@ -69,16 +69,27 @@ label: ai-flow
 GitHub issue_comment event
   → POST /api/github/webhooks
     → verify signature (hmac-sha256)
+    → extract installation.id from payload
     → parse @ai-flow <command> from comment body
     → dispatch ProcessGitHubBotCommandJob
     → 202 Accepted
 
-ProcessGitHubBotCommandJob:
-  → post progress comment ("⏳ ai-flow is analyzing…")
-  → resolve launcher + create Run (via LauncherResolutionService)
-  → dispatch ExecuteLauncherJob
-  → poll run status (DB)
-  → update progress comment with results
+ProcessGitHubBotCommandJob (two-phase, non-blocking):
+  Phase 1 — Initialization:
+    → post progress comment ("⏳ Queued — waiting to start…")
+    → resolve launcher + create Run (via LauncherResolutionService)
+    → dispatch ExecuteLauncherJob
+    → re-dispatch THIS job as a delayed continuation (5 s later)
+    → returns immediately (worker is free)
+  Phase 2 — Continuation (re-dispatched until terminal or deadline):
+    → find Run by id
+    → if terminal  → update comment with results, return
+    → if deadline exceeded (github-bot.poll_max_seconds) → update
+      comment with generic timeout message, return
+    → else → re-dispatch continuation with 5 s delay
+
+Each phase has a short timeout (~60 s, well below the 120 s worker
+limit), preventing SIGKILL and freeing workers between polls.
 ```
 
 ## Consequences
@@ -94,7 +105,7 @@ ProcessGitHubBotCommandJob:
 ### Negative
 
 - **Requires GitHub App setup** — registering a GitHub App, generating a private key, installing on repos. The PAT fallback reduces this friction for simple use cases.
-- **Polling for completion** — the job polls `Run.status` rather than using a webhook callback. Acceptable given the existing ~55s SSE window and database-based progress tracking.
+- **Delayed-results model** — results arrive via a self-updating comment on a ~5-second polling cadence rather than an instant callback. The two-phase continuation pattern avoids blocking queue workers (the initial implementation's `while`/`usleep` loop would starve workers).
 - **No PR/issue-level authentication** — the bot uses a single installation token or PAT; all comments appear as the bot, not as individual users. Acceptable for MVP given the public-repo scope.
 - **Comment parsing is regex-based** — minimal overhead but fragile against unusual formatting. Future iteration could add slash-command support.
 
