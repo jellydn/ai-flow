@@ -84,7 +84,7 @@ export function LauncherVisibilitySection() {
         return <p className="workflow-prompts-loading">Loading launcher visibility…</p>;
     }
 
-    const visibleCount = builtInLaunchers.length - hiddenSlugs.size;
+    const visibleCount = builtInLaunchers.filter((l) => !hiddenSlugs.has(l.slug)).length;
 
     return (
         <section className="launcher-visibility" aria-labelledby="launcher-visibility-heading">

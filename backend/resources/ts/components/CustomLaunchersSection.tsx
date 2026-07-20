@@ -53,10 +53,10 @@ const DEFAULT_OUTPUT_SCHEMA = JSON.stringify(
 const inputTypeLabel = (value: string): string =>
     INPUT_TYPES.find((t) => t.value === value)?.label ?? value;
 
-const isValidJson = (raw: string): boolean => {
+const isValidJsonObject = (raw: string): boolean => {
     try {
-        JSON.parse(raw);
-        return true;
+        const parsed = JSON.parse(raw);
+        return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed);
     } catch {
         return false;
     }
@@ -105,16 +105,17 @@ export function CustomLaunchersSection() {
         setEditingId(null);
         setShowForm(false);
         setShowAdvanced(false);
+        setError("");
     };
 
-    const schemaValid = useMemo(() => isValidJson(outputSchema), [outputSchema]);
+    const schemaValid = useMemo(() => isValidJsonObject(outputSchema), [outputSchema]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError("");
 
         if (!schemaValid) {
-            setError("Output schema must be valid JSON.");
+            setError("Output schema must be a valid JSON object.");
             return;
         }
 
@@ -310,7 +311,9 @@ export function CustomLaunchersSection() {
                             <span
                                 className={`schema-badge ${schemaValid ? "schema-valid" : "schema-invalid"}`}
                             >
-                                {schemaValid ? "Valid JSON" : "Invalid JSON — check syntax"}
+                                {schemaValid
+                                    ? "Valid JSON object"
+                                    : "Invalid — must be a JSON object"}
                             </span>
                         </label>
                     )}
