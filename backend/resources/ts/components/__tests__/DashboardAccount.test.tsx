@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Dashboard } from "../Dashboard.tsx";
 import type { User } from "../../services/auth.ts";
@@ -44,16 +44,18 @@ describe("Dashboard — Account tab", () => {
         render(<Dashboard {...baseProps} />);
         expect(screen.queryByText("Delete account")).not.toBeInTheDocument();
         expect(screen.queryByText("Privacy & Data")).not.toBeInTheDocument();
-        // Dashboard renders RunHistory on the history tab; its useEffect fires
-        // an async fetchUserRuns that resolves after this synchronous test
-        // returns. Flush it inside act() to avoid the warning.
-        await waitFor(() => {});
+        // Wait for the RunHistory async fetch (fired by useEffect on the
+        // history tab) to settle so the test doesn't exit with pending
+        // microtasks. findByText waits deterministically for the empty
+        // state rather than an empty waitFor() that just flushes the queue.
+        await screen.findByText(/No runs in your history yet/);
     });
 
     it("renders account tab button", async () => {
         render(<Dashboard {...baseProps} />);
         expect(screen.getByRole("tab", { name: "Account" })).toBeInTheDocument();
-        await waitFor(() => {});
+        // Flush the RunHistory async fetch (see above).
+        await screen.findByText(/No runs in your history yet/);
     });
 
     it("switches to account tab on click and shows privacy panel", async () => {
