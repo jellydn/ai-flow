@@ -37,12 +37,6 @@ return [
 
     'github' => ['token' => env('GITHUB_TOKEN')],
 
-    'github_bot' => [
-        'app_id' => env('GITHUB_APP_ID'),
-        'app_private_key' => env('GITHUB_APP_PRIVATE_KEY'),
-        'webhook_secret' => env('GITHUB_WEBHOOK_SECRET'),
-    ],
-
     /*
     |--------------------------------------------------------------------------
     | Shared AI Provider Settings
