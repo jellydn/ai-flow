@@ -35,7 +35,9 @@ npm run test:e2e      # Playwright e2e suite (--project=real-backend)
 
 Frontend JS commands also exposed as `just` targets (`just lint-js`, `just test-js`, `just e2e`, etc.). `just ci` runs the full backend+frontend gate locally.
 
-CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`), `npm audit --production`. Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+
+CD: **staging** (`.github/workflows/deploy-staging.yml`) deploys PRs from jellydn to Dokku; **production** (`.github/workflows/deploy-production.yml`) deploys `main` to Laravel Cloud; **release** (`.github/workflows/release.yml`) auto-tags and creates GitHub Releases via release-please.
 
 ## Environment & AI providers
 
@@ -64,8 +66,8 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 
 ## Deploy
 
-- **Dokku (staging, what CI actually ships):** `dokku` git remote → `docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`. Dockerfile builds React assets + nginx/PHP-FPM; release phase migrates + seeds. Disable nginx `proxy-buffering` and set `proxy-read-timeout 75s` for SSE. DB uses `DB_URL` (not Dokku's `DATABASE_URL`).
-- **Laravel Cloud (alternative):** deploy `backend/` as app root, build `npm ci && npm run build`; stable shared `APP_KEY`, durable Neon Postgres (`DB_SSLMODE=require`), `QUEUE_CONNECTION=database`. See `CLOUD_DEPLOY.md`.
+- **Dokku (staging, auto-deployed via CI):** `dokku` git remote → `docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`. Dockerfile builds React assets + nginx/PHP-FPM; release phase migrates + seeds. Disable nginx `proxy-buffering` and set `proxy-read-timeout 75s` for SSE. DB uses `DB_URL` (not Dokku's `DATABASE_URL`).
+- **Laravel Cloud (production, auto-deployed via CI):** deploy `backend/` as app root, build `npm ci && npm run build`; stable shared `APP_KEY`, durable Neon Postgres (`DB_SSLMODE=require`), `QUEUE_CONNECTION=database`. Set `LARAVEL_CLOUD_API_TOKEN` secret. See `CLOUD_DEPLOY.md`.
 - Worker (both): `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Note `composer run dev` uses `php artisan queue:listen --tries=1 --timeout=0` (differs from standalone worker flags — don't copy the dev flags to prod).
 
 ## Coding standards

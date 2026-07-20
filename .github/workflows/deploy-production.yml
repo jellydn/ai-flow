@@ -1,0 +1,40 @@
+name: Deploy Production
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: deploy-production-ai-flow
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    environment:
+      name: production
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, xml, zip, pgsql
+          coverage: none
+
+      - name: Install Laravel Cloud CLI
+        run: composer global require laravel/cloud-cli --no-interaction
+
+      - name: Authenticate with Laravel Cloud
+        env:
+          LARAVEL_CLOUD_API_TOKEN: ${{ secrets.LARAVEL_CLOUD_API_TOKEN }}
+        run: cloud auth login --api-token "$LARAVEL_CLOUD_API_TOKEN" -n
+
+      - name: Deploy to production
+        run: cloud deploy -n
+
+      - name: Monitor deployment
+        run: cloud deploy:monitor -n
