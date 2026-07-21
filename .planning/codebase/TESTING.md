@@ -83,6 +83,6 @@ Run via `just prek`:
 - `frontend-typecheck` (`scripts/hooks/npm-in-backend.sh`)
 - `env-check` (`scripts/hooks/env.sh`)
 
-## Known test issue
+## Resolved: GitHubBotTest env credential leakage
 
-`GitHubBotTest` — 10 tests fail locally when `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` are set in `.env`. The local credentials trigger the installation-token flow which bypasses the tests' generic `Http::fake()` 404 stubs. Running with `GITHUB_APP_ID= GITHUB_APP_PRIVATE_KEY=` makes all 32 tests pass. This is environmental, not a code regression (identical on `origin/main`). Consider clearing these in `phpunit.xml` for test isolation.
+`GitHubBotTest::setUp()` now clears `github-bot.app_id` and `github-bot.app_private_key` via `config(['github-bot.app_id' => null, 'github-bot.app_private_key' => null])`, so tests no longer pick up real GitHub App credentials from the shell environment or local `.env`. Without this, the installation-token flow bypassed the tests' generic `Http::fake()` 404 stubs and 10 tests failed for developers with real `GITHUB_APP_ID` set. The `phpunit.xml` `<env>` override approach was tried first but doesn't reliably shadow shell env vars in Laravel's config loader; the `config()` override in `setUp()` bypasses `env()` entirely. Individual tests needing credentials (e.g. `test_installation_token_*`) set them explicitly after `setUp()`. See `.planning/codebase/CONCERNS.md` for details. ✅ Fixed.
