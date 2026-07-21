@@ -26,8 +26,8 @@ import {
     type ViewState,
     uiStateFromRun,
 } from "./appUiState.ts";
-import { isUserAccountPath } from "../lib/appPaths.ts";
-import { goto } from "../lib/navigate.ts";
+import { isAuthPath, isUserAccountPath } from "../lib/appPaths.ts";
+import { goto, replaceGoto } from "../lib/navigate.ts";
 import { AppViews } from "./AppViews.tsx";
 import { Footer } from "./Footer.tsx";
 import { Header } from "./Header.tsx";
@@ -76,8 +76,6 @@ export function App() {
 
     const [user, setUser] = useState<User | null>(null);
     const [authChecked, setAuthChecked] = useState(false);
-    const [showSignIn, setShowSignIn] = useState(false);
-    const [checkEmail, setCheckEmail] = useState("");
 
     useEffect(() => {
         if (!user) {
@@ -124,18 +122,6 @@ export function App() {
     }, []);
 
     useEffect(() => {
-        if (!authChecked || user) {
-            return;
-        }
-        modelEdited.current = false;
-        setSelectedProvider("openrouter");
-        setSelectedModel("openrouter/free");
-        if (isUserAccountPath(window.location.pathname)) {
-            setShowSignIn(true);
-        }
-    }, [authChecked, user]);
-
-    useEffect(() => {
         if (!user) {
             return;
         }
@@ -152,6 +138,27 @@ export function App() {
         ready: pathReady,
         navigate,
     } = useRunFromPath();
+
+    // Unauthenticated visitor on /user → redirect to /login (protected route).
+    useEffect(() => {
+        if (!authChecked || user) {
+            return;
+        }
+        modelEdited.current = false;
+        setSelectedProvider("openrouter");
+        setSelectedModel("openrouter/free");
+        if (isUserAccountPath(window.location.pathname)) {
+            replaceGoto("/login", navigate);
+        }
+    }, [authChecked, user, navigate]);
+
+    // Authenticated user landing on an auth route (/login, /signup, /check-email)
+    // → redirect to /user (they're already signed in).
+    useEffect(() => {
+        if (user && authChecked && isAuthPath(window.location.pathname)) {
+            replaceGoto("/user", navigate);
+        }
+    }, [user, authChecked, navigate]);
 
     const activeLauncher = useMemo(
         () => launchers.find((launcher) => launcher.slug === selected),
@@ -376,10 +383,9 @@ export function App() {
                 user={user}
                 onAuthClick={() => {
                     if (user) {
-                        setShowSignIn(false);
                         goto("/user", navigate);
                     } else {
-                        setShowSignIn(!showSignIn);
+                        goto("/login", navigate);
                     }
                 }}
                 onLaunchClick={() => {
@@ -399,17 +405,15 @@ export function App() {
                 authState={{
                     user,
                     checked: authChecked,
-                    checkEmail,
-                    showSignIn,
                     deepLinkLoading,
                 }}
                 authActions={{
-                    setShowSignIn,
-                    setCheckEmail,
+                    onRequested: (email) => {
+                        goto(`/check-email?email=${encodeURIComponent(email)}`, navigate);
+                    },
                     onAuthenticated: (signedIn) => {
                         setUser(signedIn);
-                        setShowSignIn(false);
-                        goto("/user", navigate);
+                        replaceGoto("/user", navigate);
                     },
                     onLogout: async () => {
                         await apiLogout();

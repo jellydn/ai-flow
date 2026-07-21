@@ -11,6 +11,7 @@ use App\Support\AiProviderRegistry;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Date;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -113,6 +114,20 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
     {
         $label = $this->commentLabel;
 
+        // commentId is threaded through by dispatchContinuation on every
+        // leg — a null here is a programming error (missing wire-up).
+        // Treat it as a no-op so we don't PATCH /issues/comments/0.
+        if ($this->commentId === null) {
+            Log::warning('ProcessGitHubBotCommandJob::continue called without commentId.', [
+                'run_id' => $this->runId,
+                'owner' => $this->owner,
+                'repo' => $this->repo,
+                'number' => $this->number,
+            ]);
+
+            return;
+        }
+
         try {
             /** @var Run|null $run */
             $run = Run::find($this->runId);
@@ -122,7 +137,7 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
             }
 
             if (in_array($run->status, Run::TERMINAL_STATUSES, true)) {
-                $this->postResultComment($bot, $label, $this->commentId ?? 0, $run);
+                $this->postResultComment($bot, $label, $this->commentId, $run);
 
                 return;
             }
@@ -131,7 +146,7 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
                 $bot->updateComment(
                     $this->owner,
                     $this->repo,
-                    $this->commentId ?? 0,
+                    $this->commentId,
                     $bot->formatResultComment($label, $this->launcherSlug, [], $this->timeoutErrorMessage()),
                     $this->installationId,
                 );
@@ -139,7 +154,7 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
                 return;
             }
 
-            $this->dispatchContinuation($this->commentId ?? 0, $run->id);
+            $this->dispatchContinuation($this->commentId, $run->id);
         } catch (Throwable $e) {
             $this->handleFailure($bot, $e, $this->commentId);
         }
@@ -199,6 +214,18 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
             allowCustom: false,
         );
 
+        // Fail fast when no usable key is available — the bot path
+        // bypasses StoreRunRequest validation so the guard that applies
+        // to the HTTP API is not enforced here. Without this check the
+        // job dispatches ExecuteLauncherJob, which fails, the Run ends
+        // failed, and an error comment is posted — but the webhook still
+        // returns 202 and queues a job guaranteed to fail.
+        if (! $params->hasUsableKey()) {
+            throw new RuntimeException(
+                'No AI provider API key is available. Configure OPENAI_API_KEY or OPENROUTER_API_KEY on the server.'
+            );
+        }
+
         // Extract repo metadata from the source URL (same as RunController::store).
         $repoSlug = null;
         $repoType = null;
@@ -239,14 +266,25 @@ class ProcessGitHubBotCommandJob implements ShouldQueue
 
     /**
      * Post the final result comment.
+     *
+     * Public runs never expose raw error messages in comments — the same
+     * guarantee handleFailure provides for exceptions thrown inside this job.
+     * MarkFailed() stores arbitrary failure detail (exception strings,
+     * API/infra messages) that must not leak into public GitHub repos.
      */
     private function postResultComment(GitHubBotService $bot, string $label, int $commentId, Run $run): void
     {
+        $error = $run->error;
+
+        if ($run->is_public && filled($error)) {
+            $error = 'Internal error: The analysis did not complete successfully.';
+        }
+
         $resultComment = $bot->formatResultComment(
             $label,
             $this->launcherSlug,
             array_merge((array) $run->result, ['run_id' => $run->id]),
-            $run->error,
+            $error,
         );
 
         $bot->updateComment($this->owner, $this->repo, $commentId, $resultComment, $this->installationId);

@@ -253,6 +253,93 @@ class UserLauncherTest extends TestCase
             ->assertJsonValidationErrors('output_schema');
     }
 
+    public function test_output_schema_must_contain_type_or_properties_key(): void
+    {
+        $user = User::factory()->create();
+
+        // A plain object without schema anchor keys is rejected.
+        $this->actingAs($user)->postJson('/api/user/launchers', [
+            'slug' => 'no-anchor',
+            'name' => 'No anchor',
+            'description' => 'Plain object without schema keys.',
+            'prompt_template' => 'Enough characters here to pass the minimum length check.',
+            'input_type' => 'repository',
+            'output_schema' => json_encode(['hello' => 'world']),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('output_schema');
+    }
+
+    public function test_output_schema_rejects_json_array(): void
+    {
+        $user = User::factory()->create();
+
+        // A JSON array is not a schema object and must be rejected.
+        $this->actingAs($user)->postJson('/api/user/launchers', [
+            'slug' => 'array-schema',
+            'name' => 'Array schema',
+            'description' => 'An array is not a valid schema.',
+            'prompt_template' => 'Enough characters here to pass the minimum length check.',
+            'input_type' => 'repository',
+            'output_schema' => json_encode([1, 2, 3]),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('output_schema');
+    }
+
+    public function test_output_schema_accepts_properties_only_without_type(): void
+    {
+        $user = User::factory()->create();
+
+        // A schema with only a `properties` key (no `type`) is valid.
+        $this->actingAs($user)->postJson('/api/user/launchers', [
+            'slug' => 'properties-only',
+            'name' => 'Properties only',
+            'description' => 'Schema with properties but no type.',
+            'prompt_template' => 'Enough characters here to pass the minimum length check.',
+            'input_type' => 'repository',
+            'output_schema' => json_encode(['properties' => ['summary' => ['type' => 'string']]]),
+        ])
+            ->assertStatus(201)
+            ->assertJsonPath('data.slug', 'properties-only');
+    }
+
+    public function test_output_schema_rejects_json_primitive(): void
+    {
+        $user = User::factory()->create();
+
+        // A JSON primitive (string/number/boolean/null) is not a schema object.
+        $this->actingAs($user)->postJson('/api/user/launchers', [
+            'slug' => 'primitive-schema',
+            'name' => 'Primitive schema',
+            'description' => 'A string is not a valid schema.',
+            'prompt_template' => 'Enough characters here to pass the minimum length check.',
+            'input_type' => 'repository',
+            'output_schema' => json_encode('just a string'),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('output_schema');
+    }
+
+    public function test_update_also_validates_output_schema_shape(): void
+    {
+        $user = User::factory()->create();
+        $launcher = UserLauncher::factory()->forUser($user)->create(['slug' => 'updatable-schema']);
+
+        // Updating with a plain object missing schema keys is rejected.
+        $this->actingAs($user)->putJson("/api/user/launchers/{$launcher->id}", [
+            'output_schema' => json_encode(['hello' => 'world']),
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('output_schema');
+
+        // Updating with a valid schema (type only) succeeds.
+        $this->actingAs($user)->putJson("/api/user/launchers/{$launcher->id}", [
+            'output_schema' => json_encode(['type' => 'object']),
+        ])
+            ->assertOk();
+    }
+
     public function test_prompt_template_must_be_at_least_20_characters(): void
     {
         $user = User::factory()->create();

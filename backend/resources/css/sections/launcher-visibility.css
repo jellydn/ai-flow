@@ -1,0 +1,112 @@
+/* ── Launcher visibility (dashboard tab) ────────────────────── */
+.launcher-visibility .settings-header > div:first-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.launcher-visibility .section-kicker {
+  margin: 0;
+}
+.launcher-visibility .settings-header h3 {
+  margin: 0;
+}
+.visibility-count {
+  text-transform: uppercase;
+  font: 500 9px "DM Mono";
+  letter-spacing: 0.08em;
+  color: #8c8981;
+  padding: 6px 10px;
+  border: 1px solid #ebe8e0;
+  border-radius: 9999px;
+  background: #faf9f6;
+}
+.visibility-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.visibility-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #ebe8e0;
+  transition: 0.15s;
+}
+.visibility-item:last-child {
+  border-bottom: 0;
+}
+.visibility-item:hover {
+  background: #faf8f3;
+}
+.visibility-item.is-hidden {
+  opacity: 0.62;
+}
+.visibility-info {
+  min-width: 0;
+  flex: 1;
+}
+.visibility-name-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.visibility-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.visibility-slug {
+  color: #86827a;
+  font: 400 10px "DM Mono";
+}
+.visibility-desc {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+.visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d6d2c9;
+  background: #fff;
+  border-radius: 9999px;
+  padding: 7px 13px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--success);
+  transition: 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.visibility-toggle:hover:not(:disabled) {
+  border-color: #bcb7ab;
+}
+.visibility-toggle.is-hidden {
+  color: #8c8981;
+  background: #faf9f6;
+}
+.visibility-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.visibility-toggle svg {
+  flex-shrink: 0;
+}
+.visibility-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #d6d3ca;
+  border-top-color: var(--orange);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}

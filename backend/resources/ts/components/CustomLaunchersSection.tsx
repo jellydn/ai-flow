@@ -1,4 +1,5 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FolderPlus, Pencil, Trash2, Code2, ChevronDown, Sparkles } from "lucide-react";
 import {
     createUserLauncher,
     deleteUserLauncher,
@@ -6,6 +7,7 @@ import {
     updateUserLauncher,
 } from "../services/userLaunchers.ts";
 import type { UserLauncher } from "../types/api.ts";
+import { isValidJsonObjectSchema } from "../lib/jsonSchema.ts";
 import { logger } from "../lib/logger.ts";
 
 const INPUT_TYPES = [
@@ -49,6 +51,9 @@ const DEFAULT_OUTPUT_SCHEMA = JSON.stringify(
     2,
 );
 
+const inputTypeLabel = (value: string): string =>
+    INPUT_TYPES.find((t) => t.value === value)?.label ?? value;
+
 export function CustomLaunchersSection() {
     const [launchers, setLaunchers] = useState<UserLauncher[]>([]);
     const [loading, setLoading] = useState(true);
@@ -56,6 +61,7 @@ export function CustomLaunchersSection() {
     const [showForm, setShowForm] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [showAdvanced, setShowAdvanced] = useState(false);
 
     // Form fields
     const [slug, setSlug] = useState("");
@@ -90,45 +96,37 @@ export function CustomLaunchersSection() {
         setOutputSchema(DEFAULT_OUTPUT_SCHEMA);
         setEditingId(null);
         setShowForm(false);
+        setShowAdvanced(false);
+        setError("");
     };
 
-    const validateOutputSchema = (raw: string): boolean => {
-        try {
-            JSON.parse(raw);
-            return true;
-        } catch {
-            return false;
-        }
-    };
+    const schemaValid = useMemo(() => isValidJsonObjectSchema(outputSchema), [outputSchema]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError("");
 
-        if (!validateOutputSchema(outputSchema)) {
-            setError("Output schema must be valid JSON.");
+        if (!schemaValid) {
+            setError(
+                "Output schema must be a JSON Schema object with a 'type' or 'properties' key.",
+            );
+            setShowAdvanced(true);
             return;
         }
 
+        const sharedPayload = {
+            name,
+            description,
+            prompt_template: promptTemplate,
+            input_type: inputType,
+            output_schema: outputSchema,
+        };
         setSaving(true);
         try {
             if (editingId) {
-                await updateUserLauncher(editingId, {
-                    name,
-                    description,
-                    prompt_template: promptTemplate,
-                    input_type: inputType,
-                    output_schema: outputSchema,
-                });
+                await updateUserLauncher(editingId, sharedPayload);
             } else {
-                await createUserLauncher({
-                    slug,
-                    name,
-                    description,
-                    prompt_template: promptTemplate,
-                    input_type: inputType,
-                    output_schema: outputSchema,
-                });
+                await createUserLauncher({ slug, ...sharedPayload });
             }
             resetForm();
             await load();
@@ -148,6 +146,7 @@ export function CustomLaunchersSection() {
         setPromptTemplate(launcher.prompt_template);
         setInputType(launcher.input_type);
         setOutputSchema(JSON.stringify(launcher.output_schema, null, 2));
+        setShowAdvanced(true);
         setShowForm(true);
     };
 
@@ -174,18 +173,30 @@ export function CustomLaunchersSection() {
     }
 
     return (
-        <section className="workflow-prompts" aria-labelledby="custom-launchers-heading">
+        <section className="custom-launchers" aria-labelledby="custom-launchers-heading">
             <div className="settings-header workflow-prompts-header">
-                <h3 id="custom-launchers-heading">Custom launchers</h3>
+                <div>
+                    <span className="section-kicker">Your workflows</span>
+                    <h3 id="custom-launchers-heading">Custom launchers</h3>
+                </div>
                 <button
                     type="button"
-                    className="workflow-prompt-save"
+                    className={showForm ? "settings-header-secondary" : "workflow-prompt-save"}
                     onClick={() => {
-                        resetForm();
-                        setShowForm(!showForm);
+                        if (showForm) {
+                            resetForm();
+                        } else {
+                            setShowForm(true);
+                        }
                     }}
                 >
-                    {showForm ? "Cancel" : "+ New launcher"}
+                    {showForm ? (
+                        "Cancel"
+                    ) : (
+                        <>
+                            <FolderPlus size={14} /> New launcher
+                        </>
+                    )}
                 </button>
             </div>
             <p className="workflow-prompts-hint">
@@ -266,25 +277,42 @@ export function CustomLaunchersSection() {
                             minLength={20}
                             placeholder="Review this code for security issues..."
                         />
-                    </label>
-                    <label className="form-field">
-                        <span>Output schema (JSON Schema)</span>
-                        <textarea
-                            className="workflow-prompt-textarea custom-launcher-schema"
-                            rows={10}
-                            value={outputSchema}
-                            onChange={(e) => setOutputSchema(e.target.value)}
-                            required
-                            spellCheck={false}
-                        />
-                        <span
-                            className={`form-hint ${validateOutputSchema(outputSchema) ? "schema-valid" : "schema-invalid"}`}
-                        >
-                            {validateOutputSchema(outputSchema)
-                                ? "Valid JSON"
-                                : "Invalid JSON — check syntax"}
+                        <span className="form-hint">
+                            Instructions sent to the AI. The GitHub repository or PR content is
+                            appended automatically after your prompt as “GitHub context”.
                         </span>
                     </label>
+
+                    <button
+                        type="button"
+                        className="custom-launcher-advanced-toggle"
+                        aria-expanded={showAdvanced}
+                        onClick={() => setShowAdvanced(!showAdvanced)}
+                    >
+                        <Code2 size={14} />
+                        <span>Output schema (JSON Schema)</span>
+                        <ChevronDown size={14} />
+                    </button>
+                    {showAdvanced && (
+                        <label className="form-field custom-launcher-schema-field">
+                            <textarea
+                                className="workflow-prompt-textarea custom-launcher-schema"
+                                rows={10}
+                                value={outputSchema}
+                                onChange={(e) => setOutputSchema(e.target.value)}
+                                required
+                                spellCheck={false}
+                            />
+                            <span
+                                className={`schema-badge ${schemaValid ? "schema-valid" : "schema-invalid"}`}
+                            >
+                                {schemaValid
+                                    ? "Valid JSON Schema"
+                                    : "Invalid — must have 'type' or 'properties'"}
+                            </span>
+                        </label>
+                    )}
+
                     <div className="workflow-prompt-actions">
                         <button type="submit" className="workflow-prompt-save" disabled={saving}>
                             {saving ? "Saving…" : editingId ? "Update launcher" : "Create launcher"}
@@ -297,29 +325,36 @@ export function CustomLaunchersSection() {
             )}
 
             {launchers.length > 0 && (
-                <ul className="workflow-prompts-list">
+                <ul className="custom-launcher-list">
                     {launchers.map((launcher) => (
-                        <li key={launcher.id} className="workflow-prompt-card">
-                            <div className="workflow-prompt-legend">
-                                <span className="workflow-prompt-title">{launcher.name}</span>
-                                <span className="workflow-prompt-badge">Custom</span>
-                                <span className="custom-launcher-slug">{launcher.slug}</span>
+                        <li key={launcher.id} className="custom-launcher-card">
+                            <div className="custom-launcher-card-header">
+                                <div className="custom-launcher-card-title">
+                                    <span className="custom-launcher-name">{launcher.name}</span>
+                                    <span className="workflow-prompt-badge">Custom</span>
+                                    <span className="custom-launcher-input-badge">
+                                        {inputTypeLabel(launcher.input_type)}
+                                    </span>
+                                </div>
+                                <code className="custom-launcher-slug">{launcher.slug}</code>
                             </div>
-                            <p className="custom-launcher-desc">{launcher.description}</p>
+                            <p className="custom-launcher-desc">
+                                {launcher.description || "No description provided."}
+                            </p>
                             <div className="workflow-prompt-actions">
                                 <button
                                     type="button"
-                                    className="workflow-prompt-save"
+                                    className="workflow-prompt-reset"
                                     onClick={() => handleEdit(launcher)}
                                 >
-                                    Edit
+                                    <Pencil size={13} /> Edit
                                 </button>
                                 <button
                                     type="button"
-                                    className="workflow-prompt-reset"
+                                    className="workflow-prompt-reset danger"
                                     onClick={() => handleDelete(launcher)}
                                 >
-                                    Delete
+                                    <Trash2 size={13} /> Delete
                                 </button>
                             </div>
                         </li>
@@ -328,9 +363,14 @@ export function CustomLaunchersSection() {
             )}
 
             {!showForm && launchers.length === 0 && (
-                <p className="workflow-prompts-empty">
-                    No custom launchers yet. Create one to get started.
-                </p>
+                <div className="custom-launcher-empty">
+                    <Sparkles size={28} />
+                    <p>No custom launchers yet.</p>
+                    <p className="custom-launcher-empty-hint">
+                        Create your own AI workflow to get started — it appears on your home page
+                        alongside the built-in launchers.
+                    </p>
+                </div>
             )}
         </section>
     );

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RunHistory } from "../RunHistory.tsx";
 
@@ -48,11 +48,16 @@ describe("RunHistory", () => {
         renderComponent();
         expect(screen.getByRole("combobox")).toBeInTheDocument();
         expect(screen.getByText("All statuses")).toBeInTheDocument();
+        // Flush async useEffect (load) so state updates happen inside act()
+        await waitFor(() => {});
     });
 
-    it("shows loading state initially", () => {
+    it("shows loading state initially", async () => {
         renderComponent();
         expect(screen.getByText("Loading runs…")).toBeInTheDocument();
+        // Flush async useEffect so the pending fetchUserRuns mock resolves
+        // inside act() instead of leaking after the test completes.
+        await waitFor(() => {});
     });
 
     it("shows empty state when there are no runs", async () => {

@@ -7,7 +7,7 @@ use Illuminate\Console\Command;
 
 class ReapStuckRuns extends Command
 {
-    protected $signature = 'app:reap-stuck-runs {--ttl=180 : Seconds a run may be stuck in "running" before it is reaped}';
+    protected $signature = 'app:reap-stuck-runs {--ttl=300 : Seconds a run may be stuck in "running" before it is reaped}';
 
     protected $description = 'Transition orphaned "running" runs to "failed" after the TTL expires';
 

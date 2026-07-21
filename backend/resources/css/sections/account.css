@@ -1,0 +1,178 @@
+/* ── Account settings (dashboard tab: Privacy & Data) ─────────── */
+
+.account-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.account-settings > h3 {
+  font-size: 18px;
+  letter-spacing: -0.03em;
+  margin: 0;
+}
+.account-settings .section-kicker {
+  margin-bottom: 6px;
+}
+
+/* ── Privacy panel (informational) ────────────────────────────── */
+.privacy-panel {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.privacy-panel p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+/* ── Danger zone (delete account) ─────────────────────────────── */
+.danger-zone {
+  background: #fff;
+  border: 1px solid #f0d0d0;
+  border-radius: 12px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.danger-zone > h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  margin: 0;
+  color: var(--error);
+  letter-spacing: -0.02em;
+}
+.danger-zone > h4 svg {
+  flex-shrink: 0;
+}
+.danger-zone > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+/* Checklist inside the account danger zone — distinct from the report
+   checklist (base.css). Inline checkbox + label, left-aligned. */
+.account-settings .checklist {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0;
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: 12px;
+  color: #4a4742;
+}
+.account-settings .checklist input {
+  accent-color: var(--orange);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+/* Delete button — error red, not the orange primary CTA (per DESIGN.md:
+   tertiary orange is reserved for the single most important action per
+   screen; a destructive action in a secondary tab uses the error colour). */
+.danger-btn {
+  align-self: flex-start;
+  height: 44px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--error);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  transition: 0.2s;
+}
+.danger-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #a32c2c;
+}
+.danger-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Privacy note (API Keys tab — moved from launcher-visibility) ─ */
+.privacy-note {
+  margin-top: 28px;
+  padding: 18px 20px;
+  background: #faf8f3;
+  border: 1px solid #ebe8e0;
+  border-radius: 10px;
+}
+.privacy-note h4 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 10px;
+  letter-spacing: -0.02em;
+}
+.privacy-note h4 svg {
+  flex-shrink: 0;
+  color: var(--orange);
+}
+.privacy-note ul {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  list-style: none;
+  counter-reset: privacy-item;
+}
+.privacy-note ul li {
+  position: relative;
+  padding-left: 6px;
+  margin-bottom: 8px;
+  counter-increment: privacy-item;
+  color: #6f6b64;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.privacy-note ul li:last-child {
+  margin-bottom: 0;
+}
+.privacy-note ul li::before {
+  content: counter(privacy-item);
+  position: absolute;
+  left: -18px;
+  top: 0;
+  width: 14px;
+  height: 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #f0eee8;
+  color: #8c8981;
+  font: 500 8px "DM Mono";
+}
+.privacy-note-disclaimer {
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #ebe8e0;
+  color: #8c8981;
+  font-size: 10px;
+  line-height: 1.6;
+}
+.privacy-note-disclaimer a {
+  color: var(--orange);
+  text-decoration: none;
+  font-weight: 600;
+}
+.privacy-note-disclaimer a:hover {
+  text-decoration: underline;
+}
