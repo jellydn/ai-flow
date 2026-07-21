@@ -1,126 +1,124 @@
 # Architecture
 
-System patterns, layers, data flow, and abstractions for ai-flow.
+> System patterns, layers, data flow, and abstractions for ai-flow.
 
-## High-level pattern
+## Pattern
 
-**Monolithic Laravel app** serving a React SPA + queue-backed JSON API. No microservices. The single Laravel 13 app handles HTTP, queue jobs, SSE streaming, and serves the compiled React assets.
+**Monolith with queue-offloaded AI work.** A single Laravel 13 app serves a React 19 SPA (Vite) and a JSON API. Slow/IO work (AI generation, GitHub fetching, bot polling) runs on the queue — never in the HTTP request cycle.
 
 ```
-Browser (React SPA)
-   │  HTTPS
-   ▼
-Laravel HTTP (routes/api.php, routes/web.php)
-   │
-   ├── POST /api/runs → RunController::store → Run (queued) → ExecuteLauncherJob
-   │                                                    │
-   │                                                    ▼
-   │                                              RunExecutor::execute
-   │                                                    │
-   │                                    ┌───────────────┼───────────────┐
-   │                                    ▼               ▼               ▼
-   │                              GitHubService   AIProviderInterface   JsonSchemaValidator
-   │                              (parse + cache)  (generate JSON)      (validate result)
-   │                                    │               │
-   │                                    ▼               ▼
-   │                              runs.source_context  runs.result
-   │
-   ├── GET /api/runs/{uuid} → RunResource (JSON snapshot)
-   │
-   └── GET /api/runs/{uuid}/stream → SSE (DB-polled, ~55s window)
-                                        │
-                                        ▼
-                                  RunStreamer::stream
-                                  (cache-version-gated DB poll)
+┌─────────────┐     ┌──────────────────────────────────────────────┐
+│  React SPA  │────▶│  Laravel API (routes/api.php)                │
+│ (Vite/TS)   │     │  ┌────────────┐  ┌───────────────────────┐  │
+└─────────────┘     │  │ Controllers│─▶│ Services (sync part)  │  │
+                    │  └─────┬──────┘  └───────────────────────┘  │
+                    │        │ dispatch                              │
+                    │  ┌─────▼──────┐  ┌───────────────────────┐  │
+                    │  │   Jobs     │─▶│ RunExecutor / AI / GH │  │
+                    │  │ (queue)    │  └───────────────────────┘  │
+                    │  └────────────┘                              │
+                    └──────────────────────────────────────────────┘
+                                    │
+                              ┌─────▼─────┐
+                              │ Database  │ (Postgres/MySQL prod)
+                              └───────────┘
+```
+
+## Core data flow
+
+### 1. Run creation (HTTP → queue)
+
+```
+POST /api/runs → RunController::store → StoreRunRequest (validates: hasUsableKey, isGuestViolationFor, isModelAllowed)
+  → Run::create (status=queued, uuid) → ExecuteLauncherJob::dispatch
+  → returns 202 + {uuid}
+```
+
+### 2. Run execution (queue worker)
+
+```
+ExecuteLauncherJob::handle (ShouldBeEncrypted — byok key encrypted in payload)
+  → RunExecutor::execute
+    → GitHubService::context(url)        (cached 10 min)
+    → ContextEncoder::encode             (budget tiers: small/medium/large)
+    → AIProviderInterface::generate      (JSON schema → JsonSchemaValidator)
+    → Run::update (status=completed, result=json)
+  → RunProgressed event → CacheRunProgressedVersion listener (cache version key)
+```
+
+### 3. Run polling (SSE, DB-backed)
+
+```
+GET /api/runs/{uuid}/stream → RunStreamer::stream (generator)
+  → polls DB (~55s window), yields SSE events keyed by cached progress version
+  → terminal status (completed/failed) ends stream
+```
+
+### 4. GitHub bot (webhook → two-phase job)
+
+```
+POST /api/github/webhooks → VerifyGitHubWebhook (HMAC) → GitHubWebhookController
+  → GitHubBotService::parseCommand + isLauncherEnabled (cached .github/ai-flow.yml)
+  → ProcessGitHubBotCommandJob::dispatch (returns 202)
+
+Phase 1 (initialize): postComment(queued) → createAndExecuteRun (hasUsableKey guard)
+  → ExecuteLauncherJob::dispatch → dispatchContinuation (delayed self)
+Phase 2 (continue):   check Run status
+  → terminal → postResultComment (error sanitized for public runs)
+  → deadline exceeded → timeout comment
+  → else → dispatchContinuation (delayed self)
 ```
 
 ## Layers
 
-### 1. HTTP layer (`app/Http/`)
-
-- **Controllers** — thin: validate input, dispatch jobs, return resources. `RunController`, `LauncherController`, `UserLauncherController`, `ProviderCredentialController`, `LauncherPromptController`, `RunHistoryController`, `AccountController`, `TrendingRepositoryController`, `Auth/PasswordAuthController`, `Auth/MagicLinkController`.
-- **Form Requests** — validation: `StoreUserLauncherRequest`, `UpdateUserLauncherRequest`, etc.
-- **API Resources** — JSON serialization: `RunResource`, `LauncherResource`, `UserLauncherResource`, `UserResource`.
-
-### 2. Domain layer (`app/Services/`, `app/Launchers/`)
-
-- **`RunExecutor`** — orchestrates a run: GitHub fetch → context encoding → AI generate → schema validation → persist result. Single entry point for `ExecuteLauncherJob`.
-- **`GitHubService`** — parse GitHub URL, fetch + cache context, assemble structured context. No git clone — pure REST API + cache.
-- **`ContextEncoder`** — encodes GitHub context into a prompt-friendly string.
-- **`ContextBudget`** — limits on README/file-tree/diff/comment lengths.
-- **`BaseAIProvider`** — deep base module owning the HTTP request lifecycle for all AI providers. Subclasses declare shape via hooks (`configureRequest`, `endpoint`, `buildPayload`, `extractContent`, `verifyEndpoint`, `configKey`, `defaultModel`).
-- **`JsonSchemaValidator`** — recursive JSON Schema validation (type, enum, required, additionalProperties, nested objects/arrays).
-- **`RunStreamer`** — SSE generator with cache-version-gated DB polling.
-- **`AiProviderRegistry`** (`app/Support/`) — singleton. Resolves provider by ID, resolves API key (injected → BYOK credential → server config).
-- **`LauncherMetaService`** — singleton. Launcher icon/tone metadata.
-- **`LauncherResolutionService`** — resolves a launcher slug to a built-in `Launcher` or user `UserLauncher`.
-
-### 3. Launcher layer (`app/Launchers/`)
-
-- **`LauncherInterface`** (`app/Contracts/`) — `getSlug()`, `getName()`, `getPromptTemplate()`, `getInputType()`, `getOutputSchema()`, `isBuiltIn()`.
-- **`LauncherSource`** (`app/Contracts/`) — implemented by both `Launcher` and `UserLauncher` models so `Run::launcherSource()` can return either.
-- **`BaseLauncher`** — abstract base with shared `outputSchema()` and `make()` metadata helper.
-- **Built-in launchers**: `ReviewPullRequestLauncher`, `PlanIssueLauncher`, `ExplainRepositoryLauncher`, `LaravelDoctorLauncher`.
-- **Custom launchers**: created by authenticated users via API, stored in `user_launchers` table (separate from built-in `launchers`).
-
-### 4. Job layer (`app/Jobs/`)
-
-- **`ExecuteLauncherJob`** — `ShouldBeEncrypted`, `ShouldQueue`. `tries=2`, `timeout=120`. Resolves provider + API key via registry, delegates to `RunExecutor::execute`.
-- **`ReapStuckRuns`** — scheduled command (every minute in production). Transitions orphaned "running" runs to "failed" after TTL (180s default).
-
-### 5. Model layer (`app/Models/`)
-
-- **`Run`** — UUID primary key, JSON columns (`progress`, `input`, `source_context`, `result`). `markFailed()` is the single owner of the run-failure lifecycle. `launcherSource()` returns built-in or user launcher.
-- **`Launcher`** — built-in launchers, seeded from `DatabaseSeeder`. Implements `LauncherSource`.
-- **`UserLauncher`** — user-created launchers, UUID PK. Cascade-deletes associated runs. Implements `LauncherSource`.
-- **`User`** — auth + ownership.
-- **`ProviderCredential`** — encrypted BYOK credentials. `CREDENTIAL_ENCRYPTION_KEY` encryption.
-
-### 6. Frontend layer (`resources/ts/`)
-
-- **`app.tsx`** — React entry, mounts `App.tsx`.
-- **`components/`** — UI components (functional + hooks). `App.tsx` (root), `Home.tsx`, `Dashboard.tsx`, `LaunchArea.tsx`, `Report.tsx`, `Running.tsx`, `CustomLaunchersSection.tsx`, `LauncherVisibilitySection.tsx`, `WorkflowPromptsSection.tsx`, `ProviderSettings.tsx`, `RunHistory.tsx`, `SignIn.tsx`, etc.
-- **`services/`** — API clients: `run.ts`, `auth.ts`, `userLaunchers.ts`.
-- **`hooks/`** — `useRunFromPath.ts`, `useRunSubscription.ts` (SSE).
-- **`lib/`** — utilities: `http.ts`, `logger.ts`, `decode.ts`, `runModels.ts`, `appPaths.ts`, `navigate.ts`, `scroll.ts`.
-- **`data/`** — `launcherMeta.ts` (static launcher metadata).
-- **`types/`** — `api.ts` (shared API types, `RunStatus` enum synced with `Run::STATUSES`).
-
-## Key data flow
-
-### Run creation → completion
-
-1. `POST /api/runs` (202) → `RunController::store` → validates, creates `Run` (status: `queued`), dispatches `ExecuteLauncherJob`.
-2. `ExecuteLauncherJob::handle` → resolves provider + API key via `AiProviderRegistry`, delegates to `RunExecutor::execute`.
-3. `RunExecutor::execute` → GitHub fetch (cached) → context encode → AI generate (JSON schema) → `JsonSchemaValidator::validate` → persist `result`, status `completed`.
-4. Progress dispatched via `RunProgressed` event → `CacheRunProgressedVersion` listener bumps cache version → `RunStreamer` SSE yields snapshot.
-5. Frontend `useRunSubscription` hook consumes SSE, updates UI.
-
-### Failure handling
-
-- `UserFacingRunException` — expected user/input errors (malformed URL, wrong launcher type, repo not found). Logged at `warning`, Sentry ignores.
-- `ConnectionException` — network failures to GitHub. Logged at `warning`.
-- AI operational errors ("API key not configured", "Invalid API key", "Unable to reach AI provider") — logged at `warning`.
-- Unexpected `Throwable` — `markFailed()` + `Sentry\captureException()`.
+| Layer | Location | Responsibility |
+|-------|----------|----------------|
+| HTTP | `app/Http/Controllers/`, `app/Http/Requests/`, `app/Http/Middleware/` | Thin controllers, form request validation, rate limiting, webhook verification |
+| API Resources | `app/Http/Resources/` | JSON serialization (`RunResource`, `UserResource`, etc.) |
+| Services | `app/Services/` | Business logic (AI providers, GitHub, launcher resolution, run execution, streaming) |
+| Contracts | `app/Contracts/` | `AIProviderInterface`, `LauncherInterface`, `LauncherSource` |
+| Jobs | `app/Jobs/` | Queue work (`ExecuteLauncherJob`, `ProcessGitHubBotCommandJob`) |
+| Launchers | `app/Launchers/` | One class per workflow (`BaseLauncher` + 4 built-ins) |
+| Models | `app/Models/` | Eloquent ORM (`Run`, `Launcher`, `User`, `ProviderCredential`, `UserLauncher`, `UserHiddenLauncher`, `LauncherPromptOverride`) |
+| Support | `app/Support/` | `AiProviderRegistry` (provider resolution, credential decryption) |
+| Data | `app/Data/` | DTOs (`GitHubReference`, `ResolvedLauncher`) |
+| Security | `app/Security/` | `CredentialCipher` (AES-256 encrypt/decrypt for BYOK keys) |
+| Policies | `app/Policies/` | Authorization (`RunPolicy`, `UserLauncherPolicy`, `ProviderCredentialPolicy`) |
+| Events/Listeners | `app/Events/`, `app/Listeners/` | `RunProgressed` → `CacheRunProgressedVersion` |
+| Console | `app/Console/Commands/` | `ReapStuckRuns` (marks stuck running runs as failed), `PromoteSuperAdminCommand` |
+| Filament | `app/Filament/` | Super-admin panel (Launchers + Users resources) |
 
 ## Key abstractions
 
-| Abstraction | Location | Purpose |
-|-------------|----------|---------|
-| `AIProviderInterface` | `app/Contracts/` | Swappable AI providers (generate, verifyCredential, defaultModel) |
-| `LauncherInterface` | `app/Contracts/` | Launcher contract (built-in + custom) |
-| `LauncherSource` | `app/Contracts/` | Unified interface for `Launcher` + `UserLauncher` models |
-| `BaseAIProvider` | `app/Services/` | Shared HTTP lifecycle for all AI providers (hooks pattern) |
-| `BaseLauncher` | `app/Launchers/` | Shared output schema + metadata for built-in launchers |
-| `AiProviderRegistry` | `app/Support/` | Singleton provider registry + API key resolution |
-| `Run::markFailed()` | `app/Models/Run.php` | Single owner of run-failure lifecycle |
+### `AIProviderInterface` (`app/Contracts/AIProviderInterface.php`)
+Swappable AI providers. Registry (`AiProviderRegistry`) resolves by ID; supports credential-backed keys (decrypts `ProviderCredential` via `CredentialCipher`), server config keys, and one-time keys. `BaseAIProvider` handles JSON extraction + error mapping.
 
-## Entry points
+### `LauncherInterface` + `BaseLauncher` (`app/Contracts/LauncherInterface.php`, `app/Launchers/BaseLauncher.php`)
+Declarative workflow metadata via `BaseLauncher::make()`. Each built-in launcher (review-pr, plan-issue, explain-repository, laravel-doctor) defines prompt template + output schema. Seeded by `DatabaseSeeder`. Custom launchers created by users via API (`user_launchers` table).
 
-| Entry point | Path | Purpose |
-|-------------|------|---------|
-| HTTP | `public/index.php` | Laravel HTTP kernel |
-| Artisan | `artisan` | CLI commands |
-| React | `resources/ts/app.tsx` | Frontend SPA mount |
-| Queue worker | `php artisan queue:work` | Processes `ExecuteLauncherJob` |
-| Scheduled | `console.php` | `ReapStuckRuns` every minute (production) |
+### `LaunchParameters` (`app/Services/LaunchParameters.php`)
+Resolves effective provider, model, and API key for a run — combining one-time keys, saved credentials, server config, and guest restrictions. `hasUsableKey()` guards the bot path (fail-fast).
+
+### `RunStreamer` (`app/Services/RunStreamer.php`)
+Generator-based SSE streaming. Polls the DB within a ~55s window, deduplicates via a cached progress version (incremented by `CacheRunProgressedVersion` listener on each `RunProgressed` event).
+
+## Rate limiting (`AppServiceProvider::boot()`)
+
+| Limiter | Scope | Default |
+|---------|-------|---------|
+| `runs` | IP | 5/hr |
+| `runs-stream` | IP | 30/min |
+| `magic-link` | IP\|email | 3/min |
+| `auth-login` | IP\|email | 10/min |
+| `auth-register` | IP | 5/min |
+| `credentials` | user ID | 10/min |
+| `github-webhook` | IP | 60/min |
+
+All configurable via env (`RUNS_RATE_LIMIT_PER_HOUR`, etc. in `config/app.php`).
+
+## Security architecture
+
+- **BYOK credentials:** Encrypted at rest via `CredentialCipher` (AES-256, dedicated `CREDENTIAL_ENCRYPTION_KEY` falling back to `APP_KEY`). Never stored on runs, never logged. API resources exclude `encrypted_*` fields.
+- **Webhook verification:** HMAC-SHA256 signature validation (`VerifyGitHubWebhook`).
+- **Public run error sanitization:** `ProcessGitHubBotCommandJob::postResultComment` replaces raw `$run->error` with a generic message for public runs.
+- **Production guards:** SQLite/sync-queue/no-TLS-Postgres all throw at boot in production.
