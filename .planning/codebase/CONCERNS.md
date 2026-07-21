@@ -6,10 +6,10 @@
 
 ### GitHubBotTest env credential leakage
 - **Where:** `backend/tests/Feature/GitHubBotTest.php`
-- **Issue:** 10 tests fail when `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` are set in local `.env`. The real credentials trigger `GitHubService::appInstallationToken()` which bypasses the tests' generic `Http::fake(['api.github.com/*' => 404])` stubs (the token endpoint returns 404, causing "Failed to create GitHub App installation token").
+- **Issue:** 10 tests fail when `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` are set in the shell environment or local `.env`. The real credentials trigger `GitHubService::appInstallationToken()` which bypasses the tests' generic `Http::fake(['api.github.com/*' => 404])` stubs (the token endpoint returns 404, causing "Failed to create GitHub App installation token").
 - **Impact:** Developers with real GitHub App credentials get false test failures; CI doesn't set these vars so CI is green.
-- **Fix:** Clear `GITHUB_APP_ID`/`GITHUB_APP_PRIVATE_KEY` in `phpunit.xml` `<php>` env block for test isolation.
-- **Status:** Open — pre-existing, identical on `origin/main`.
+- **Fix:** `GitHubBotTest::setUp()` now clears both vars via `config(['github-bot.app_id' => null, 'github-bot.app_private_key' => null])`, directly overriding the config at runtime (bypassing `env()`/`getenv()` which phpunit.xml `<env>` overrides couldn't reliably shadow). Individual tests that need credentials (e.g. `test_installation_token_uses_provided_installation_id_without_listing`) set them explicitly after `setUp()`.
+- **Status:** ✅ Fixed — `backend/tests/Feature/GitHubBotTest.php` `setUp()` clears both vars via `config()` override.
 
 ### Credential encryption key fallback
 - **Where:** `backend/config/credentials.php:35` — `'encryption_key' => env('CREDENTIAL_ENCRYPTION_KEY', env('APP_KEY'))`
@@ -41,9 +41,9 @@
 
 ### Untracked `.env` in working tree
 - **Where:** Repo root `.env`
-- **Issue:** `.env` is untracked (not in `.gitignore` at start of conversation; a `.gitignore` change adding `/.env` is pending but unstaged).
-- **Fix:** Commit the `.gitignore` change adding `/.env`.
-- **Status:** Pending — `.gitignore` modification exists but unstaged.
+- **Issue:** `.env` was untracked at the repo root (not in `.gitignore`).
+- **Fix:** `.gitignore` now includes `/.env` so the root `.env` is ignored.
+- **Status:** ✅ Fixed — `/.env` added to `.gitignore`.
 
 ### Frontend CSS consolidation
 - **Where:** `backend/resources/css/app.css` (2,412+ lines)
@@ -70,7 +70,7 @@
 
 - **Sentry:** Configured for backend + frontend. Expected GitHub run failures excluded from Sentry (PR #81).
 - **No structured metrics:** No Prometheus/Datadog integration; relies on Sentry + logs.
-- **ReapStuckRuns:** Console command (`app/Console/Commands/ReapStuckRuns.php`) marks stuck running runs as failed — should be scheduled in production (cron/scheduler).
+- **ReapStuckRuns:** Console command (`app:reap-stuck-runs`) is scheduled in `routes/console.php` via `Schedule::command(ReapStuckRuns::class)->everyMinute()->environments(['production'])` — requires a production cron entry (`php artisan schedule:run`) to drive the scheduler.
 
 ## 📚 Documentation
 

@@ -29,6 +29,13 @@ class GitHubBotTest extends TestCase
         parent::setUp();
         $this->seed();
         config(['github-bot.webhook_secret' => 'test-secret']);
+        // Clear GitHub App credentials so tests don't pick up real keys
+        // from the shell environment or .env. Without this, tests that
+        // trigger GitHubService::appInstallationToken() (e.g. the bot
+        // webhook path) hit the real HTTP flow and fail. Individual tests
+        // that need credentials set them explicitly via config([...]).
+        // See .planning/codebase/CONCERNS.md.
+        config(['github-bot.app_id' => null, 'github-bot.app_private_key' => null]);
         Cache::flush();
     }
 
