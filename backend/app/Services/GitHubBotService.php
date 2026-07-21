@@ -90,7 +90,8 @@ class GitHubBotService
      */
     private function fetchRepoConfig(string $owner, string $repo, ?int $installationId = null): ?array
     {
-        $cacheKey = "github-bot:repo-config:{$owner}:{$repo}";
+        $installationSegment = $installationId ?? 'default';
+        $cacheKey = "github-bot:repo-config:{$owner}:{$repo}:{$installationSegment}";
 
         $cached = Cache::remember(
             $cacheKey,
@@ -149,6 +150,11 @@ class GitHubBotService
                     $result[$currentKey] = $value;
                 } else {
                     // Empty value after colon — start a list.
+                    // "0" is treated as empty because a YAML scalar "0"
+                    // evaluates to falsy for the enabled list use case —
+                    // it would be a list with one element "0", not the
+                    // integer 0. Given the config shape (only `enabled:
+                    // [slug, ...]`), this is harmless.
                     $result[$currentKey] = [];
                 }
 

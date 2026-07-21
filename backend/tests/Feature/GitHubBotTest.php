@@ -374,7 +374,7 @@ class GitHubBotTest extends TestCase
         ]);
 
         $bot = app(GitHubBotService::class);
-        $cacheKey = 'github-bot:repo-config:cachetest:cached-repo';
+        $cacheKey = 'github-bot:repo-config:cachetest:cached-repo:default';
 
         $this->assertTrue($bot->isLauncherEnabled('cachetest', 'cached-repo', 'review-pr'));
 
