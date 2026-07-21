@@ -153,8 +153,15 @@ set_env() {
     local key="$1"
     local value="$2"
     if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
-        # macOS-compatible sed
-        sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        # Cross-platform in-place edit: macOS/BSD `sed -i` requires an
+        # extension argument (use '' for no backup), while GNU `sed -i`
+        # treats '' as a filename. Match the OSTYPE check used below for
+        # the private-key post-processing.
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        else
+            sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        fi
     else
         echo "${key}=${value}" >> "$ENV_FILE"
     fi

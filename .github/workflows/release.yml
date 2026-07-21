@@ -4,9 +4,17 @@ on:
   push:
     branches: [main]
 
+# Least-privilege permissions for release-please. Setting an explicit
+# `permissions` block at the job level resets the default `GITHUB_TOKEN` to
+# read-only, so the action must be granted exactly what it needs: creating
+# release tags/branches (contents: write) and opening release PRs
+# (pull-requests: write).
 jobs:
   release-please:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: googleapis/release-please-action@v4
         with:
