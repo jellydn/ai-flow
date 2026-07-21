@@ -8,7 +8,7 @@ AI-assisted work on **ai-flow**: a single Laravel 13 app that serves a React UI 
 | API         | `backend/`                                                        | PHP 8.4, queue jobs, OpenAI/Anthropic/Gemini |
 | Deploy root | `backend/` (not repo root)                                        | Dokku (staging) or Laravel Cloud             |
 
-ADRs: `doc/adr/README.md`. Backend details: `backend/README.md`. Deploy: `backend/DOKKU_DEPLOY.md` (Dokku) and `backend/CLOUD_DEPLOY.md` (Laravel Cloud).
+ADRs: `doc/adr/README.md`. Backend details: `backend/README.md`. Deploy: `backend/DOKKU_DEPLOY.md` (Dokku) and `backend/CLOUD_DEPLOY.md` (Laravel Cloud). GitHub App setup: `doc/github-app-setup.md` + `scripts/setup-github-app.sh`.
 
 ## Commands (all run inside `backend/`)
 
@@ -35,7 +35,9 @@ npm run test:e2e      # Playwright e2e suite (--project=real-backend)
 
 Frontend JS commands also exposed as `just` targets (`just lint-js`, `just test-js`, `just e2e`, etc.). `just ci` runs the full backend+frontend gate locally.
 
-CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`). Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+CI (`.github/workflows/ci.yml`): backend on **PHP 8.4** (`sqlite3`,`pgsql` ext) runs `composer validate`, `php artisan test`, `pint --test`; frontend on **Node 24** runs `typecheck`, `lint`, `konsistent`, `build`, `test` (`vitest run`), `npm audit --production`. Pre-commit hooks via prek (`.pre-commit-config.yaml`): `just prek` runs them all.
+
+CD: **staging** (`.github/workflows/deploy-staging.yml`) deploys PRs from jellydn to Dokku; **production** deploys automatically via Laravel Cloud on push to `main`; **release** (`.github/workflows/release.yml`) auto-tags and creates GitHub Releases via release-please.
 
 ## Environment & AI providers
 
@@ -64,8 +66,8 @@ GET /api/runs/{uuid}/stream → SSE (DB poll, ~55s)
 
 ## Deploy
 
-- **Dokku (staging, what CI actually ships):** `dokku` git remote → `docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`. Dockerfile builds React assets + nginx/PHP-FPM; release phase migrates + seeds. Disable nginx `proxy-buffering` and set `proxy-read-timeout 75s` for SSE. DB uses `DB_URL` (not Dokku's `DATABASE_URL`).
-- **Laravel Cloud (alternative):** deploy `backend/` as app root, build `npm ci && npm run build`; stable shared `APP_KEY`, durable Neon Postgres (`DB_SSLMODE=require`), `QUEUE_CONNECTION=database`. See `CLOUD_DEPLOY.md`.
+- **Dokku (staging, auto-deployed via CI):** `dokku` git remote → `docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`. Dockerfile builds React assets + nginx/PHP-FPM; release phase migrates + seeds. Disable nginx `proxy-buffering` and set `proxy-read-timeout 75s` for SSE. DB uses `DB_URL` (not Dokku's `DATABASE_URL`).
+- **Laravel Cloud (production, auto-deploys on push to main):** deploy `backend/` as app root, build `npm ci && npm run build`; stable shared `APP_KEY`, durable Neon Postgres (`DB_SSLMODE=require`), `QUEUE_CONNECTION=database`. See `CLOUD_DEPLOY.md`.
 - Worker (both): `php artisan queue:work --sleep=1 --tries=2 --timeout=120`. Note `composer run dev` uses `php artisan queue:listen --tries=1 --timeout=0` (differs from standalone worker flags — don't copy the dev flags to prod).
 
 ## Coding standards

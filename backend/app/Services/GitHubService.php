@@ -196,4 +196,131 @@ class GitHubService
 
         return $http;
     }
+
+    // ── Bot authentication (GitHub App JWT + installation tokens) ──────
+
+    /**
+     * Build an authenticated HTTP client for the ai-flow bot.
+     *
+     * Priority: GitHub App (installation token) > PAT > unauthenticated.
+     *
+     * @param  int|null  $installationId  GitHub App installation ID from the
+     *                                    webhook payload. When provided, the
+     *                                    installation token is scoped to that
+     *                                    installation rather than the first
+     *                                    installation returned by GitHub.
+     */
+    public function botClient(?int $installationId = null): PendingRequest
+    {
+        $http = Http::baseUrl('https://api.github.com')
+            ->acceptJson()
+            ->withUserAgent('ai-flow-bot')
+            ->timeout(15)
+            ->retry(2, 200, null, false);
+
+        $appId = config('github-bot.app_id');
+        $privateKey = config('github-bot.app_private_key');
+
+        if (filled($appId) && filled($privateKey)) {
+            return $http->withToken($this->appInstallationToken((int) $appId, $privateKey, $installationId));
+        }
+
+        if ($token = config('services.github.token')) {
+            return $http->withToken($token);
+        }
+
+        return $http;
+    }
+
+    /**
+     * Generate a GitHub App installation access token.
+     *
+     * When $installationId is provided (sourced from the webhook payload), the
+     * token is minted directly for that installation. Otherwise the app's first
+     * installation is used as a fallback — only valid for single-installation
+     * apps. Tokens are cached per app + installation for ~50 minutes (GitHub
+     * expires them after 1 hour).
+     */
+    private function appInstallationToken(int $appId, string $privateKey, ?int $installationId = null): string
+    {
+        $cacheKey = "github-bot:installation-token:{$appId}:".($installationId ?? 'default');
+
+        return Cache::remember(
+            $cacheKey,
+            now()->addMinutes(50),
+            function () use ($appId, $privateKey, $installationId) {
+                $jwt = $this->appJwt($appId, $privateKey);
+
+                if ($installationId === null) {
+                    $installationsResponse = Http::baseUrl('https://api.github.com')
+                        ->acceptJson()
+                        ->withUserAgent('ai-flow-bot')
+                        ->withHeader('Authorization', "Bearer {$jwt}")
+                        ->get('/app/installations');
+
+                    if (! $installationsResponse->successful()) {
+                        throw new RuntimeException('Failed to list GitHub App installations.');
+                    }
+
+                    $installations = $installationsResponse->json();
+
+                    if (empty($installations)) {
+                        throw new RuntimeException('The GitHub App is not installed on any repositories.');
+                    }
+
+                    $installationId = $installations[0]['id'];
+                }
+
+                $tokenResponse = Http::baseUrl('https://api.github.com')
+                    ->acceptJson()
+                    ->withUserAgent('ai-flow-bot')
+                    ->withHeader('Authorization', "Bearer {$jwt}")
+                    ->post("/app/installations/{$installationId}/access_tokens");
+
+                if (! $tokenResponse->successful()) {
+                    throw new RuntimeException('Failed to create GitHub App installation token.');
+                }
+
+                return $tokenResponse->json('token');
+            },
+        );
+    }
+
+    /**
+     * Create a JWT for GitHub App authentication (RS256).
+     */
+    private function appJwt(int $appId, string $privateKey): string
+    {
+        $now = time();
+
+        $header = $this->base64UrlEncode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+        $payload = $this->base64UrlEncode(json_encode([
+            'iat' => $now - 60,
+            'exp' => $now + 600,
+            'iss' => (string) $appId,
+        ]));
+
+        $signature = '';
+        $key = openssl_get_privatekey($privateKey);
+
+        if ($key === false) {
+            throw new RuntimeException('Invalid GitHub App private key.');
+        }
+
+        openssl_sign("{$header}.{$payload}", $signature, $key, OPENSSL_ALGO_SHA256);
+
+        return "{$header}.{$payload}.".$this->base64UrlEncode($signature);
+    }
+
+    /**
+     * Encode data using base64url (RFC 7515 §2), as required for JWT segments.
+     *
+     * Standard base64_encode() can emit `+`, `/`, and `=` padding, which
+     * produce intermittent auth failures against GitHub. Base64URL swaps those
+     * for `-`, `_`, and strips the padding.
+     */
+    private function base64UrlEncode(string $data): string
+    {
+        return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+    }
 }

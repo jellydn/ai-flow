@@ -53,6 +53,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('auth-login', fn (Request $request) => Limit::perMinute((int) config('app.auth_login_rate_limit_per_min', 10))->by($request->ip().'|'.$request->input('email', '')));
         RateLimiter::for('auth-register', fn (Request $request) => Limit::perMinute((int) config('app.auth_register_rate_limit_per_min', 5))->by($request->ip()));
         RateLimiter::for('credentials', fn (Request $request) => Limit::perMinute((int) config('app.credentials_rate_limit_per_min', self::CREDENTIAL_VERIFY_PER_MINUTE))->by($request->user()->id));
+        RateLimiter::for('github-webhook', fn (Request $request) => Limit::perMinute((int) config('github-bot.webhook_rate_limit', 60))->by($request->ip()));
 
         // HTTP only: allow artisan during Cloud build (package:discover) and workers before DB env is wired.
         // Production uses Neon PostgreSQL; file-backed sqlite is local/CI only.
