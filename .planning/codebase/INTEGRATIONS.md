@@ -1,91 +1,91 @@
 # Integrations
 
-External services, APIs, and third-party providers used by ai-flow.
+> External services, APIs, databases, and auth providers consumed by ai-flow.
 
-## AI Providers (multi-provider registry)
+## AI providers (multi-provider registry)
 
-All implement `App\Contracts\AIProviderInterface` and extend `App\Services\BaseAIProvider`. Provider IDs sourced from `App\Support\AiProviderRegistry::ids()`, not a config array.
+All providers implement `App\Contracts\AIProviderInterface` (`backend/app/Contracts/AIProviderInterface.php`):
+- `id(): string` — provider identifier
+- `models(): array` — available models
+- `defaultModel(): string` — config-resolved default
+- `verifyCredential(string $key): bool` — minimal API call to validate key
+- `generate(...): array` — structured JSON generation (model override supported)
 
-| Provider | Class | Config block | Default model | Auth |
-|----------|-------|-------------|---------------|------|
-| OpenAI | `OpenAIProvider` | `services.openai` | `gpt-4o-mini` (`.env.example`: `gpt-5`) | Bearer token |
-| OpenRouter | `OpenRouterProvider` | `services.openai.openrouter_*` | `openrouter/free` | Bearer token + `HTTP-Referer`/`X-Title` headers |
-| Anthropic | `AnthropicProvider` | `services.anthropic` | `claude-sonnet-4-20250514` | `x-api-key` + `anthropic-version` header |
-| Gemini | `GeminiProvider` | `services.gemini` | `gemini-2.0-flash` | API key in URL query param |
+Provider IDs are sourced from `App\Support\AiProviderRegistry::ids()` (not a config array). The registry is bound in the container (`AppServiceProvider`) and resolves provider instances + models.
 
-### Key resolution (`AiProviderRegistry::resolveApiKey`)
+| Provider | Class | Config keys | Default model |
+|----------|-------|-------------|---------------|
+| OpenAI | `App\Services\OpenAIProvider` | `OPENAI_API_KEY`, `AI_BASE_URL`, `OPENAI_MODEL` | `gpt-4o-mini` (`.env.example` bumps to `gpt-5`) |
+| OpenRouter | `App\Services\OpenRouterProvider` | `OPENROUTER_API_KEY`, `OPENROUTER_BASE_URL`, `OPENROUTER_MODEL` | `openrouter/free` |
+| Anthropic | `App\Services\AnthropicProvider` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | `claude-sonnet-4-20250514` |
+| Gemini | `App\Services\GeminiProvider` | `GEMINI_API_KEY`, `GEMINI_MODEL` | `gemini-2.0-flash` |
 
-1. Injected key (from request `provider.api_key`)
-2. Saved BYOK credential (`provider_credential_id` → `ProviderCredential` model, decrypted with `CREDENTIAL_ENCRYPTION_KEY`)
-3. Server config fallback (`config('services.openai.key')`, etc.)
+`AI_MODEL` overrides `OPENAI_MODEL`. Per-adapter model overrides take precedence. Requests may carry `provider.id`; users manage keys via `provider-credentials` (never stored on runs, never logged).
 
-> Provider keys are never stored on runs, never logged. Stored credentials encrypted with dedicated `CREDENTIAL_ENCRYPTION_KEY` (falls back to `APP_KEY`).
+Base class `App\Services\BaseAIProvider` provides shared JSON extraction (handles code fences, prose-wrapped JSON, deep nesting) and error mapping (401/403 → safe message).
 
-### Shared lifecycle (`BaseAIProvider`)
+## GitHub
 
-- `generate()`: key resolution → request building (auth + timeout + retry) → status mapping (401/403 → "Invalid API key.") → JSON extraction → json_decode
-- `verifyCredential()`: lightweight GET to `verifyEndpoint()` — key resolution, status mapping, result structure
-- `extractJson()`: tolerates markdown fences (```json...```) and leading/trailing prose
+### GitHub REST API (`App\Services\GitHubService`)
+- **Purpose:** Parse GitHub URLs, fetch repo/PR/issue context (cached 10 min via `Cache::remember`), assemble structured context for AI runs.
+- **Auth:** `GITHUB_TOKEN` (PAT) via `services.github.token`; bot path uses GitHub App installation tokens (see below).
+- **Endpoints:** `/repos/{owner}/{repo}` (repo, languages, readme, tree), `/pulls/{n}`, `/pulls/{n}/files`, `/issues/{n}`, `/issues/{n}/comments`.
+- **Caching:** `github:{sha1(url)}` key, 10-min TTL.
 
-## GitHub REST API
+### GitHub App / Bot (`App\Services\GitHubBotService` + `ProcessGitHubBotCommandJob`)
+- **Purpose:** Listen for `issue_comment.created` webhooks, parse `@ai-flow {review|plan|explain|doctor}` commands, post/update progress + result comments.
+- **Auth:** GitHub App JWT (RS256, base64url segments per RFC 7515) → installation token. `botClient(?int $installationId)` prefers the installation ID from the webhook payload; falls back to PAT; finally unauthenticated.
+- **Webhook verification:** `App\Http\Middleware\VerifyGitHubWebhook` — HMAC-SHA256 signature check against `GITHUB_WEBHOOK_SECRET`.
+- **Per-repo config:** Reads `.github/ai-flow.yml` from the repo (cached 5 min, installation-scoped cache key). Missing file ⇒ all launchers enabled.
+- **Config:** `backend/config/github-bot.php` — `app_id`, `app_private_key`, `webhook_secret`, `poll_max_seconds` (150), `poll_interval_seconds` (5), `job_timeout` (60).
 
-| Concern | Detail |
-|---------|--------|
-| Service | `App\Services\GitHubService` |
-| Base URL | `https://api.github.com` |
-| Auth | `GITHUB_TOKEN` env (optional but recommended for rate limits) |
-| Caching | 10 min via `Cache::remember('github:'.sha1($url), ...)` |
-| Timeout | 15s, retry 2x with 200ms delay |
-| URL parsing | HTTPS-only, `github.com`/`www.github.com`, repo/PR/issue types |
+### GitHub Trending (`App\Services\GitHubTrendingService`)
+- Scrapes `https://github.com/trending`, parses repos, caches daily + stale-then-fresh fallback.
 
-### Fetches per reference type
+## Databases
 
-- **Repository**: repo metadata, languages, README (base64-decoded), file tree (recursive)
-- **Pull request**: PR metadata, changed files (patches, 50/page), PR comments (30/page)
-- **Issue**: issue metadata, issue comments (30/page)
+| Store | Driver | Use |
+|-------|--------|-----|
+| Primary DB | SQLite (local: `database/database.sqlite`), Postgres/MySQL (prod) | App data, sessions, cache, queue |
+| Cache | `database` (default), Redis/Memcached supported | GitHub context, repo config, trending, run-progress version |
+| Queue | `database` (default), Redis/SQS supported | `ExecuteLauncherJob`, `ProcessGitHubBotCommandJob` |
 
-### Error mapping (`mapRequestException`)
+**Production guardrails** (`AppServiceProvider::boot()`):
+- SQLite in production → `RuntimeException`
+- Postgres without TLS (`DB_SSLMODE` not `require`/`verify-ca`/`verify-full`) → `RuntimeException`
+- `QUEUE_CONNECTION=sync` in production → `RuntimeException`
 
-- 404 → `UserFacingRunException` (repo/PR/issue not found)
-- 403 → rate limit / access denied
-- 401 → auth failed
+**Laravel 13 note:** `turso/libsql-laravel` doesn't support Laravel 13 yet; production uses managed Postgres/MySQL, not SQLite.
 
-### Context budget (`App\Services\ContextBudget`)
+## Auth
 
-Limits on README length, file tree size, diff length, comment bodies — applied in `GitHubService::assemble()`.
+### Session-based (`web` guard)
+- **Magic link:** `App\Http\Controllers\Auth\MagicLinkController` — email-based passwordless. Tokens in `magic_login_tokens` table. Mail via Resend (`resend/resend-php`). Rate limited (`magic-link`: 3/min).
+- **Password:** `App\Http\Controllers\Auth\PasswordAuthController` — register/login/logout. Rate limited (`auth-login`: 10/min, `auth-register`: 5/min).
 
-## Email — Resend
+### Super-admin (Filament)
+- `App\Filament\AdminPanelProvider` — admin panel at `/admin`.
+- Bootstrap via `SuperAdminBootstrapSeeder` (`SUPER_ADMIN_BOOTSTRAP_EMAIL`, `SUPER_ADMIN_BOOTSTRAP_NAME`).
+- `is_super_admin` flag on `users` table; `PromoteSuperAdminCommand` console command.
 
-| Concern | Detail |
-|---------|--------|
-| Mailer | `resend` (config `services.resend.key`) |
-| From | `noreply@itman.fyi` |
-| Use | Magic-link auth emails (queued; needs worker) |
-| Env | `MAIL_MAILER=resend`, `RESEND_API_KEY`, `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` |
+## Email
 
-## Error Monitoring — Sentry
+- **Provider:** Resend (`resend/resend-php`, `RESEND_API_KEY`)
+- **Use:** Magic link emails (`App\Mail\MagicLinkMail`), super-admin bootstrap (`App\Mail\SuperAdminBootstrapMail`)
+- **Default mailer:** `log` (dev); Resend in prod
 
-| Concern | Detail |
-|---------|--------|
-| Backend | `sentry/sentry-laravel ^4.26` — `SENTRY_LARAVEL_DSN` |
-| Frontend | `@sentry/react ^10` — `VITE_SENTRY_DSN` |
-| Filtering | Expected user/input failures and AI operational errors logged at `warning` (Sentry ignores). Unexpected `Throwable` → `Sentry\captureException()`. |
+## Monitoring
 
-## Authentication
+- **Backend:** Sentry (`sentry/sentry-laravel`, `SENTRY_LARAVEL_DSN`) — config at `backend/config/sentry.php`. Sample rates, breadcrumbs, queue/SQL tracing configurable.
+- **Frontend:** `@sentry/react` v10.
+- **Guard:** `AppServiceProvider::boot()` logs a warning if `LOG_LEVEL=debug` in production.
 
-| Method | Detail |
-|--------|--------|
-| Password | `PasswordAuthController` — register/login, `throttle:auth-login` (10/min), `throttle:auth-register` (5/min) |
-| Magic link | `MagicLinkController` — email link, `throttle:magic-link` (3/min), queued mail |
-| Session | `database` driver, 120 min lifetime |
+## CI/CD
 
-## Rate Limiters (`AppServiceProvider::boot`)
+| Workflow | File | Purpose |
+|----------|------|---------|
+| CI | `.github/workflows/ci.yml` | Backend (PHP 8.4: `composer validate`, `php artisan test`, `pint --test`) + Frontend (Node 24: `typecheck`, `lint`, `konsistent`, `build`, `test`, `npm audit --production`) |
+| Staging deploy | `.github/workflows/deploy-staging.yml` | PRs from `jellydn` → Dokku (`docklight-staging.itman.fyi:ai-flow`, URL `https://ai-flow-staging.itman.fyi`) |
+| Release | `.github/workflows/release.yml` | `googleapis/release-please-action@v4` on push to `main` (permissions: `contents: write`, `pull-requests: write`) |
 
-| Limiter | Scope | Default |
-|---------|-------|---------|
-| `runs` | per IP / hour | 5 (`RUNS_RATE_LIMIT_PER_HOUR`) |
-| `runs-stream` | per IP / min | 30 (`RUNS_STREAM_RATE_LIMIT_PER_MIN`) |
-| `magic-link` | per IP+email / min | 3 (`MAGIC_LINK_RATE_LIMIT_PER_MIN`) |
-| `auth-login` | per IP+email / min | 10 (`AUTH_LOGIN_RATE_LIMIT_PER_MIN`) |
-| `auth-register` | per IP / min | 5 (`AUTH_REGISTER_RATE_LIMIT_PER_MIN`) |
-| `credentials` | per user / min | 10 (`CREDENTIALS_RATE_LIMIT_PER_MIN`) |
+**Production:** Laravel Cloud auto-deploys on push to `main` (stable `APP_KEY`, durable Neon Postgres `DB_SSLMODE=require`, `QUEUE_CONNECTION=database`).

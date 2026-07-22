@@ -104,12 +104,21 @@ GITHUB_BOT_COMMENT_LABEL=ai-flow
 > `-----BEGIN` / `-----END` lines. In `.env`, newlines inside quotes are
 > preserved.
 
-Alternatively, store the private key as a file and reference it:
+Alternatively, store the private key as a file and load it lazily so the
+file is only read when `GITHUB_APP_PRIVATE_KEY` is not set. PHP evaluates
+`env()`'s default argument eagerly, so use the `??` null-coalesce operator
+to defer the file read until the env var is actually absent:
 
 ```php
 // config/github-bot.php — an alternative to inline env var
-'app_private_key' => env('GITHUB_APP_PRIVATE_KEY', file_get_contents(storage_path('github-app-private-key.pem'))),
+'app_private_key' => env('GITHUB_APP_PRIVATE_KEY')
+    ?? file_get_contents(storage_path('github-app-private-key.pem')),
 ```
+
+The `??` null-coalesce operator only evaluates its right-hand side when the
+env var is absent, so the file read is skipped when the key is provided
+inline — avoiding an unnecessary disk read (and a `file_get_contents` warning
+when the file doesn't exist) on every config access.
 
 ---
 

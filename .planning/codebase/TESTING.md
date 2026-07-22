@@ -1,191 +1,88 @@
 # Testing
 
-Framework, structure, mocking patterns, and coverage for ai-flow.
+> Test framework, structure, mocking patterns, and coverage for ai-flow.
 
-## Backend — PHPUnit 13
+## Frameworks
 
-### Config (`backend/phpunit.xml`)
+| Layer | Framework | Config |
+|-------|-----------|--------|
+| Backend unit/feature | PHPUnit ^13 | `backend/phpunit.xml` |
+| Frontend unit | Vitest 4 | `backend/vitest.config.ts` |
+| E2E | Playwright 1.61 | `backend/playwright.config.ts` (`--project=real-backend`) |
 
-| Setting | Value |
-|---------|-------|
-| Env | `APP_ENV=testing` |
-| DB | SQLite `:memory:` |
-| Cache | `array` |
-| Queue | `sync` |
-| Session | `array` |
-| Mail | `array` |
-| Sentry | disabled (empty DSN) |
-| API keys | `OPENAI_API_KEY=phpunit-test-openai-key`, `OPENROUTER_API_KEY=phpunit-test-openrouter-key` |
-| BCRYPT_ROUNDS | 4 (fast) |
+## Backend tests (`backend/tests/`)
+
+### PHPUnit config (`phpunit.xml`)
+- **Env:** `APP_ENV=testing`, `DB_CONNECTION=sqlite`, `DB_DATABASE=:memory:`
+- **Mail/Queue/Cache:** `MAIL_MAILER=array`, `QUEUE_CONNECTION=sync`, `CACHE_STORE=array`
+- **Mock keys:** `OPENAI_API_KEY=phpunit-test-openai-key`, `OPENROUTER_API_KEY=phpunit-test-openrouter-key`
+- **Disabled:** `PULSE`, `TELESCOPE`, `NIGHTWATCH`
 
 ### Structure
+**Base class:** `tests/TestCase.php` — shared base (not a test file itself).
 
-```
-tests/
-├── TestCase.php                       # Base (extends Illuminate\Foundation\Testing\TestCase)
-├── Unit/  (15 files)                  # Isolated unit tests
-│   ├── AiProviderRegistryTest.php
-│   ├── AnthropicProviderTest.php
-│   ├── BaseAIProviderJsonExtractionTest.php
-│   ├── CacheRunProgressedVersionTest.php
-│   ├── ContextEncoderTest.php
-│   ├── CredentialCipherTest.php
-│   ├── GeminiProviderTest.php
-│   ├── GitHubServiceFetchTest.php
-│   ├── GitHubServiceTest.php
-│   ├── GitHubTrendingServiceParseTest.php
-│   ├── JsonSchemaValidatorTest.php
-│   ├── LaunchParametersTest.php
-│   ├── OpenAIProviderTest.php
-│   ├── OpenRouterProviderTest.php
-│   └── RunStreamerTest.php
-└── Feature/  (19 files)               # Integration tests with RefreshDatabase
-    ├── AccountDeletionTest.php
-    ├── ExecuteLauncherJobTest.php
-    ├── FilamentPanelAccessTest.php
-    ├── LauncherPromptApiTest.php
-    ├── MagicLinkAuthTest.php
-    ├── PasswordAuthTest.php
-    ├── ProviderCredentialApiTest.php
-    ├── ProviderCredentialBaseUrlValidationTest.php
-    ├── ReapStuckRunsTest.php
-    ├── RunApiTest.php
-    ├── RunHistoryTest.php
-    ├── RunOwnershipTest.php
-    ├── RunPromptSnapshotTest.php
-    ├── RunRequiresProviderKeyTest.php
-    ├── SavedCredentialLaunchTest.php
-    ├── SessionRunCsrfTest.php
-    ├── SuperAdminBootstrapSeederTest.php
-    ├── TrendingRepositoriesApiTest.php
-    └── UserLauncherTest.php
-```
+**Unit tests** (`tests/Unit/` — 16 files): Test services and helpers in isolation.
+- `AiProviderRegistryTest`, `AnthropicProviderTest`, `BaseAIProviderJsonExtractionTest`, `CacheRunProgressedVersionTest`, `ContextEncoderTest`, `CredentialCipherTest`, `GeminiProviderTest`, `GitHubServiceFetchTest`, `GitHubServiceTest`, `GitHubTrendingServiceParseTest`, `JsonSchemaValidatorTest`, `LaunchParametersTest`, `OpenAIProviderTest`, `OpenRouterProviderTest`, `RunStatusSyncTest`, `RunStreamerTest`
+
+**Feature tests** (`tests/Feature/` — 21 files): Test full HTTP + queue flow.
+- `RunApiTest`, `RunHistoryTest`, `RunOwnershipTest`, `RunPromptSnapshotTest`, `RunRequiresProviderKeyTest`, `ExecuteLauncherJobTest`, `SavedCredentialLaunchTest`, `ProviderCredentialApiTest`, `ProviderCredentialBaseUrlValidationTest`, `UserLauncherTest`, `UserLauncherCascadeDeleteTest`, `LauncherPromptApiTest`, `MagicLinkAuthTest`, `PasswordAuthTest`, `AccountDeletionTest`, `GitHubBotTest`, `SessionRunCsrfTest`, `TrendingRepositoriesApiTest`, `ReapStuckRunsTest`, `FilamentPanelAccessTest`, `SuperAdminBootstrapSeederTest`
 
 ### Patterns
-
-| Pattern | How |
-|---------|-----|
-| Database | `RefreshDatabase` trait + `$this->seed()` in `setUp()` |
-| Queue | `Queue::fake()` for dispatch assertions; `sync` driver for job execution tests |
-| GitHub mock | Mock `GitHubService` or use `GitHubServiceFetchTest` with mocked HTTP |
-| AI mock | Mock `AIProviderInterface` — providers have unit tests with mocked Http facade |
-| Factories | `LauncherFactory`, `UserLauncherFactory`, `RunFactory`, `User::factory()`, `ProviderCredential::factory()` |
-| Rate limiting | Tests set higher limits via env or test-specific config |
+- **`RefreshDatabase` trait** + `$this->seed()` — fresh DB per test, seeders populate built-in launchers.
+- **`Queue::fake()`** — assert jobs dispatched without executing them (used in run/bot dispatch tests).
+- **`Http::fake()`** — mock GitHub API responses (404 for missing config, canned PR/issue data).
+- **`Mockery`** — partial mocks for `GitHubBotService` (e.g., `postComment`/`updateComment` expectations in two-phase job tests).
+- **Reflection** — `callPrivate()` helper for testing private methods (`appJwt`, `appInstallationToken`, `deadlineExceeded`).
+- **Form request tests** — validate authorization + rules separately from controller.
+- **`StoreRunRequest`** validation covers `hasUsableKey()`, `isGuestViolationFor()`, `isModelAllowed()`.
 
 ### Commands
-
 ```bash
 php artisan test                          # full suite
 php artisan test --filter=SomeTest        # focused
-./vendor/bin/pint --test && ./vendor/bin/pint  # CI: --test fails on violations
+php artisan test --filter=GitHubBotTest   # bot-specific
 ```
 
-## Frontend — Vitest 4
+## Frontend tests (`backend/resources/ts/`)
 
-### Config (`backend/vitest.config.ts`)
-
-| Setting | Value |
-|---------|-------|
-| Environment | `jsdom` |
-| Globals | `true` |
-| Setup | `resources/ts/test/setup.ts` (Testing Library jest-dom matchers) |
-| Include | `resources/ts/**/*.test.{ts,tsx}` |
-
-### Structure
-
-```
-resources/ts/
-├── test/setup.ts                              # Vitest setup (jest-dom)
-├── components/__tests__/  (7 files)           # Component tests
-│   ├── AppViews.test.tsx
-│   ├── DashboardAccount.test.tsx
-│   ├── HomeSubComponents.test.tsx
-│   ├── LaunchAreaCredentials.test.tsx
-│   ├── ProviderSettingsComponents.test.tsx
-│   ├── Report.test.tsx
-│   └── RunHistory.test.tsx
-└── lib/__tests__/runModels.test.ts            # Utility tests
-```
-
-### Patterns
-
-- **Testing Library** (`@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`).
-- Component tests render React components, simulate user events, assert DOM.
-- `act()` warnings in `RunHistory.test.tsx` and `DashboardAccount.test.tsx` (known, non-blocking).
-- Mock fetch via `vi.fn()` / `vi.mock()` for API calls.
-
-### Command
+### Vitest (10 files)
+- `components/__tests__/`: `AppViews`, `DashboardAccount`, `HomeSubComponents`, `LaunchAreaCredentials`, `ProviderSettingsComponents`, `Report`, `RunHistory`
+- `lib/__tests__/`: `jsonSchema`, `runModels`, `runStatusSync`
+- Setup: `test/setup.ts`
+- React Testing Library + `@testing-library/jest-dom`
 
 ```bash
-npm run test          # vitest run
-npm run test:watch    # vitest (watch mode)
+npm run test     # vitest run
 ```
 
-## E2E — Playwright 1.61
+## E2E tests (`backend/tests/E2E/flows/`)
 
-### Config (`backend/playwright.config.ts`)
-
-| Setting | Value |
-|---------|-------|
-| Test dir | `./tests/E2E` |
-| Test match | `**/*.real.spec.ts` |
-| Project | `real-backend` (Desktop Chrome) |
-| Web server | `bash scripts/e2e/serve-real.sh` (port 8000, 180s timeout) |
-| CI | `retries: 1`, `reporter: github`, `forbidOnly: true` |
-| Trace | `on-first-retry` |
-| Screenshot | `only-on-failure` |
-
-### Structure
-
-```
-tests/E2E/
-├── flows/
-│   ├── all-launchers.real.spec.ts
-│   ├── launcher-prompts.real.spec.ts
-│   ├── real-api-flow.real.spec.ts
-│   └── ... (other flow specs)
-└── helpers/
-    ├── authCard.ts
-    └── uniqueEmail.ts              # E2E_PASSWORD, uniqueEmail() helper
-```
-
-### Patterns
-
-- Serial mode (`test.describe.configure({ mode: "serial" })`).
-- Real backend (Laravel serve + `QUEUE_CONNECTION=sync`).
-- Auth via registration (unique email + `E2E_PASSWORD`).
-- Tab navigation by role (`page.getByRole("tab", { name: "..." })`).
-
-### Command
+4 Playwright spec files (real-backend project):
+- `all-launchers.real.spec.ts`
+- `auth-user-flow.real.spec.ts`
+- `launcher-prompts.real.spec.ts`
+- `real-api-flow.real.spec.ts`
 
 ```bash
-npm run test:e2e     # npx playwright test --project=real-backend
+npm run test:e2e     # Playwright suite
+./scripts/e2e/serve-real.sh   # helper to serve real backend for E2E
 ```
 
-## CI gate (`.github/workflows/ci.yml`)
+## CI
 
-| Job | Runner | Steps |
-|-----|--------|-------|
-| Backend | PHP 8.4 | `composer validate`, `php artisan test`, `pint --test` |
-| Frontend | Node 24 | `typecheck`, `lint`, `konsistent`, `build`, `test` (vitest) |
+`.github/workflows/ci.yml`:
+- **Backend (PHP 8.4, `sqlite3`+`pgsql` ext):** `composer validate`, `php artisan test`, `pint --test`
+- **Frontend (Node 24):** `typecheck`, `lint`, `konsistent`, `build`, `test` (vitest run), `npm audit --production`
 
 ## Pre-commit hooks (`.pre-commit-config.yaml`)
 
-Run via prek: `just prek` or `prek run --all-files`.
+Run via `just prek`:
+- `trailing-whitespace`, `end-of-file-fixer`, `check-yaml`, `check-added-large-files`
+- `composer-validate` (`scripts/hooks/composer-validate.sh`)
+- `pint` (`scripts/hooks/pint.sh`)
+- `frontend-typecheck` (`scripts/hooks/npm-in-backend.sh`)
+- `env-check` (`scripts/hooks/env.sh`)
 
-| Hook | Scope |
-|------|-------|
-| trailing-whitespace | all files |
-| end-of-file-fixer | all files |
-| check-yaml | YAML files |
-| check-added-large-files | all files |
-| composer-validate | `composer.json`/`composer.lock` |
-| pint | `*.php` |
-| frontend-typecheck | TS/TSX |
-| oxlint | TS/TSX |
-| oxfmt check | TS/TSX |
-| konsistent | TS/TSX |
+## Resolved: GitHubBotTest env credential leakage
 
-## Local gate
-
-`just ci` = `pint-check test typecheck lint-js konsistent build` (full backend + frontend).
+`GitHubBotTest::setUp()` now clears `github-bot.app_id` and `github-bot.app_private_key` via `config(['github-bot.app_id' => null, 'github-bot.app_private_key' => null])`, so tests no longer pick up real GitHub App credentials from the shell environment or local `.env`. Without this, the installation-token flow bypassed the tests' generic `Http::fake()` 404 stubs and 10 tests failed for developers with real `GITHUB_APP_ID` set. The `phpunit.xml` `<env>` override approach was tried first but doesn't reliably shadow shell env vars in Laravel's config loader; the `config()` override in `setUp()` bypasses `env()` entirely. Individual tests needing credentials (e.g. `test_installation_token_*`) set them explicitly after `setUp()`. See `.planning/codebase/CONCERNS.md` for details. ✅ Fixed.

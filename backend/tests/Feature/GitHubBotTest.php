@@ -29,6 +29,13 @@ class GitHubBotTest extends TestCase
         parent::setUp();
         $this->seed();
         config(['github-bot.webhook_secret' => 'test-secret']);
+        // Clear GitHub App credentials so tests don't pick up real keys
+        // from the shell environment or .env. Without this, tests that
+        // trigger GitHubService::appInstallationToken() (e.g. the bot
+        // webhook path) hit the real HTTP flow and fail. Individual tests
+        // that need credentials set them explicitly via config([...]).
+        // See .planning/codebase/CONCERNS.md.
+        config(['github-bot.app_id' => null, 'github-bot.app_private_key' => null]);
         Cache::flush();
     }
 
@@ -56,11 +63,9 @@ class GitHubBotTest extends TestCase
         Queue::fake();
         $this->fakeRepoConfig404();
         $payload = $this->commentPayload();
-        $payloadJson = json_encode($payload);
-        $signature = 'sha256='.hash_hmac('sha256', $payloadJson, 'test-secret');
 
         $this->postJson('/api/github/webhooks', $payload, [
-            'X-Hub-Signature-256' => $signature,
+            'X-Hub-Signature-256' => 'sha256='.$this->sign($payload),
             'X-GitHub-Event' => 'issue_comment',
         ])
             ->assertStatus(202)
@@ -71,10 +76,10 @@ class GitHubBotTest extends TestCase
 
     public function test_ignores_non_issue_comment_events(): void
     {
-        $payload = json_encode(['action' => 'opened']);
+        $payload = ['action' => 'opened'];
 
-        $this->postJson('/api/github/webhooks', json_decode($payload, true), [
-            'X-Hub-Signature-256' => 'sha256='.hash_hmac('sha256', $payload, 'test-secret'),
+        $this->postJson('/api/github/webhooks', $payload, [
+            'X-Hub-Signature-256' => 'sha256='.$this->sign($payload),
             'X-GitHub-Event' => 'pull_request',
         ])
             ->assertStatus(200)

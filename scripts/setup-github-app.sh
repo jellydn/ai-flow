@@ -26,6 +26,11 @@ info()   { printf "  ${CYAN}→${RESET} %s\n" "$1"; }
 done_()  { printf "  ${GREEN}✓${RESET} %s\n" "$1"; }
 warn()   { printf "  ${YELLOW}⚠${RESET}  %s\n" "$1"; }
 
+# macOS/BSD `sed -i` requires an extension argument (use '' for no backup),
+# while GNU `sed -i` treats '' as a filename. Used by set_env and the
+# private-key post-processing below.
+is_macos() { [[ "$OSTYPE" == "darwin"* ]]; }
+
 header() {
     echo ""
     printf "${BOLD}${CYAN}━━━ %s ━━━${RESET}\n" "$1"
@@ -153,8 +158,12 @@ set_env() {
     local key="$1"
     local value="$2"
     if grep -q "^${key}=" "$ENV_FILE" 2>/dev/null; then
-        # macOS-compatible sed
-        sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        # Cross-platform in-place edit (see is_macos).
+        if is_macos; then
+            sed -i '' "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        else
+            sed -i "s|^${key}=.*|${key}=${value}|" "$ENV_FILE"
+        fi
     else
         echo "${key}=${value}" >> "$ENV_FILE"
     fi
@@ -170,7 +179,7 @@ echo ""
 
 # Fix the private key: multi-line keys need to be quoted properly.
 # Replace the escaped newline in GITHUB_APP_PRIVATE_KEY with actual newlines.
-if [[ "$OSTYPE" == "darwin"* ]]; then
+if is_macos; then
     # macOS sed — write the key as a proper multi-line value
     perl -i -pe 's/\\n/\n/g if /^GITHUB_APP_PRIVATE_KEY=/' "$ENV_FILE"
 else
