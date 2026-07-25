@@ -1,0 +1,403 @@
+# Renovate Automerge
+#
+# Auto-approves and squash-merges any PR by app/renovate[bot] whose diff is
+# exclusively lockfiles (backend/package-lock.json and/or backend/composer.lock),
+# after the CI workflow reports success on backend, frontend, and e2e.
+#
+# If the parent branch has moved between the PR being opened and CI completing
+# (the classic "lockfile churn" pattern — see today's PRs #104 / #106), this
+# workflow resets the PR branch onto origin/main, regenerates the lockfiles
+# with `npm install --package-lock-only` and `composer update`, and force-
+# pushes the clean lockfile snapshot back via `git push --force-with-lease`
+# before merging again. The branch is deleted after a successful merge either
+# way. If the repo disallows squash-merge, the post-rebase merge falls back to
+# the repo default; if branch protection scopes approvals to specific commits,
+# a fresh approval is recorded against the post-rebase head SHA.
+#
+# Only renames branches under `renovate/*` reach this path, and CI runs in the
+# PR context (read-only on protected branches), so the workflow itself can never
+# write to main directly — it only nudges Renovate's PR branch and asks GitHub
+# to merge.
+
+name: Renovate Automerge
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: renovate-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write       # checkout with token, force-push to PR branch
+  pull-requests: write  # createReview (APPROVE) + pulls.merge + delete branch
+  checks: read          # listForRef to gate on backend/frontend/e2e
+  statuses: read
+
+jobs:
+  automerge:
+    name: Auto-merge lockfile-only PRs
+    if: |
+      github.event.pull_request.user.login == 'app/renovate[bot]' &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Inspect PR diff for lockfile-only
+        id: diff
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_number;
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: pr,
+              per_page: 100,
+            });
+            // Strict allowlist: ONLY these two lockfiles qualify.
+            const ALLOWED = ['backend/package-lock.json', 'backend/composer.lock'];
+            const names = files.map(f => f.filename);
+            const lockfileOnly = names.length > 0 && names.every(n => ALLOWED.includes(n));
+            core.setOutput('lockfile_only', String(lockfileOnly));
+            core.setOutput('files', names.join(', '));
+            core.setOutput('branch', context.payload.pull_request.head.ref);
+
+      - name: Skip non-lockfile-only PRs
+        if: steps.diff.outputs.lockfile_only != 'true'
+        run: |
+          echo "::notice::Not a lockfile-only diff — letting a human review. Files: ${{ steps.diff.outputs.files }}"
+
+      - name: Wait for required CI checks (backend, frontend, e2e)
+        id: ci
+        if: steps.diff.outputs.lockfile_only == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_number;
+            const REQUIRED = ['backend', 'frontend', 'e2e'];
+            const DEADLINE_MS = 28 * 60 * 1000;
+            const start = Date.now();
+            while (Date.now() - start < DEADLINE_MS) {
+              const { data: prData } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr,
+              });
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: prData.head.sha,
+                per_page: 100,
+              });
+              const running = checks.check_runs.filter(c => REQUIRED.includes(c.name));
+              const failing = running.filter(c =>
+                ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion)
+              );
+              const pending = running.filter(c => c.status !== 'completed');
+              if (failing.length > 0) {
+                return core.setFailed(
+                  'Required CI failed: ' + failing.map(c => c.name).join(', ')
+                );
+              }
+              // Defensive: if no required checks have appeared within a 2-minute
+              // grace window, something is wrong with CI gating (a [skip ci]
+              // commit, a rename of CI jobs, a misconfigured workflow file, etc.).
+              // The original loop would only `setFailed` after a full 28-minute
+              // wait; surface it earlier so a human can investigate instead of
+              // silently merging a PR that bypassed all CI gates.
+              if (running.length === 0 && Date.now() - start > 2 * 60 * 1000) {
+                return core.setFailed(
+                  'No required CI checks appeared within 2 minutes. ' +
+                  'Refusing to merge to avoid bypassing CI gates.'
+                );
+              }
+              if (pending.length === 0 && running.length > 0) {
+                core.setOutput('head_sha', prData.head.sha);
+                core.setOutput('base_sha', prData.base.sha);
+                core.setOutput('branch', prData.head.ref);
+                core.setOutput('mergeable', String(prData.mergeable));
+                return;
+              }
+              core.info(`${pending.length} check(s) pending; sleeping 30s`);
+              await new Promise(r => setTimeout(r, 30000));
+            }
+            core.setFailed('Required CI did not complete within 28 minutes');
+
+      - name: Drop a bot APPROVE review (only when approvals are required)
+        if: steps.diff.outputs.lockfile_only == 'true' && steps.ci.outputs.head_sha
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_number,
+                event: 'APPROVE',
+                body:
+                  'Auto-approved by [Renovate Automerge]' +
+                  '(.github/workflows/renovate-automerge.yml): diff is exclusively ' +
+                  '${{ steps.diff.outputs.files }}.',
+              });
+            } catch (e) {
+              core.warning(`Could not record approval review (probably not required): ${e.message}`);
+            }
+
+      - name: Squash-merge the PR
+        if: steps.diff.outputs.lockfile_only == 'true' && steps.ci.outputs.head_sha
+        id: merge
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_number,
+                merge_method: 'squash',
+              });
+              core.setOutput('outcome', 'merged');
+              return;
+            } catch (e) {
+              const status = e.status || 0;
+              const msg = String(e.message || '');
+              // Short-circuit on 405 specifically caused by repo-config rejecting
+              // the `merge_method` parameter. Rebase doesn't fix config; try the
+              // repo default merge method right away. If that also fails, fall
+              // through to the rebase path (true conflicts).
+              if (status === 405 && /merge method/i.test(msg)) {
+                try {
+                  await github.rest.pulls.merge({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    pull_number: context.payload.pull_number,
+                  });
+                  core.setOutput('outcome', 'merged');
+                  return;
+                } catch (fallbackErr) {
+                  core.warning(
+                    `Squash-merge rejected; repo-default fallback also failed: ${
+                      String(fallbackErr.message || '')
+                    }`
+                  );
+                }
+              }
+              if (
+                status === 405 || // Merge method not allowed / branch protection
+                status === 409 || // HEAD/base SHA conflict / merge conflict
+                /conflict/i.test(msg) ||
+                /not mergeable/i.test(msg)
+              ) {
+                core.warning(`Merge blocked (${status}): ${msg} — will rebase and retry.`);
+                core.setOutput('outcome', 'rebase_needed');
+                return;
+              }
+              throw e;
+            }
+
+      - name: Checkout PR branch for rebase
+        if: steps.merge.outputs.outcome == 'rebase_needed'
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ steps.ci.outputs.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node for lockfile regeneration
+        if: steps.merge.outputs.outcome == 'rebase_needed'
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Setup PHP for composer.lock regeneration
+        if: steps.merge.outputs.outcome == 'rebase_needed'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          extensions: mbstring, xml, zip, sqlite3, pgsql
+          coverage: none
+
+      - name: Reset onto origin/main and regenerate lockfiles
+        if: steps.merge.outputs.outcome == 'rebase_needed'
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.ci.outputs.branch }}"
+          # Safety: refuse non-renovate branches even if the author filter somehow
+          # failed. Branch must start with `renovate/`.
+          if [[ "$BRANCH" != renovate/* ]]; then
+            echo "::error::Refusing to force-push non-renovate branch: $BRANCH"
+            exit 1
+          fi
+          git fetch origin main "$BRANCH"
+          git checkout "$BRANCH"
+          git reset --hard "origin/main"
+          # Re-resolve npm + composer against the new base. `composer install`
+          # regenerates composer.lock against composer.json; no need for a
+          # separate `composer update --lock` step. Both commands run without
+          # install scripts (mirrors `npm ci --ignore-scripts`).
+          (cd backend && npm ci --ignore-scripts && npm install --package-lock-only)
+          # `composer update` (not `composer install`) regenerates composer.lock
+          # against the new composer.json from main. `composer install` reads the
+          # existing lockfile strictly and either errors or silently no-ops when
+          # composer.json's content-hash has drifted from composer.lock; we want
+          # the lockfile to MATCH what a fresh install would produce.
+          cd backend && composer update --no-interaction --prefer-dist --no-scripts
+          cd "$GITHUB_WORKSPACE"
+          if git diff --quiet -- backend/package-lock.json backend/composer.lock; then
+            echo "Lockfiles identical to main after regeneration; nothing to push."
+          else
+            git add backend/package-lock.json backend/composer.lock
+            git -c user.name='renovate-automerge[bot]' \
+                -c user.email='renovate-automerge[bot]@users.noreply.github.com' \
+                -c commit.gpgsign=false \
+                commit -m 'chore(deps): regenerate lockfiles on top of main'
+            # --force-with-lease guards against clobbering a concurrent push.
+            # Surface the failure clearly so a leaked "remote moved" is diagnosable
+            # in the run log rather than masked by `set -e`.
+            git push --force-with-lease origin "$BRANCH" || {
+              echo "::error::git push --force-with-lease rejected (remote moved or branch deleted); aborting rebase"
+              exit 1
+            }
+          fi
+        env:
+          # Tell npm not to block on install-scripts (mirrors composer --no-scripts).
+          npm_config_yes: "true"
+
+      - name: Wait for CI on the rebuilt branch
+        if: steps.merge.outputs.outcome == 'rebase_needed'
+        id: ci2
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Same polling pattern as the initial wait — `pulls.get` returns the
+            // fresh head SHA after the force-push, so we don't need a separate
+            // `git.getRef` call (one fewer REST call per 30s tick).
+            const prNumber = context.payload.pull_number;
+            const REQUIRED = ['backend', 'frontend', 'e2e'];
+            const DEADLINE_MS = 28 * 60 * 1000;
+            const start = Date.now();
+            // GitHub's PR API can briefly return the pre-push SHA in the first
+            // 1-3 s after a force-push; sleep once before the first poll so we
+            // don't waste a tick on a stale head ref.
+            await new Promise(r => setTimeout(r, 5000));
+            while (Date.now() - start < DEADLINE_MS) {
+              const { data: prData } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              const { data: checks } = await github.rest.checks.listForRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: prData.head.sha,
+                per_page: 100,
+              });
+              const running = checks.check_runs.filter(c => REQUIRED.includes(c.name));
+              const failing = running.filter(c =>
+                ['failure', 'cancelled', 'timed_out', 'action_required'].includes(c.conclusion)
+              );
+              const pending = running.filter(c => c.status !== 'completed');
+              if (failing.length > 0) {
+                return core.setFailed(
+                  'CI failed after rebase: ' + failing.map(c => c.name).join(', ')
+                );
+              }
+              // Same 2-minute grace guard as the first wait loop — see that step
+              // for the rationale (CI misconfig / [skip ci] / renamed jobs).
+              if (running.length === 0 && Date.now() - start > 2 * 60 * 1000) {
+                return core.setFailed(
+                  'No required CI checks appeared within 2 minutes after rebase. ' +
+                  'Refusing to merge.'
+                );
+              }
+              if (pending.length === 0 && running.length > 0) {
+                core.setOutput('head_sha', prData.head.sha);
+                return;
+              }
+              core.info(`After rebase: ${pending.length} pending; sleeping 30s`);
+              await new Promise(r => setTimeout(r, 30000));
+            }
+            core.setFailed('CI did not complete after rebase within 28 minutes');
+
+      - name: Re-approve after forced rebase (in case branch protection scopes approvals to specific commits)
+        if: steps.merge.outputs.outcome == 'rebase_needed' && steps.ci2.outputs.head_sha
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const postRebaseSha = '${{ steps.ci2.outputs.head_sha }}';
+            try {
+              await github.rest.pulls.createReview({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_number,
+                event: 'APPROVE',
+                body:
+                  'Auto-approved by Renovate Automerge after rebase onto origin/main ' +
+                  '(post-rebase head ' + postRebaseSha + '). ' +
+                  'Recreating the approval because the original head SHA was force-pushed out.',
+              });
+            } catch (e) {
+              core.warning(`Could not record rebase-approval review: ${e.message}`);
+            }
+
+      - name: Squash-merge after forced rebase
+        if: steps.merge.outputs.outcome == 'rebase_needed' && steps.ci2.outputs.head_sha
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Fall back to the repo's default merge method if `merge_method:
+            // squash` is rejected (e.g., a private repo that disables squash-
+            // merge). The first attempt's catch would have already translated
+            // most 405s to `rebase_needed`, but a hard method-disallowed 405
+            // would otherwise fail the second attempt identically.
+            try {
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_number,
+                merge_method: 'squash',
+              });
+            } catch (e) {
+              if (e.status !== 405 || !/merge method/i.test(String(e.message))) {
+                throw e;
+              }
+              core.warning(
+                'Squash-merge rejected (405); falling back to the repo default merge method.'
+              );
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_number,
+              });
+            }
+
+      - name: Delete the source branch
+        if: |
+          (steps.diff.outputs.lockfile_only == 'true') &&
+          (steps.ci.outputs.head_sha) &&
+          (
+            steps.merge.outputs.outcome == 'merged' ||
+            steps.merge.outputs.outcome == 'rebase_needed'
+          )
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const branch = '${{ steps.ci.outputs.branch }}';
+            if (!branch.startsWith('renovate/')) {
+              core.warning(`Refusing to delete non-renovate branch: ${branch}`);
+              return;
+            }
+            try {
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branch}`,
+              });
+            } catch (e) {
+              core.warning(`Could not delete branch ${branch}: ${e.message}`);
+            }

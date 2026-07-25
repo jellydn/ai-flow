@@ -25,6 +25,8 @@
 | [0022](0022-base-ai-provider-deepening.md) | `BaseAIProvider` deepening — shared HTTP lifecycle behind a template-method seam | Accepted |
 | [0023](0023-user-custom-launchers.md) | User-created custom launchers with separate table, dual FK on runs, custom output schema | Proposed |
 | [0024](0024-per-user-launcher-visibility.md) | Per-user built-in launcher visibility toggling via `user_hidden_launchers` pivot | Proposed |
+| [0025](0025-renovate-automerge-with-rebase-fallback.md) | Renovate automerge for lockfile-only PRs with rebase-on-conflict fallback | Proposed |
 
 **Frontend / Amp prototype:** 0001–0006
 **Laravel API (`backend/`):** 0007–0019 — see [`backend/README.md`](../../backend/README.md)
+**CI / workflow automation:** 0025 (and any future GHA workflow architecture)
