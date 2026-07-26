@@ -47,7 +47,7 @@ jobs:
     steps:
       - name: Inspect PR diff for lockfile-only
         id: diff
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_number;
@@ -73,7 +73,7 @@ jobs:
       - name: Wait for required CI checks (backend, frontend, e2e)
         id: ci
         if: steps.diff.outputs.lockfile_only == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const pr = context.payload.pull_number;
@@ -128,7 +128,7 @@ jobs:
 
       - name: Drop a bot APPROVE review (only when approvals are required)
         if: steps.diff.outputs.lockfile_only == 'true' && steps.ci.outputs.head_sha
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
@@ -149,7 +149,7 @@ jobs:
       - name: Squash-merge the PR
         if: steps.diff.outputs.lockfile_only == 'true' && steps.ci.outputs.head_sha
         id: merge
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
@@ -271,7 +271,7 @@ jobs:
       - name: Wait for CI on the rebuilt branch
         if: steps.merge.outputs.outcome == 'rebase_needed'
         id: ci2
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // Same polling pattern as the initial wait — `pulls.get` returns the
@@ -326,7 +326,7 @@ jobs:
 
       - name: Re-approve after forced rebase (in case branch protection scopes approvals to specific commits)
         if: steps.merge.outputs.outcome == 'rebase_needed' && steps.ci2.outputs.head_sha
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const postRebaseSha = '${{ steps.ci2.outputs.head_sha }}';
@@ -347,7 +347,7 @@ jobs:
 
       - name: Squash-merge after forced rebase
         if: steps.merge.outputs.outcome == 'rebase_needed' && steps.ci2.outputs.head_sha
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             // Fall back to the repo's default merge method if `merge_method:
@@ -384,7 +384,7 @@ jobs:
             steps.merge.outputs.outcome == 'merged' ||
             steps.merge.outputs.outcome == 'rebase_needed'
           )
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const branch = '${{ steps.ci.outputs.branch }}';
