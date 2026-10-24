@@ -68,13 +68,20 @@ class OpenRouterProvider extends BaseAIProvider
 
     protected function buildPayload(string $prompt, array $schema, string $model): array
     {
+        // The free router has no endpoints for strict json_schema requests.
+        // Supply the schema in the prompt; RunExecutor still validates the result.
+        $isFreeRouter = $model === 'openrouter/free';
+        $systemMessage = $isFreeRouter
+            ? $this->jsonOnlySystemMessage()."\nJSON schema:\n".json_encode($schema, JSON_THROW_ON_ERROR)
+            : $this->systemMessage();
+
         return [
             'model' => $model,
             'messages' => [
-                ['role' => 'system', 'content' => $this->systemMessage()],
+                ['role' => 'system', 'content' => $systemMessage],
                 ['role' => 'user', 'content' => $prompt],
             ],
-            'response_format' => [
+            'response_format' => $isFreeRouter ? ['type' => 'json_object'] : [
                 'type' => 'json_schema',
                 'json_schema' => ['name' => 'launcher_result', 'strict' => true, 'schema' => $schema],
             ],

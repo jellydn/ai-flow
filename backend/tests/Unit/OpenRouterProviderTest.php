@@ -77,6 +77,38 @@ class OpenRouterProviderTest extends TestCase
 
         // Verify OpenRouter-specific headers are sent.
         Http::assertSent(fn ($request) => $request->hasHeader('HTTP-Referer') && $request->hasHeader('X-Title'));
+        Http::assertSent(fn ($request) => $request['response_format']['type'] === 'json_schema'
+            && $request['response_format']['json_schema']['strict'] === true
+            && $request['provider']['require_parameters'] === true);
+    }
+
+    public function test_free_router_uses_json_mode_with_the_schema_in_the_prompt(): void
+    {
+        $schema = [
+            'type' => 'object',
+            'properties' => ['summary' => ['type' => 'string']],
+            'required' => ['summary'],
+            'additionalProperties' => false,
+        ];
+
+        Http::fake([
+            'openrouter.ai/api/v1/chat/completions' => function ($request) use ($schema) {
+                if ($request['response_format']['type'] !== 'json_object') {
+                    return Http::response(['error' => ['message' => 'No endpoints found that can handle the requested parameters.']], 404);
+                }
+
+                $this->assertSame('openrouter/free', $request['model']);
+                $this->assertTrue($request['provider']['require_parameters']);
+                $this->assertStringContainsString(json_encode($schema), $request['messages'][0]['content']);
+                $this->assertSame('Analyze this repository.', $request['messages'][1]['content']);
+
+                return Http::response(['choices' => [['message' => ['content' => '{"summary":"Report ready"}']]]]);
+            },
+        ]);
+
+        $result = (new OpenRouterProvider('sk-or-test'))->generate('Analyze this repository.', $schema, 'openrouter/free');
+
+        $this->assertSame(['summary' => 'Report ready'], $result);
     }
 
     public function test_generate_throws_on_invalid_key(): void
