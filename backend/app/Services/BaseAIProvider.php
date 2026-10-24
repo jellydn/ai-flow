@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Contracts\AIProviderInterface;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -122,9 +123,11 @@ abstract class BaseAIProvider implements AIProviderInterface
         $resolvedModel = $model ?: $this->defaultModel();
 
         try {
-            $response = $this->configureRequest($this->baseGenerateRequest($timeout))
-                ->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, throw: false)
-                ->post($this->endpoint($resolvedModel), $this->buildPayload($prompt, $schema, $resolvedModel));
+            $response = $this->sendGenerateRequest(
+                $this->configureRequest($this->baseGenerateRequest($timeout)),
+                $resolvedModel,
+                $this->buildPayload($prompt, $schema, $resolvedModel),
+            );
 
             if (in_array($response->status(), [401, 403], true)) {
                 throw new RuntimeException('Invalid API key.');
@@ -148,6 +151,12 @@ abstract class BaseAIProvider implements AIProviderInterface
     }
 
     // ─── Shared lifecycle helpers ────────────────────────────────────
+
+    protected function sendGenerateRequest(PendingRequest $http, string $model, array $payload): Response
+    {
+        return $http->retry(self::RETRY_ATTEMPTS, self::RETRY_DELAY_MS, throw: false)
+            ->post($this->endpoint($model), $payload);
+    }
 
     /**
      * Decode the extracted provider text as JSON, tolerating common

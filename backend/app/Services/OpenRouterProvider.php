@@ -2,7 +2,11 @@
 
 namespace App\Services;
 
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * OpenRouter provider adapter.
@@ -89,9 +93,72 @@ class OpenRouterProvider extends BaseAIProvider
         ];
     }
 
+    protected function sendGenerateRequest(PendingRequest $http, string $model, array $payload): Response
+    {
+        if ($model !== 'openrouter/free') {
+            return parent::sendGenerateRequest($http, $model, $payload);
+        }
+
+        // Keep fallback attempts within one generation timeout, not one per route.
+        $deadline = microtime(true) + $this->resolveTimeout();
+        for ($attempt = 1; ; $attempt++) {
+            try {
+                $response = $http->timeout(max(1, (int) ceil($deadline - microtime(true))))
+                    ->post($this->endpoint($model), $payload);
+            } catch (ConnectionException $e) {
+                if ($attempt >= 3 || microtime(true) >= $deadline) {
+                    throw $e;
+                }
+
+                usleep(self::RETRY_DELAY_MS * 1000);
+
+                continue;
+            }
+
+            $error = $response->json('error') ?? $response->json('choices.0.error');
+            $content = (string) ($response->json('choices.0.message.content') ?? '');
+            if ($response->successful() && $error === null && trim($content) !== '') {
+                return $response;
+            }
+
+            $provider = $error['metadata']['provider_name'] ?? $response->json('provider');
+            Log::warning('OpenRouter generation failed', [
+                'model' => $model,
+                'provider' => $provider,
+                'http_status' => $response->status(),
+                'error_code' => $error['code'] ?? null,
+                'finish_reason' => $response->json('choices.0.finish_reason'),
+                'content_length' => strlen($content),
+                'response_id' => $response->json('id'),
+            ]);
+
+            if ($attempt >= 3 || microtime(true) >= $deadline
+                || in_array($response->status(), [400, 401, 402, 403], true)) {
+                return $response;
+            }
+
+            // A free route can select a broken upstream again on a blind retry.
+            $failedProviders = array_column($error['metadata']['previous_errors'] ?? [], 'provider_name');
+            $failedProviders[] = $provider;
+            $payload['provider']['ignore'] = array_values(array_unique(array_filter([
+                ...($payload['provider']['ignore'] ?? []), ...$failedProviders,
+            ])));
+            usleep(self::RETRY_DELAY_MS * 1000);
+        }
+    }
+
     protected function extractContent(array $response): string
     {
-        return (string) ($response['choices'][0]['message']['content'] ?? '');
+        if (isset($response['error']) || isset($response['choices'][0]['error'])) {
+            throw new RuntimeException('AI provider failed while generating the response. Please try again.');
+        }
+
+        $content = (string) ($response['choices'][0]['message']['content'] ?? '');
+        if (trim($content) === '') {
+            throw new RuntimeException('AI provider returned no content. Please try again.');
+        }
+
+        return $content;
     }
 
     protected function verifyEndpoint(): string

@@ -111,6 +111,69 @@ class OpenRouterProviderTest extends TestCase
         $this->assertSame(['summary' => 'Report ready'], $result);
     }
 
+    public function test_free_router_routes_around_failed_upstreams(): void
+    {
+        Http::fake([
+            'openrouter.ai/api/v1/chat/completions' => function ($request) {
+                $ignored = $request['provider']['ignore'] ?? [];
+                if (! in_array('Nvidia', $ignored, true) || ! in_array('Google AI Studio', $ignored, true)) {
+                    return Http::response(['error' => ['code' => 404, 'message' => 'Provider returned error', 'metadata' => [
+                        'provider_name' => 'Nvidia',
+                        'previous_errors' => [['code' => 429, 'provider_name' => 'Google AI Studio']],
+                    ]]], 404);
+                }
+
+                return Http::response(['choices' => [['message' => ['content' => '{"summary":"Recovered"}']]]]);
+            },
+        ]);
+
+        $result = (new OpenRouterProvider('sk-or-test'))->generate('Analyze.', ['type' => 'object'], 'openrouter/free');
+
+        $this->assertSame(['summary' => 'Recovered'], $result);
+    }
+
+    public function test_free_router_recovers_from_embedded_errors_and_empty_content(): void
+    {
+        Http::fakeSequence()
+            ->push(['error' => ['code' => 502, 'message' => 'Upstream failed'], 'choices' => [['finish_reason' => 'error', 'message' => ['content' => '']]]])
+            ->push(['provider' => 'Nvidia', 'choices' => [['message' => ['content' => null, 'reasoning' => '{"summary":"Not the answer"}']]]])
+            ->push(['choices' => [['message' => ['content' => '{"summary":"Final answer"}']]]]);
+
+        $result = (new OpenRouterProvider('sk-or-test'))->generate('Analyze.', ['type' => 'object'], 'openrouter/free');
+
+        $this->assertSame(['summary' => 'Final answer'], $result);
+    }
+
+    public function test_free_router_stops_after_empty_responses_without_using_reasoning(): void
+    {
+        Http::fake(['*' => Http::response(['choices' => [['message' => [
+            'content' => null, 'reasoning' => '{"summary":"Not the answer"}',
+        ]]]])]);
+
+        try {
+            (new OpenRouterProvider('sk-or-test'))->generate('Analyze.', ['type' => 'object'], 'openrouter/free');
+            $this->fail('Expected an empty-content error.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('AI provider returned no content. Please try again.', $e->getMessage());
+        }
+
+        Http::assertSentCount(3);
+    }
+
+    public function test_free_router_does_not_retry_invalid_credentials(): void
+    {
+        Http::fake(['*' => Http::response(['error' => ['code' => 401]], 401)]);
+
+        try {
+            (new OpenRouterProvider('sk-or-bad'))->generate('Analyze.', ['type' => 'object'], 'openrouter/free');
+            $this->fail('Expected an invalid-key error.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('Invalid API key.', $e->getMessage());
+        }
+
+        Http::assertSentCount(1);
+    }
+
     public function test_generate_throws_on_invalid_key(): void
     {
         Http::fake([
