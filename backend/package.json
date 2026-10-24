@@ -20,8 +20,8 @@
     "@sentry/react": "^11.0.0",
     "consola": "^3.4.2",
     "lucide-react": "1.61.0",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },
