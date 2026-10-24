@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.1](https://github.com/jellydn/ai-flow/compare/v0.3.0...v0.3.1) (2026-10-24)
+
+
+### Bug Fixes
+
+* **deploy:** deploy main pushes to the VPS ([db9c408](https://github.com/jellydn/ai-flow/commit/db9c4080ac9f41f32051db6b2ad69ebc5117e882))
+* **deploy:** verify Dokku's deployed revision ([bb78c2b](https://github.com/jellydn/ai-flow/commit/bb78c2bdac4b621a3be0b876adfac39fc09db276))
+* **deps:** update dependency @sentry/react to v11 ([#175](https://github.com/jellydn/ai-flow/issues/175)) ([9962d54](https://github.com/jellydn/ai-flow/commit/9962d54e4951922d281d1810b80975fb20c61969))
+* **deps:** update dependency lucide-react to v1.61.0 ([#156](https://github.com/jellydn/ai-flow/issues/156)) ([d18f3fb](https://github.com/jellydn/ai-flow/commit/d18f3fb475789c4f396d1636a57d35ca5b1fd6eb))
+* **openrouter:** recover from failed free upstreams ([7c79afc](https://github.com/jellydn/ai-flow/commit/7c79afca8f969f9f10f600896e0f9996c1884e4e))
+
 ## [0.3.0](https://github.com/jellydn/ai-flow/compare/v0.2.2...v0.3.0) (2026-10-24)
 
 
