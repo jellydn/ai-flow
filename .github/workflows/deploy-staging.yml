@@ -50,7 +50,9 @@ jobs:
         env:
           EXPECTED_SHA: ${{ github.sha }}
         run: |
-          deployed_sha=$(ssh dokku@docklight-staging.itman.fyi git:report ai-flow --git-sha)
+          # git:report reads repository HEAD, which can point at another branch.
+          deployed_sha=$(ssh dokku@docklight-staging.itman.fyi config:get ai-flow GIT_REV)
+          printf 'Deployed revision: %s\n' "$deployed_sha"
           test "$deployed_sha" = "$EXPECTED_SHA"
           ssh dokku@docklight-staging.itman.fyi ps:report ai-flow
           curl --fail --silent --show-error --retry 5 --retry-delay 5 \
