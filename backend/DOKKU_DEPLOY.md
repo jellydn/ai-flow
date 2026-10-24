@@ -139,6 +139,13 @@ If you use **Option B (Neon)** instead of Dokku Postgres, add the `DB_*` / `DB_D
 
 ## Deploy
 
+Every push to `main` runs `.github/workflows/deploy-staging.yml` and deploys
+that commit to the VPS. Pull requests do not deploy. A newer main push cancels
+an older workflow in the shared `deploy-staging-ai-flow` concurrency group.
+If the canceled server-side build still holds the Dokku deploy lock, the new
+workflow waits for it to finish rather than removing the lock. The workflow
+checks the deployed Git SHA, process report, and API health before it succeeds.
+
 Add the Dokku Git remote once:
 
 ```bash
@@ -178,7 +185,7 @@ If TLS is not configured yet, verify the same endpoints over HTTP.
 | Worker restart loop, `database.sqlite` does not exist | `DB_CONNECTION` still `sqlite`; `DATABASE_URL` not mapped to `DB_URL` | Set `DB_CONNECTION=pgsql`, `DB_URL` from `DATABASE_URL`, `CACHE_STORE=database`, `QUEUE_CONNECTION=database` |
 | HTTP **500** / “Production PostgreSQL must use TLS” | Missing `DB_SSLMODE` in production | `dokku config:set ai-flow DB_SSLMODE=require` (required by `AppServiceProvider` for web requests) |
 | HTTPS page blank / browser blocks assets | Vite tags used `http://` (mixed content) behind Dokku TLS | Set `ASSET_URL=https://<your-host>` and deploy with `trustProxies` + `URL::forceScheme('https')` in app bootstrap |
-| `deploy lock in place` / pre-receive hook declined | Overlapping `git push dokku` (multiple PR deploy workflows) | Wait for the in-flight deploy to finish, or on the server: `dokku apps:unlock ai-flow` only if no deploy is actually running. PR deploys use a single GitHub Actions concurrency group (`deploy-staging-ai-flow`) so only one staging deploy runs at a time. |
+| `deploy lock in place` / pre-receive hook declined | A previous server-side deploy still holds the lock | The main deployment workflow retries lock failures for up to ten minutes. If it still fails, check the server-side deploy before using `dokku apps:unlock ai-flow`; never unlock while a deploy is running. |
 | Runs stay `queued` | No worker | `dokku ps:scale ai-flow web=1 worker=1` and check `dokku ps:report ai-flow` |
 | 404 on `/api/*` | Wrong web root or missing `.htaccess` / nginx config | Confirm Dockerfile document root is `public/` and redeploy |
 
