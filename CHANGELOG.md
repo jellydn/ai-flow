@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/jellydn/ai-flow/compare/v0.3.1...v0.3.2) (2026-10-26)
+
+
+### Bug Fixes
+
+* **deps:** update react monorepo to v19.3.1 ([#184](https://github.com/jellydn/ai-flow/issues/184)) ([fa673cf](https://github.com/jellydn/ai-flow/commit/fa673cf16d304a8720d58b4e35eff6950a3e64fd))
+
 ## [0.3.1](https://github.com/jellydn/ai-flow/compare/v0.3.0...v0.3.1) (2026-10-24)
 
 
